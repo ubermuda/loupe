@@ -1,0 +1,156 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'analytics.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    {% include '@Insights/_crumbs.html.twig' with {project: project} only %}
+{% endblock %}
+
+{% block body %}
+{% set metric = query.metric %}
+{% set metricName = ('analytics.metrics.metric.' ~ metric.value)|trans %}
+{% set rowsKey = 'analytics.metrics.rows.' ~ query.unit.value %}
+<div class="lp-workspace lp-redesign-secondary lp-redesign-runs">
+    {% include '@Insights/_header.html.twig' with {} only %}
+
+    {% include '@Insights/_tabs.html.twig' with {project: project, active: 'metrics'} only %}
+
+    {# A GET form, so the controls land in the URL. A control lists only the values its metric allows. #}
+    <form method="get" action="{{ path('app_project_analytics_metrics', {id: project.id}) }}" data-controller="autosearch" class="lp-list-filters lp-filter-form" data-metrics-form>
+        <label class="sr-only" for="metrics-metric">{{ 'analytics.metrics.form.metric'|trans }}</label>
+        <twig:Ds:Select id="metrics-metric" name="metric" class="lp-filter-select" data-action="change->autosearch#search">
+            {% for option in metrics %}
+                <option value="{{ option.value }}"{{ option == metric ? ' selected' : '' }}>{{ ('analytics.metrics.metric.' ~ option.value)|trans }}</option>
+            {% endfor %}
+        </twig:Ds:Select>
+        <label class="sr-only" for="metrics-unit">{{ 'analytics.metrics.form.unit'|trans }}</label>
+        <twig:Ds:Select id="metrics-unit" name="unit" class="lp-filter-select" data-action="change->autosearch#search">
+            {% for option in metric.units() %}
+                <option value="{{ option.value }}"{{ option == query.unit ? ' selected' : '' }}>{{ ('analytics.metrics.unit.' ~ option.value)|trans }}</option>
+            {% endfor %}
+        </twig:Ds:Select>
+        <label class="sr-only" for="metrics-statistic">{{ 'analytics.metrics.form.statistic'|trans }}</label>
+        <twig:Ds:Select id="metrics-statistic" name="statistic" class="lp-filter-select" data-action="change->autosearch#search">
+            {% for option in metric.statistics() %}
+                <option value="{{ option.value }}"{{ option == query.statistic ? ' selected' : '' }}>{{ ('analytics.metrics.statistic.' ~ option.value)|trans }}</option>
+            {% endfor %}
+        </twig:Ds:Select>
+        <label class="sr-only" for="metrics-group">{{ 'analytics.metrics.form.group'|trans }}</label>
+        <twig:Ds:Select id="metrics-group" name="group" class="lp-filter-select" data-action="change->autosearch#search">
+            {% for option in metric.groups() %}
+                <option value="{{ option.value }}"{{ option == query.group ? ' selected' : '' }}>{{ ('analytics.metrics.group.' ~ option.value)|trans }}</option>
+            {% endfor %}
+        </twig:Ds:Select>
+        <label class="sr-only" for="metrics-range">{{ 'analytics.metrics.form.range'|trans }}</label>
+        <twig:Ds:Select id="metrics-range" name="range" class="lp-filter-select" data-action="change->autosearch#search">
+            {% for option in ranges %}
+                <option value="{{ option.value }}"{{ option == query.range ? ' selected' : '' }}>{{ ('analytics.metrics.range.' ~ option.value)|trans }}</option>
+            {% endfor %}
+        </twig:Ds:Select>
+        <label class="sr-only" for="metrics-bucket">{{ 'analytics.metrics.form.bucket'|trans }}</label>
+        <twig:Ds:Select id="metrics-bucket" name="bucket" class="lp-filter-select" data-action="change->autosearch#search">
+            {% for option in buckets %}
+                <option value="{{ option.value }}"{{ option == query.bucket ? ' selected' : '' }}>{{ ('analytics.metrics.bucket.' ~ option.value)|trans }}</option>
+            {% endfor %}
+        </twig:Ds:Select>
+        <noscript><twig:Ds:Button type="submit">{{ 'analytics.metrics.form.apply'|trans }}</twig:Ds:Button></noscript>
+    </form>
+
+    {% if chart is null %}
+    <twig:Ds:EmptyState icon="lucide:chart-column" :title="'analytics.metrics.empty.title'|trans" data-metrics-empty>
+        <p>{{ 'analytics.metrics.empty.description'|trans }}</p>
+    </twig:Ds:EmptyState>
+    {% else %}
+    {% set labels = [] %}
+    {% for series in view.series %}
+        {% set labels = labels|merge([series.group is null ? (view.series|length > 1 ? 'analytics.metrics.series.none'|trans : metricName) : groupLabels[series.group] ?? series.group]) %}
+    {% endfor %}
+
+    <dl class="lp-metric-summary" data-metrics-summary>
+        {% for series in view.series %}
+        <div class="lp-metric-summary__figure" data-metrics-series="{{ series.group ?? 'none' }}">
+            {# A group name comes from the bridge, so it is rendered as text. Never add |raw here. #}
+            <dt class="lp-metric-summary__label">{{ labels[loop.index0] }}</dt>
+            <dd class="lp-metric-summary__value">{{ series.total.value|metric_value(metric, query.statistic) }}</dd>
+            <dd class="lp-metric-summary__rows">{{ rowsKey|trans({'%count%': series.rows|length}) }}</dd>
+        </div>
+        {% endfor %}
+    </dl>
+
+    {% set dayFormat = chart.longSpan ? 'M j, Y' : 'M j' %}
+    {% set plotLeft = constant('App\\Module\\Insights\\View\\MetricChart::PLOT_LEFT') %}
+    {% set plotRight = constant('App\\Module\\Insights\\View\\MetricChart::PLOT_RIGHT') %}
+    {% set plotTop = constant('App\\Module\\Insights\\View\\MetricChart::PLOT_TOP') %}
+    {% set baseline = constant('App\\Module\\Insights\\View\\MetricChart::BASELINE') %}
+    {% set height = constant('App\\Module\\Insights\\View\\MetricChart::HEIGHT') %}
+    <figure class="lp-metric-chart" data-metrics-chart>
+        {% if chart.hasLegend %}
+        <ul class="lp-metric-legend" data-metrics-legend>
+            {% for series in chart.series %}
+                <li class="lp-metric-legend__item"><span class="lp-metric-legend__swatch lp-metric-legend__swatch--{{ series.slot }}"></span>{{ labels[loop.index0] }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        {# A chart drawn from data, not an icon. #}
+        {# twig-cs-fixer-disable-line InlineSvg #}<svg class="lp-metric-chart__svg" viewBox="0 0 {{ constant('App\\Module\\Insights\\View\\MetricChart::WIDTH') }} {{ height }}" role="group" aria-label="{{ 'analytics.metrics.chart.label'|trans({'%statistic%': ('analytics.metrics.statistic.' ~ query.statistic.value)|trans, '%metric%': metricName, '%bucket%': ('analytics.metrics.bucket.' ~ query.bucket.value)|trans}) }}">
+            {% for tick in chart.yTicks %}
+                <line class="lp-metric-chart__grid" x1="{{ plotLeft }}" x2="{{ plotRight }}" y1="{{ tick.position }}" y2="{{ tick.position }}" />
+                <text class="lp-metric-chart__tick" x="{{ plotLeft - 8 }}" y="{{ tick.position }}" text-anchor="end" dominant-baseline="middle">{{ tick.value|metric_value(metric, query.statistic, chart.moneyDecimals) }}</text>
+            {% endfor %}
+            {% for tick in chart.xTicks %}
+                <text class="lp-metric-chart__tick" x="{{ tick.position }}" y="{{ height - 6 }}" text-anchor="middle">{{ tick.start|date(chart.bucket.value == 'month' ? (chart.longSpan ? 'M Y' : 'M') : dayFormat, 'UTC') }}</text>
+            {% endfor %}
+            {% for bucket in chart.buckets %}
+                {% set bucketLabel = chart.bucket.value == 'week' ? 'analytics.metrics.chart.week'|trans({'%date%': bucket.start|date(dayFormat, 'UTC')}) : bucket.start|date(chart.bucket.value == 'month' ? 'F Y' : dayFormat, 'UTC') %}
+                {% for bar in bucket.bars %}
+                    {% set barLabel = 'analytics.metrics.chart.bar'|trans({'%bucket%': bucketLabel, '%series%': labels[bar.series.position], '%value%': bar.point.value|metric_value(metric, query.statistic), '%rows%': rowsKey|trans({'%count%': bar.point.rows})}) %}
+                    <g class="lp-metric-chart__bar" role="img" tabindex="0" aria-label="{{ barLabel }}" data-metrics-bar="{{ bucket.start|date('Y-m-d', 'UTC') }}">
+                        <title>{{ barLabel }}</title>
+                        <rect class="lp-metric-chart__hit" x="{{ bar.x }}" y="{{ plotTop }}" width="{{ bar.width }}" height="{{ baseline - plotTop }}" />
+                        {% if bar.path %}<path class="lp-metric-chart__bar-shape lp-metric-chart__bar-shape--{{ bar.series.slot }}" d="{{ bar.path }}" />{% endif %}
+                    </g>
+                {% endfor %}
+            {% endfor %}
+            <line class="lp-metric-chart__baseline" x1="{{ plotLeft }}" x2="{{ plotRight }}" y1="{{ baseline }}" y2="{{ baseline }}" />
+        </svg>
+    </figure>
+
+    <div class="lp-metric-table" data-metrics-table>
+        {% for series in view.series %}
+        <section class="lp-metric-table__series" data-metrics-series="{{ series.group ?? 'none' }}">
+            <h3 class="lp-metric-table__title">{{ labels[loop.index0] }}</h3>
+            <table class="lp-metric-table__table">
+                <thead>
+                    <tr>
+                        <th scope="col">{{ ('analytics.metrics.table.' ~ query.unit.value)|trans }}</th>
+                        <th scope="col" class="lp-metric-table__number">{{ metricName }}</th>
+                        <th scope="col">{{ 'analytics.metrics.table.time'|trans }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in series.rows|slice(0, rowLimit) %}
+                    <tr>
+                        <td>
+                            {% if query.unit.value == 'card' %}
+                                {% set cardLabel = 'bridge.worker_runs.card_number'|trans({'%number%': row.cardNumber}) %}
+                                <a href="{{ path('app_board_card', {projectId: project.id, cardId: row.unitId}) }}">{{ cardLabel }}</a>
+                            {% else %}
+                                {% set runLabel = row.cardNumber is null ? row.unitId : 'bridge.worker_runs.card_number'|trans({'%number%': row.cardNumber}) %}
+                                {% if keptRunIds[row.unitId.toRfc4122()] is defined %}<a href="{{ path('app_project_worker_runs', {id: project.id, search: row.unitId}) }}">{{ runLabel }}</a>{% else %}<span data-metrics-purged-run>{{ runLabel }}</span>{% endif %}
+                            {% endif %}
+                        </td>
+                        <td class="lp-metric-table__number">{{ row.value|metric_value(metric) }}</td>
+                        <td><time datetime="{{ row.time|date('c') }}">{{ row.time|date('M j, Y H:i') }}</time></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% if series.rows|length > rowLimit %}
+            <p class="lp-metric-table__note" data-metrics-hidden-rows>{{ ('analytics.metrics.table.hidden.' ~ query.unit.value)|trans({'%count%': series.rows|length - rowLimit}) }}</p>
+            {% endif %}
+        </section>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

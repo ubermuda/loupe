@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Repository;
 
 use App\Module\Account\Entity\User;
+use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Bridge\ValueObject\WorkSubject;
@@ -149,8 +150,14 @@ class WorkRequestRepository extends ServiceEntityRepository
         if ([] === $capabilities) {
             $qb->andWhere('w.capability IS NULL');
         } else {
-            $qb->andWhere('w.capability IS NULL OR w.capability IN (:capabilities)')
+            $subjectPrompt = \in_array(Bridge::CAPABILITY_APP_PROMPTS, $capabilities, true)
+                ? ' OR (w.prompt IS NOT NULL AND w.capability LIKE :subjectPrefix)'
+                : '';
+            $qb->andWhere('w.capability IS NULL OR w.capability IN (:capabilities)'.$subjectPrompt)
                 ->setParameter('capabilities', $capabilities);
+            if ('' !== $subjectPrompt) {
+                $qb->setParameter('subjectPrefix', Bridge::SUBJECT_CAPABILITY_PREFIX.'%');
+            }
         }
 
         return array_values($qb->getQuery()->getResult());

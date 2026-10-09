@@ -169,6 +169,18 @@ func startBridge(cmd *cobra.Command, o bridgeRunOptions) error {
 // and the control socket it took over. Otherwise it takes the lock and the
 // socket itself.
 func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults, path string, bl *bridgeLog, b *bridgeUpdate, control net.Listener) error {
+	migration := migrateAccounts(path)
+	if bl == nil && migration.notable() {
+		// The start can stop before its log opens, and the next start finds nothing to log.
+		var err error
+		if bl, err = openBridgeLog(cmd, o.logFile); err != nil {
+			return err
+		}
+		defer bl.file.Close()
+	}
+	if bl != nil {
+		migration.log(bl.log, path)
+	}
 	set, err := rules.Load(path, defaults)
 	if err != nil {
 		return fmt.Errorf("rule file %s: %w", path, err)
@@ -177,9 +189,11 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 	if err != nil {
 		return fmt.Errorf("rule file %s: %w", path, err)
 	}
-	claude, err := resolveClaude()
-	if err != nil {
-		return err
+	claude := ""
+	if set.NeedsClaude() {
+		if claude, err = resolveClaude(); err != nil {
+			return err
+		}
 	}
 
 	cfg, err := config.Load()
@@ -234,6 +248,10 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 		return err
 	}
 
+	// A failing account turns off its entries, and never stops the start.
+	accounts := checkAccounts(cmd.Context(), set)
+	set.SetAccountProblems(accountsOff(accounts))
+
 	r := &router{
 		log:        bl.log,
 		worker:     defaultWorkerOps(),
@@ -257,6 +275,8 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 	cleanLaunchScripts(defaultScriptDir(), time.Now(), r.log)
 	logBridgeStart(r.log, cmd, set, path, bl.path, bridgeID)
 	warnUnknownModes(r.log, set)
+	warnAgentsOff(r.log, set)
+	warnAccountsOff(r.log, accounts)
 
 	return subscribe(cmd, cfg, r)
 }
@@ -387,6 +407,7 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	r.ctx = ctx
+	go r.priceLoop(ctx)
 
 	// The queue closes after the workers, so it sees every report a dying worker
 	// still makes, and its grace window can send them.
@@ -414,6 +435,13 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	}
 	if r.ackCommand == nil {
 		r.ackCommand = apiClient(cfg).AckCommand
+	}
+	if r.reportRunUsage == nil {
+		r.reportRunUsage = func(ctx context.Context, handle, sessionID, runID string, usage api.Usage) error {
+			_, err := apiClient(cfg).ReportRunUsage(ctx, handle, sessionID, runID, usage)
+
+			return err
+		}
 	}
 	if r.workAPI == nil {
 		r.workAPI = apiClient(cfg)
@@ -463,6 +491,7 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 		r.mu.Unlock()
 		r.hookRunner.attach(r.heartbeat)
 		r.heartbeat.start()
+		r.syncHostSampler()
 	}
 	if r.update != nil && r.update.resumed != nil {
 		watched = r.update.watchHealth(ctx, r, updates)
@@ -560,8 +589,8 @@ func startEvents(ctx context.Context, cfg config.Config, bridgeID string, set *r
 }
 
 // heartbeatBody names the projects the rule file maps, by id, the CLI
-// version, the capabilities of the work map, the bridge name and the login
-// that workers push as.
+// version, the capabilities of the work map, the bridge name, the login that
+// workers push as, and the state of each account.
 func heartbeatBody(set *rules.Set, pushLogin string) api.Heartbeat {
 	ids := []string{}
 	for _, slug := range set.Projects() {
@@ -570,7 +599,7 @@ func heartbeatBody(set *rules.Set, pushLogin string) api.Heartbeat {
 
 	name := set.Name()
 
-	return api.Heartbeat{Projects: ids, CLIVersion: cliVersion(), Capabilities: set.Capabilities(), Name: &name, PushLogin: &pushLogin}
+	return api.Heartbeat{Projects: ids, CLIVersion: cliVersion(), Capabilities: set.Capabilities(), Name: &name, PushLogin: &pushLogin, Accounts: accountReports(set)}
 }
 
 // missingProjects names the mapped projects that GET /api/events does not list:

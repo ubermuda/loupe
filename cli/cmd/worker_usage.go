@@ -1,23 +1,17 @@
 package cmd
 
 import (
+	"time"
+
 	"github.com/ubermuda/loupe/cli/internal/api"
+	harn "github.com/ubermuda/loupe/cli/internal/harness"
 	"github.com/ubermuda/loupe/cli/internal/transcript"
 )
 
-// sessionBaseline is the usage of the session on the last cost-state line of
-// its transcript, and nil when the bridge cannot read it. A session with no
-// such line has a zero baseline.
-func sessionBaseline(sessionID string) *transcript.Usage {
-	dir, err := transcript.ConfigDir()
-	if err != nil {
-		return nil
-	}
-	path, err := transcript.Find(dir, sessionID)
-	if err != nil {
-		return nil
-	}
-	usage, err := transcript.LastCostState(path)
+// sessionBaseline is what the whole session spent before a resume, and nil
+// when the harness cannot read it.
+func sessionBaseline(h harn.Harness, sessionID string) *transcript.Usage {
+	usage, err := h.SessionTotal(sessionID)
 	if err != nil {
 		return nil
 	}
@@ -47,15 +41,7 @@ func workerUsage(rec runRecord, reported transcript.Usage) *api.Usage {
 		return nil
 	}
 
-	dir, err := transcript.ConfigDir()
-	if err != nil {
-		return nil
-	}
-	path, err := transcript.Find(dir, rec.SessionID)
-	if err != nil {
-		return nil
-	}
-	usage, err := transcript.Since(path, since)
+	usage, err := recordHarness(rec).SessionUsage(rec.SessionID, since, time.Time{})
 	if err != nil {
 		return nil
 	}

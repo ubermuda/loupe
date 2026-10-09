@@ -9,19 +9,25 @@ use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
-use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
-use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
+use App\Module\Board\Service\CardPullRequests;
+use App\Module\Board\Workflow\BlockerFacts;
+use App\Module\Board\Workflow\CardTypeFacts;
+use App\Module\Board\Workflow\ChildrenFacts;
+use App\Module\Board\Workflow\DocumentsFacts;
+use App\Module\Board\Workflow\ParentDocumentsFacts;
+use App\Module\Board\Workflow\ParentFacts;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkRequest;
-use App\Module\Bridge\Repository\WorkerRunRepository;
-use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Bridge\ValueObject\WorkSubject;
+use App\Module\Bridge\Workflow\ParentWorkFacts;
+use App\Module\Bridge\Workflow\RefusalFacts;
+use App\Module\Bridge\Workflow\WorkerRunFacts;
+use App\Module\Bridge\Workflow\WorkRequestFacts;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
@@ -29,9 +35,11 @@ use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState as ForgePullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Project\Entity\Project;
+use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
+use App\Module\Workflow\Contract\CardDirectory;
 use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Contract\DocumentFacts;
 use App\Module\Workflow\Contract\Facts;
@@ -40,7 +48,6 @@ use App\Module\Workflow\Contract\PullRequestState;
 use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
-use App\Module\Workflow\Service\CardPullRequests;
 use App\Module\Workflow\Service\FactProviders;
 use App\Module\Workflow\Service\FactsBuilder;
 use App\Tests\Module\Workflow\Fact\ProvidedFacts;
@@ -79,7 +86,7 @@ final class FactsBuilderTest extends KernelTestCase
 
         self::assertSame($this->provider->facts, $facts->get(ProvidedFacts::class));
         self::assertNull($facts->unreadable(ProvidedFacts::class));
-        self::assertSame([ProvidedFacts::class => [true, 1]], $facts->fingerprints);
+        self::assertSame([true, 1], $facts->fingerprints[ProvidedFacts::class]);
     }
 
     public function test_a_provider_that_is_off_gives_an_off_source_and_is_not_built(): void
@@ -102,7 +109,7 @@ final class FactsBuilderTest extends KernelTestCase
         $facts = $this->facts($this->card($this->workflowProject('facts-failed'), 'next'));
 
         self::assertEquals(new Unreadable(UnreadableKind::Failed, 'workflow.source.board', $failure), $facts->unreadable(ProvidedFacts::class));
-        self::assertFalse($facts->card->hasOpenBlocker);
+        self::assertFalse($facts->get(BlockerFacts::class)->hasOpenBlocker);
         $this->expectException(\LogicException::class);
         $facts->get(ProvidedFacts::class);
     }
@@ -177,10 +184,39 @@ final class FactsBuilderTest extends KernelTestCase
         $project = $this->workflowProject('facts-slot');
         $this->bindLifecycle($project);
 
-        self::assertSame('@backlog', $this->facts($this->card($project, 'backlog'))->card->slot);
-        self::assertSame('@terminal', $this->facts($this->card($project, 'done'))->card->slot);
-        self::assertSame('implementation', $this->facts($this->card($project, 'in-progress'))->card->slot);
-        self::assertSame('tech-design', $this->facts($this->card($project, 'tech-design'))->card->slot);
+        self::assertSame('@backlog', $this->facts($this->card($project, 'backlog'))->slot);
+        self::assertSame('@terminal', $this->facts($this->card($project, 'done'))->slot);
+        self::assertSame('implementation', $this->facts($this->card($project, 'in-progress'))->slot);
+        self::assertSame('tech-design', $this->facts($this->card($project, 'tech-design'))->slot);
+    }
+
+    public function test_the_slot_follows_a_move_in_memory_that_the_snapshot_does_not_show(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('facts-slot-moved');
+        $this->bindLifecycle($project);
+        $card = $this->card($project, 'backlog');
+        $snapshot = $card->snapshot();
+        $card->column = $this->column($project, 'in-progress');
+
+        self::assertSame('implementation', $this->builder()->build($snapshot, new \DateTimeImmutable('2026-10-02 12:00:00'))->slot);
+    }
+
+    public function test_the_parent_slot_reads_the_stored_column_of_the_parent(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('facts-parent-slot');
+        $this->bindLifecycle($project);
+        $epic = $this->card($project, 'backlog', 'epic');
+        $card = $this->card($project, 'next');
+        $card->parent = $epic;
+        $this->em()->flush();
+        self::assertSame('@backlog', $this->facts($card)->parentSlot);
+
+        $this->em()->getConnection()->executeStatement('UPDATE board_cards SET column_id = ? WHERE id = ?', [(string) $this->column($project, 'in-progress')->id, (string) $epic->id]);
+
+        self::assertSame('implementation', $this->facts($card)->parentSlot);
+        self::assertNull($this->facts($epic)->parentSlot);
     }
 
     public function test_an_unlinked_column_has_no_slot(): void
@@ -188,39 +224,40 @@ final class FactsBuilderTest extends KernelTestCase
         self::bootKernel();
         $project = $this->workflowProject('facts-unbound');
 
-        self::assertNull($this->facts($this->card($project, 'in-progress'))->card->slot);
+        self::assertNull($this->facts($this->card($project, 'in-progress'))->slot);
     }
 
     public function test_a_neutral_card_gives_neutral_facts(): void
     {
         self::bootKernel();
         $project = $this->workflowProject('facts-neutral');
-        $card = $this->card($project, 'next', CardType::Bug);
+        $card = $this->card($project, 'next', 'bug');
         $now = new \DateTimeImmutable('2026-10-02 12:00:00');
 
-        $facts = $this->builder()->build($card, $now);
+        $facts = $this->builder()->build($card->snapshot(), $now);
 
         self::assertSame($now, $facts->now);
-        self::assertSame('bug', $facts->card->type);
-        self::assertFalse($facts->card->hasOpenBlocker);
-        self::assertFalse($facts->card->isChild);
-        self::assertSame(0, $facts->card->childCount);
-        self::assertSame(0, $facts->card->openChildCount);
-        self::assertSame([], $facts->card->documents);
-        self::assertFalse($facts->card->childMergedIntoEpicBranch);
+        self::assertSame('bug', $facts->get(CardTypeFacts::class)->type);
+        self::assertFalse($facts->get(BlockerFacts::class)->hasOpenBlocker);
+        self::assertFalse($facts->get(ParentFacts::class)->isChild);
+        self::assertSame(0, $facts->get(ChildrenFacts::class)->childCount);
+        self::assertSame(0, $facts->get(ChildrenFacts::class)->openChildCount);
+        self::assertSame([], $facts->get(DocumentsFacts::class)->documents);
+        self::assertSame([], $facts->get(ParentDocumentsFacts::class)->documents);
+        self::assertFalse($facts->get(ChildrenFacts::class)->childMergedIntoEpicBranch);
         self::assertNull($facts->pullRequest);
-        self::assertSame([], $facts->pullRequests);
-        self::assertSame([], $facts->run->activeWorkKinds);
-        self::assertNull($facts->run->lastRefusalCode);
-        self::assertSame([], $facts->run->activeWorkerKinds);
-        self::assertSame([], $facts->run->parentActiveKinds);
+        self::assertSame([], $facts->pullRequests());
+        self::assertSame([], $facts->get(WorkRequestFacts::class)->activeKinds);
+        self::assertNull($facts->get(RefusalFacts::class)->code);
+        self::assertSame([], $facts->get(WorkerRunFacts::class)->activeKinds);
+        self::assertSame([], $facts->get(ParentWorkFacts::class)->activeKinds);
     }
 
     public function test_the_card_facts_count_open_blockers_children_and_the_parent(): void
     {
         self::bootKernel();
         $project = $this->workflowProject('facts-card');
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
         $card = $this->card($project, 'next');
         $card->parent = $epic;
         $openChild = $this->card($project, 'next');
@@ -232,14 +269,14 @@ final class FactsBuilderTest extends KernelTestCase
         $this->em()->flush();
 
         $facts = $this->facts($card);
-        self::assertTrue($facts->card->isChild);
-        self::assertSame(2, $facts->card->childCount);
-        self::assertSame(1, $facts->card->openChildCount);
-        self::assertFalse($facts->card->hasOpenBlocker);
+        self::assertTrue($facts->get(ParentFacts::class)->isChild);
+        self::assertSame(2, $facts->get(ChildrenFacts::class)->childCount);
+        self::assertSame(1, $facts->get(ChildrenFacts::class)->openChildCount);
+        self::assertFalse($facts->get(BlockerFacts::class)->hasOpenBlocker);
 
         $this->em()->persist(new CardLink($this->card($project, 'next'), $card, CardLinkKind::Blocks));
         $this->em()->flush();
-        self::assertTrue($this->facts($card)->card->hasOpenBlocker);
+        self::assertTrue($this->facts($card)->get(BlockerFacts::class)->hasOpenBlocker);
     }
 
     public function test_the_documents_are_the_unarchived_linked_documents_with_their_tags_and_status(): void
@@ -257,7 +294,24 @@ final class FactsBuilderTest extends KernelTestCase
             new DocumentFacts(['product'], 'approved', $product),
             new DocumentFacts(['design', 'tech'], 'changes-requested', $design),
             new DocumentFacts([], 'in-review', $untagged),
-        ], $this->facts($card)->card->documents);
+        ], $this->facts($card)->get(DocumentsFacts::class)->documents);
+    }
+
+    public function test_the_parent_documents_are_the_linked_documents_of_the_parent_and_not_of_the_card(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('facts-parent-documents');
+        $epic = $this->card($project, 'in-progress', 'epic');
+        $child = $this->card($project, 'backlog');
+        $child->parent = $epic;
+        $this->em()->flush();
+        $design = $this->document($epic, DocumentStatus::Approved, ['tech-design']);
+        $own = $this->document($child, DocumentStatus::InReview, ['notes']);
+
+        $childFacts = $this->facts($child);
+        self::assertEquals([new DocumentFacts(['tech-design'], 'approved', $design)], $childFacts->get(ParentDocumentsFacts::class)->documents);
+        self::assertEquals([new DocumentFacts(['notes'], 'in-review', $own)], $childFacts->get(DocumentsFacts::class)->documents);
+        self::assertSame([], $this->facts($epic)->get(ParentDocumentsFacts::class)->documents);
     }
 
     public function test_the_run_facts_give_the_live_kinds_and_a_refusal_that_settled_last(): void
@@ -271,19 +325,19 @@ final class FactsBuilderTest extends KernelTestCase
         $this->workRequest($card, 'design', WorkRequestState::Done, settledAt: '2026-10-02 10:00:00');
         $this->workRequest($card, 'design', WorkRequestState::Refused, 'no-capacity', '2026-10-02 11:00:00');
 
-        $run = $this->facts($card)->run;
-        self::assertSame(['implement', 'review'], $run->activeWorkKinds);
-        self::assertSame('no-capacity', $run->lastRefusalCode);
+        $run = $this->facts($card);
+        self::assertSame(['implement', 'review'], $run->get(WorkRequestFacts::class)->activeKinds);
+        self::assertSame('no-capacity', $run->get(RefusalFacts::class)->code);
 
         $this->workRequest($card, 'design', WorkRequestState::Done, settledAt: '2026-10-02 11:30:00');
-        self::assertNull($this->facts($card)->run->lastRefusalCode);
+        self::assertNull($this->facts($card)->get(RefusalFacts::class)->code);
     }
 
     public function test_the_run_facts_give_the_kinds_of_the_open_worker_runs_of_the_card_and_of_its_parent(): void
     {
         self::bootKernel();
         $project = $this->workflowProject('facts-worker-runs');
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
         $child = $this->card($project, 'backlog');
         $child->parent = $epic;
         $this->em()->flush();
@@ -291,13 +345,31 @@ final class FactsBuilderTest extends KernelTestCase
         $this->workerRun($epic, 'implement', WorkerRunState::Succeeded);
         $this->workerRun($child, 'fix', WorkerRunState::Queued);
 
-        $childRun = $this->facts($child)->run;
-        self::assertSame(['fix'], $childRun->activeWorkerKinds);
-        self::assertSame(['breakdown'], $childRun->parentActiveKinds);
+        $childRun = $this->facts($child);
+        self::assertSame(['fix'], $childRun->get(WorkerRunFacts::class)->activeKinds);
+        self::assertSame(['breakdown'], $childRun->get(ParentWorkFacts::class)->activeKinds);
 
-        $epicRun = $this->facts($epic)->run;
-        self::assertSame(['breakdown'], $epicRun->activeWorkerKinds);
-        self::assertSame([], $epicRun->parentActiveKinds);
+        $epicRun = $this->facts($epic);
+        self::assertSame(['breakdown'], $epicRun->get(WorkerRunFacts::class)->activeKinds);
+        self::assertSame([], $epicRun->get(ParentWorkFacts::class)->activeKinds);
+    }
+
+    public function test_the_kinds_of_the_work_requested_for_the_parent_count_as_work_of_the_parent_once(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('facts-parent-requests');
+        $epic = $this->card($project, 'in-progress', 'epic');
+        $child = $this->card($project, 'backlog');
+        $child->parent = $epic;
+        $this->em()->flush();
+        $this->workerRun($epic, 'breakdown', WorkerRunState::Running);
+        $this->workerRun($epic, 'implement', WorkerRunState::Succeeded);
+        $this->workRequest($epic, 'breakdown', WorkRequestState::Open);
+        $this->workRequest($epic, 'plan', WorkRequestState::Claimed);
+        $this->workRequest($epic, 'design', WorkRequestState::Done, settledAt: '2026-10-02 10:00:00');
+
+        self::assertEqualsCanonicalizing(['breakdown', 'plan'], $this->facts($child)->get(ParentWorkFacts::class)->activeKinds);
+        self::assertSame([], $this->facts($epic)->get(ParentWorkFacts::class)->activeKinds);
     }
 
     public function test_a_pull_request_maps_its_forge_state(): void
@@ -400,7 +472,7 @@ final class FactsBuilderTest extends KernelTestCase
         $closed->refreshedAt = new \DateTimeImmutable('2026-10-01 11:00:00');
         $this->em()->flush();
 
-        $facts = $this->facts($card)->pullRequests;
+        $facts = $this->facts($card)->pullRequests();
 
         self::assertCount(2, $facts);
         self::assertSame(PullRequestState::Merged, $facts[0]->state);
@@ -421,7 +493,7 @@ final class FactsBuilderTest extends KernelTestCase
         $this->em()->flush();
 
         $facts = $this->facts($card);
-        self::assertCount(3, $facts->pullRequests);
+        self::assertCount(3, $facts->pullRequests());
         self::assertTrue($facts->pullRequest?->draft);
 
         $newerOpen->state = ForgePullRequestState::Merged;
@@ -445,9 +517,9 @@ final class FactsBuilderTest extends KernelTestCase
 
         self::assertSame(
             [$unknownOpening->id, $olderBase->id, $newerBase->id, $upper->id],
-            array_map(static fn (PullRequestFacts $pullRequest) => $pullRequest->id, $facts->pullRequests),
+            array_map(static fn (PullRequestFacts $pullRequest) => $pullRequest->id, $facts->pullRequests()),
         );
-        self::assertTrue($facts->pullRequests[3]->stacked);
+        self::assertTrue($facts->pullRequests()[3]->stacked);
         self::assertSame($newerBase->id, $facts->pullRequest?->id, 'The primary stays the open pull request opened last.');
     }
 
@@ -464,14 +536,14 @@ final class FactsBuilderTest extends KernelTestCase
         $facts = $this->facts($card);
 
         self::assertNull($facts->pullRequest);
-        self::assertSame([], $facts->pullRequests);
+        self::assertSame([], $facts->pullRequests());
     }
 
     public function test_a_pull_request_into_the_epic_branch_of_its_parent_targets_the_epic_with_no_epic_pull_request(): void
     {
         self::bootKernel();
         $project = $this->workflowProject('facts-pr-epic');
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
         $card = $this->card($project, 'in-review');
         $card->parent = $epic;
         $this->pullRequest($card, base: 'epic/'.$epic->number, head: 'feature');
@@ -490,7 +562,7 @@ final class FactsBuilderTest extends KernelTestCase
     {
         self::bootKernel();
         $project = $this->workflowProject('facts-pr-epic-head');
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
         $this->pullRequest($epic, base: 'main', head: 'epic/'.$epic->number);
         $child = $this->card($project, 'in-review');
         $child->parent = $epic;
@@ -517,7 +589,7 @@ final class FactsBuilderTest extends KernelTestCase
     {
         self::bootKernel();
         $project = $this->workflowProject('facts-pr-epic-finished');
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
         $this->pullRequest($epic, state: ForgePullRequestState::Merged, base: 'main', head: 'epic/'.$epic->number);
         $child = $this->card($project, 'in-review');
         $child->parent = $epic;
@@ -536,7 +608,7 @@ final class FactsBuilderTest extends KernelTestCase
     {
         self::bootKernel();
         $project = $this->workflowProject('facts-pr-epic-repository');
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
         $this->pullRequest($epic, base: 'main', head: 'epic/'.$epic->number);
         $same = $this->card($project, 'in-review');
         $same->parent = $epic;
@@ -554,7 +626,7 @@ final class FactsBuilderTest extends KernelTestCase
     {
         self::bootKernel();
         $project = $this->workflowProject('facts-pr-epic-two-repositories');
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
         $this->pullRequest($epic, base: 'main', head: 'epic/'.$epic->number);
         $this->pullRequest($epic, state: ForgePullRequestState::Merged, base: 'main', head: 'epic/'.$epic->number, repository: 'acme/other');
         $live = $this->card($project, 'in-review');
@@ -574,7 +646,7 @@ final class FactsBuilderTest extends KernelTestCase
         self::bootKernel();
         $project = $this->workflowProject('facts-pr-no-pattern');
         $this->epicBranchPattern($project, null);
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
         $child = $this->card($project, 'in-review');
         $child->parent = $epic;
         $this->pullRequest($child, base: 'epic/'.$epic->number, head: 'child');
@@ -592,7 +664,7 @@ final class FactsBuilderTest extends KernelTestCase
         self::bootKernel();
         $project = $this->workflowProject('facts-pr-custom-pattern');
         $this->epicBranchPattern($project, 'feature/epic-{number}');
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
         $custom = $this->card($project, 'in-review');
         $custom->parent = $epic;
         $this->pullRequest($custom, base: 'feature/epic-'.$epic->number, head: 'custom');
@@ -609,35 +681,35 @@ final class FactsBuilderTest extends KernelTestCase
     {
         self::bootKernel();
         $project = $this->workflowProject('facts-child-merged');
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
         $child = $this->card($project, 'in-review');
         $child->parent = $epic;
         $this->em()->flush();
 
-        self::assertFalse($this->facts($epic)->card->childMergedIntoEpicBranch);
+        self::assertFalse($this->facts($epic)->get(ChildrenFacts::class)->childMergedIntoEpicBranch);
 
         $this->pullRequest($child, state: ForgePullRequestState::Merged, base: 'main');
         $intoEpic = $this->pullRequest($child, base: 'epic/'.$epic->number);
-        self::assertFalse($this->facts($epic)->card->childMergedIntoEpicBranch);
+        self::assertFalse($this->facts($epic)->get(ChildrenFacts::class)->childMergedIntoEpicBranch);
 
         $intoEpic->state = ForgePullRequestState::Merged;
         $this->em()->flush();
-        self::assertTrue($this->facts($epic)->card->childMergedIntoEpicBranch);
-        self::assertFalse($this->facts($child)->card->childMergedIntoEpicBranch);
+        self::assertTrue($this->facts($epic)->get(ChildrenFacts::class)->childMergedIntoEpicBranch);
+        self::assertFalse($this->facts($child)->get(ChildrenFacts::class)->childMergedIntoEpicBranch);
     }
 
     public function test_a_merge_into_the_epic_branch_of_another_epic_does_not_count(): void
     {
         self::bootKernel();
         $project = $this->workflowProject('facts-child-merged-other');
-        $epic = $this->card($project, 'in-progress', CardType::Epic);
-        $other = $this->card($project, 'in-progress', CardType::Epic);
+        $epic = $this->card($project, 'in-progress', 'epic');
+        $other = $this->card($project, 'in-progress', 'epic');
         $child = $this->card($project, 'in-review');
         $child->parent = $epic;
         $this->pullRequest($child, state: ForgePullRequestState::Merged, base: 'epic/'.$other->number);
         $this->em()->flush();
 
-        self::assertFalse($this->facts($epic)->card->childMergedIntoEpicBranch);
+        self::assertFalse($this->facts($epic)->get(ChildrenFacts::class)->childMergedIntoEpicBranch);
     }
 
     public function test_stacking_needs_another_pull_request_of_the_same_repository_whose_head_is_the_base(): void
@@ -682,22 +754,17 @@ final class FactsBuilderTest extends KernelTestCase
 
     private function facts(Card $card): Facts
     {
-        return $this->builder()->build($card, new \DateTimeImmutable('2026-10-02 12:00:00'));
+        return $this->builder()->build($card->snapshot(), new \DateTimeImmutable('2026-10-02 12:00:00'));
     }
 
-    /** Built by hand, because no production service injects it yet and the container drops it. */
+    /** Built by hand with the providers of Board and Bridge, and the provider of the test in place of the one of the container. */
     private function builder(): FactsBuilder
     {
         return new FactsBuilder(
             $this->service(WorkflowSlotLinkRepository::class),
-            $this->service(CardRepository::class),
-            $this->service(CardDocumentRepository::class),
-            $this->cardPullRequests(),
-            $this->service(ForgePullRequestRepository::class),
-            $this->service(WorkRequestRepository::class),
-            $this->service(WorkerRunRepository::class),
-            new FactProviders([$this->provider]),
-            $this->service(BoardAutomation::class),
+            $this->service(CardDirectory::class),
+            $this->service(ProjectRepository::class),
+            new FactProviders([...array_values(array_diff_key($this->service(FactProviders::class)->byClass, [ProvidedFacts::class => true])), $this->provider]),
             $this->em()->getConnection(),
         );
     }
@@ -736,7 +803,7 @@ final class FactsBuilderTest extends KernelTestCase
         return $service;
     }
 
-    private function card(Project $project, string $column, CardType $type = CardType::Feature): Card
+    private function card(Project $project, string $column, string $type = 'feature'): Card
     {
         $card = new Card($project, $this->column($project, $column), 'Card', '', ++$this->cardNumber, $type);
         $this->em()->persist($card);

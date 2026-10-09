@@ -4,18 +4,16 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Template;
 
-use App\Module\Workflow\Condition\CardDocument;
-use App\Module\Workflow\Condition\CardDocumentApproved;
-use App\Module\Workflow\Condition\CardDocumentChangesRequested;
-use App\Module\Workflow\Contract\ParameterValue;
+use App\Module\Workflow\Contract\ReadsDocumentTag;
 
 final readonly class Template
 {
     /**
-     * @param list<Slot>       $slots
-     * @param list<Rule>       $rules
-     * @param list<ManualMove> $manualMoves
-     * @param list<int>        $backoffMinutes
+     * @param list<TemplateCardType> $types
+     * @param list<Slot>             $slots
+     * @param list<Rule>             $rules
+     * @param list<ManualMove>       $manualMoves
+     * @param list<int>              $backoffMinutes
      */
     public function __construct(
         public string $key,
@@ -25,8 +23,21 @@ final readonly class Template
         public array $manualMoves,
         public array $backoffMinutes,
         public int $workTimeoutMinutes,
+        public array $types,
+        public string $defaultType,
         public ?WorkFailurePolicy $onWorkFailed = null,
     ) {
+    }
+
+    public function type(string $key): ?TemplateCardType
+    {
+        foreach ($this->types as $type) {
+            if ($type->key === $key) {
+                return $type;
+            }
+        }
+
+        return null;
     }
 
     public function slot(string $key): ?Slot
@@ -46,7 +57,7 @@ final readonly class Template
         return array_values(array_filter(
             $this->rules,
             static fn (Rule $rule): bool => (null === $rule->slot || $rule->slot === $slot)
-                && (ActionType::Move !== $rule->then->type || ($rule->then->params['from'] ?? $slot) === $slot),
+                && (null === $rule->then->from || $rule->then->from === $slot),
         ));
     }
 
@@ -56,8 +67,9 @@ final readonly class Template
         $tags = [];
         foreach ($this->rulesFor($slot) as $rule) {
             foreach ($rule->when->leaves() as $leaf) {
-                if ($leaf->condition instanceof CardDocument || $leaf->condition instanceof CardDocumentApproved || $leaf->condition instanceof CardDocumentChangesRequested) {
-                    $tags[] = ParameterValue::string($leaf->params, 'tag');
+                $tag = $leaf->condition instanceof ReadsDocumentTag ? $leaf->condition->documentTag($leaf->params) : null;
+                if (null !== $tag) {
+                    $tags[] = $tag;
                 }
             }
         }

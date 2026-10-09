@@ -34,6 +34,8 @@ use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\View\DocumentListItem;
+use App\Module\Workflow\Contract\CardTypeCatalog;
+use App\Module\Workflow\Contract\CardTypeDefinition;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\Form\FormView;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -51,7 +53,14 @@ final class BoardExtension extends AbstractExtension
         private readonly BoardColumnRepository $boardColumns,
         private readonly BoardColumnTonePicker $tonePicker,
         private readonly CardDigest $digest,
+        private readonly CardTypeCatalog $catalog,
     ) {
+    }
+
+    /** The type of a card as its project's template declares it. */
+    public function cardType(Card $card): CardTypeDefinition
+    {
+        return $this->catalog->forProject($card->project->requireId())->get($card->type);
     }
 
     #[\Override]
@@ -63,6 +72,7 @@ final class BoardExtension extends AbstractExtension
             new TwigFunction('card_lane_form', $this->cardLaneForm(...)),
             // The Backlog page writes this form by hand, so 25 rows build no column choices.
             new TwigFunction('backlog_move_form_name', MoveBacklogCardFormType::nameFor(...)),
+            new TwigFunction('card_type', $this->cardType(...)),
             new TwigFunction('card_digest', $this->cardDigest(...)),
             new TwigFunction('lane_head_digest', $this->digest->forLaneHead(...)),
             new TwigFunction('board_column_add_form', $this->boardColumnAddForm(...)),

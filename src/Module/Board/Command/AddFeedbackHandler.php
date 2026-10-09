@@ -6,9 +6,9 @@ namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
-use App\Module\Board\Entity\CardType;
+use App\Module\Board\Entity\CardSource;
+use App\Module\Board\Entity\CardSourceKind;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
@@ -16,6 +16,8 @@ use App\Module\Board\Service\FeedbackCardTitle;
 use App\Module\SiteReview\Command\AddCommentCommand;
 use App\Module\SiteReview\Command\AddCommentHandler;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -44,6 +46,7 @@ final readonly class AddFeedbackHandler
         private EntityManagerInterface $em,
         private Auditor $auditor,
         private EventDispatcherInterface $events,
+        private CardTypeCatalog $catalog,
     ) {
     }
 
@@ -87,9 +90,10 @@ final readonly class AddFeedbackHandler
                 project: $command->project,
                 title: FeedbackCardTitle::of($command->body),
                 body: '',
-                type: CardType::SiteReview,
-                reporter: CardReporter::Reviewer,
+                type: $this->catalog->forProject($command->project->requireId())->defaultKey,
+                reporter: Actor::Reviewer,
                 parentCardId: $command->parentCardId,
+                source: new CardSource(CardSourceKind::Widget),
             ));
 
             $comment = ($this->addComment)($this->addCommentCommand($command));
@@ -151,7 +155,7 @@ final readonly class AddFeedbackHandler
             if (null === $parent) {
                 return new DomainErrors(['target' => self::TARGET_NOT_FOUND]);
             }
-            if (CardType::Epic !== $parent->type) {
+            if (!$this->catalog->forProject($command->project->requireId())->get($parent->type)->children) {
                 return new DomainErrors(['target' => self::TARGET_NOT_EPIC]);
             }
             if ($parent->column->terminal) {

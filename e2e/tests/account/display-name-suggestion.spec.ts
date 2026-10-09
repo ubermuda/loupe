@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { hubStubbedTest as test } from '../fixtures';
 
 // Guest by default — make the unauthenticated starting state explicit.
 test.use({ storageState: { cookies: [], origins: [] } });

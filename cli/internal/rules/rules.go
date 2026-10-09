@@ -80,7 +80,14 @@ var hostname = os.Hostname
 var goos = runtime.GOOS
 
 // Example is the file the bridge prints when it finds none.
-const Example = `projects:
+const Example = `accounts:
+  claude:
+    harness: claude-code
+
+defaults:
+  account: claude
+
+projects:
   my-app:
     dir: ~/Code/my-app
 
@@ -96,8 +103,61 @@ work:
 // mode, so a value outside the list is logged at start rather than refused.
 var PermissionModes = []string{"acceptEdits", "auto", "bypassPermissions", "default", "dontAsk", "manual", "plan"}
 
+// HarnessClaudeCode is the harness of an account that runs Claude Code.
+const HarnessClaudeCode = "claude-code"
+
+// HarnessCodex is the harness of an account that runs Codex.
+const HarnessCodex = "codex"
+
+// CodexModes are the sandbox modes `codex exec -s` takes.
+var CodexModes = []string{"read-only", "workspace-write", "danger-full-access"}
+
+// profilePattern matches the profile of a Codex account, which names a file
+// in the Codex home folder.
+var profilePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
+
+// The permission levels a rule names. A harness maps each to a mode of its own.
+const (
+	PermissionsReadOnly  = "read-only"
+	PermissionsWorkspace = "workspace"
+	PermissionsFull      = "full"
+)
+
+// claudeCodeModes maps each permission level to a Claude Code permission mode.
+var claudeCodeModes = map[string]string{
+	PermissionsReadOnly:  "plan",
+	PermissionsWorkspace: "auto",
+	PermissionsFull:      "bypassPermissions",
+}
+
+// codexModes maps each permission level to a Codex sandbox mode.
+var codexModes = map[string]string{
+	PermissionsReadOnly:  "read-only",
+	PermissionsWorkspace: "workspace-write",
+	PermissionsFull:      "danger-full-access",
+}
+
+// levelModes is the map from a permission level to a mode of the harness.
+func levelModes(harness string) map[string]string {
+	if harness == HarnessCodex {
+		return codexModes
+	}
+
+	return claudeCodeModes
+}
+
+// MaxAccounts is the most accounts a file declares, because the heartbeat
+// reports each one and the server takes 50 rows.
+const MaxAccounts = 50
+
+// agentsOffNoAccounts is why a file with no accounts block runs no agent.
+const agentsOffNoAccounts = "rules.yaml has no accounts block"
+
 // File is the rule file as written.
 type File struct {
+	// EnvFile is read at the start of each agent run, before the account's.
+	EnvFile  string             `yaml:"envFile"`
+	Accounts map[string]Account `yaml:"accounts"`
 	Defaults FileDefaults       `yaml:"defaults"`
 	Projects map[string]Project `yaml:"projects"`
 	Hooks    []HookEntry        `yaml:"hooks"`
@@ -113,6 +173,12 @@ type File struct {
 	AppPrompts *bool `yaml:"appPrompts"`
 	// Name is the host name when absent, and a blank value opts out.
 	Name *string `yaml:"name"`
+	// Collect is on when the key is absent. Off, it also stops the host
+	// samples.
+	Collect *bool `yaml:"collect"`
+	// OpenRouterPrices is off when the key is absent. On, the bridge fetches
+	// model prices from openrouter.ai.
+	OpenRouterPrices *bool `yaml:"openRouterPrices"`
 }
 
 // WorkerPool is one named share of maxWorkers.
@@ -123,8 +189,49 @@ type WorkerPool struct {
 // FileDefaults fill a rule's empty fields before the bridge flags do. A reload
 // reads them again, and the flags stay fixed for the process.
 type FileDefaults struct {
-	PermissionMode string `yaml:"permissionMode"`
+	Account     string `yaml:"account"`
+	Permissions string `yaml:"permissions"`
+	// Model and PermissionMode are old keys. A file with accounts refuses
+	// them, and a file without loads with its agents off.
 	Model          string `yaml:"model"`
+	PermissionMode string `yaml:"permissionMode"`
+}
+
+// Account is one named agent account as written.
+type Account struct {
+	Harness   string `yaml:"harness"`
+	ConfigDir string `yaml:"configDir"`
+	// CodexHome is the Codex home folder, and Profile names a
+	// <profile>.config.toml file in it. Only a codex account takes them.
+	CodexHome string `yaml:"codexHome"`
+	Profile   string `yaml:"profile"`
+	Model     string `yaml:"model"`
+	// PermissionMode is a mode of the harness, and a rule's level beats it.
+	PermissionMode string `yaml:"permissionMode"`
+	EnvFile        string `yaml:"envFile"`
+}
+
+// RunSettings are what an agent run takes from its account, its entry and the
+// defaults. EnvFiles lists the global file before the account's.
+type RunSettings struct {
+	Account string
+	Harness string
+	// ConfigDir is the config folder of Claude Code, or the home folder of
+	// Codex.
+	ConfigDir string
+	// Profile is the Codex profile, and "" for any other harness.
+	Profile        string
+	Model          string
+	PermissionMode string
+	// Permissions is the level of the entry, and "" when it names none.
+	Permissions string
+	EnvFiles    []string
+}
+
+func (r RunSettings) clone() RunSettings {
+	r.EnvFiles = slices.Clone(r.EnvFiles)
+
+	return r
 }
 
 // LaunchConfig is the launch block as written.
@@ -228,22 +335,38 @@ type Set struct {
 
 	autoUpdate    bool
 	autoUpdateSet bool
-	maxWorkers    int
-	name          string
+	// noCollect is the inverse of collect, so a zero Set collects.
+	noCollect bool
+	// openRouterPrices lets the bridge fetch model prices from openrouter.ai.
+	openRouterPrices bool
+	maxWorkers       int
+	name             string
 	// pools maps each pool name to its size, DefaultPool included.
 	pools map[string]int
 	// work has the defaults of each worker entry filled.
 	work map[string]WorkEntry
 	// appPrompts runs the app prompt of a kind that work does not hold, with
-	// defaults, the file's defaults over the flags.
+	// appRun.
 	appPrompts bool
-	defaults   Defaults
+	appRun     RunSettings
+	// defaults are the bridge flags, and fileDefaults the file's defaults.
+	defaults     Defaults
+	fileDefaults FileDefaults
+	// accounts have their paths expanded.
+	accounts map[string]Account
+	envFile  string
+	// agentsOff is why no worker, interactive entry or app prompt runs, and
+	// "" while they run.
+	agentsOff string
 
 	// deadWork maps a project slug to the reason its work died. The bridge
 	// reads and writes it on the stream goroutine alone. mu guards it for any
 	// other caller.
 	mu       sync.RWMutex
 	deadWork map[string]string
+	// accountsOff maps each account that failed its check to the reason. It
+	// is nil until a check ran, and mu guards it.
+	accountsOff map[string]string
 }
 
 // ErrMissing marks a rule file that does not exist.
@@ -274,28 +397,33 @@ func withExample(err error) error {
 // an error, so a misspelt key fails at start instead of being ignored. The
 // caller checks defaults with Defaults.Check.
 func Parse(data []byte, defaults Defaults) (*Set, error) {
-	f, err := decodeFile(data)
+	f, root, err := decodeFile(data)
 	if err != nil {
 		return nil, err
 	}
 
-	s := &Set{dirs: map[string]string{}, work: map[string]WorkEntry{}, autoUpdate: f.AutoUpdate != nil && *f.AutoUpdate, autoUpdateSet: f.AutoUpdate != nil}
+	s := &Set{dirs: map[string]string{}, work: map[string]WorkEntry{}, autoUpdate: f.AutoUpdate != nil && *f.AutoUpdate, autoUpdateSet: f.AutoUpdate != nil, noCollect: f.Collect != nil && !*f.Collect, openRouterPrices: f.OpenRouterPrices != nil && *f.OpenRouterPrices}
+	s.appPrompts, s.defaults, s.fileDefaults = f.AppPrompts != nil && *f.AppPrompts, defaults, f.Defaults
+	if keyNode(root, "accounts") == nil {
+		s.agentsOff = agentsOffNoAccounts
+	}
 	var errs []error
-	for _, err := range []error{
-		checkWord("defaults.permissionMode", f.Defaults.PermissionMode),
-		checkWord("defaults.model", f.Defaults.Model),
-	} {
+	s.accounts, errs = checkAccounts(f.Accounts, root)
+	declared := slices.Sorted(maps.Keys(f.Accounts))
+	if f.EnvFile != "" {
+		path, err := checkPath("envFile", f.EnvFile)
 		if err != nil {
-			errs = append(errs, err)
+			errs = append(errs, fmt.Errorf("%s%w", lineOf(root, "envFile"), err))
 		}
+		s.envFile = path
 	}
-	if f.Defaults.PermissionMode != "" {
-		defaults.PermissionMode = f.Defaults.PermissionMode
+	switch {
+	case f.Defaults.Account != "":
+		errs = append(errs, checkAccountName(lineOf(root, "defaults", "account"), "defaults.account", f.Defaults.Account, declared)...)
+	case s.agentsOff == "":
+		errs = append(errs, fmt.Errorf("%sdefaults.account is required, and names one of accounts: %s", lineOf(root, "accounts"), declaredNames(declared)))
 	}
-	if f.Defaults.Model != "" {
-		defaults.Model = f.Defaults.Model
-	}
-	s.appPrompts, s.defaults = f.AppPrompts != nil && *f.AppPrompts, defaults
+	errs = append(errs, checkLevel(lineOf(root, "defaults", "permissions"), "defaults.permissions", f.Defaults.Permissions)...)
 	if len(f.Projects) == 0 {
 		errs = append(errs, errors.New("the rule file maps no projects"))
 	}
@@ -331,18 +459,13 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		if err := checkWork(kind, &w); err != nil {
 			errs = append(errs, fmt.Errorf("work %q: %w", kind, err))
 		}
+		errs = append(errs, s.checkWorkAccounts(kind, &w, declared, root)...)
 		if w.Action == "" {
 			if err := checkPool(w.WorkerPool, f.WorkerPools, pools, known, s.maxWorkers); err != nil {
 				errs = append(errs, fmt.Errorf("work %q: %w", kind, err))
 			}
 			// A nil map of fields always builds.
 			w.schema, _ = resultSchema(nil)
-			if w.PermissionMode == "" {
-				w.PermissionMode = defaults.PermissionMode
-			}
-			if w.Model == "" && w.Variants == nil {
-				w.Model = defaults.Model
-			}
 		}
 		s.work[kind] = w
 	}
@@ -350,6 +473,7 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		if err := checkPool("", f.WorkerPools, pools, known, s.maxWorkers); err != nil {
 			errs = append(errs, fmt.Errorf("appPrompts: %w", err))
 		}
+		s.appRun = s.resolve("", "", "", false)
 	}
 	interactive := slices.ContainsFunc(slices.Collect(maps.Values(f.Work)), func(w WorkEntry) bool { return w.Action == ActionInteractive })
 	launch, err := checkLaunch(f.Launch, interactive)
@@ -369,32 +493,335 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 	return s, nil
 }
 
+// checkAccounts validates each account, and returns them with their paths
+// expanded. No path has to exist yet.
+func checkAccounts(accounts map[string]Account, root *yaml.Node) (map[string]Account, []error) {
+	out := map[string]Account{}
+	var errs []error
+	if len(accounts) > MaxAccounts {
+		errs = append(errs, fmt.Errorf("%saccounts: at most %d accounts, got %d", lineOf(root, "accounts"), MaxAccounts, len(accounts)))
+	}
+	for _, name := range slices.Sorted(maps.Keys(accounts)) {
+		a := accounts[name]
+		at := func(field string) string { return lineOf(root, "accounts", name, field) }
+		if !poolNamePattern.MatchString(name) {
+			errs = append(errs, fmt.Errorf("%saccounts.%s: an account name is 1 to 40 lowercase letters, digits and hyphens, and starts with a letter, such as claude", lineOf(root, "accounts", name), name))
+		}
+		switch a.Harness {
+		case HarnessClaudeCode:
+		case "":
+			errs = append(errs, fmt.Errorf("%saccounts.%s: harness is required, such as %s", lineOf(root, "accounts", name), name, HarnessClaudeCode))
+		case HarnessCodex:
+		default:
+			errs = append(errs, fmt.Errorf("%saccounts.%s.harness %q is not a harness; this CLI accepts %s and %s", at("harness"), name, a.Harness, HarnessClaudeCode, HarnessCodex))
+		}
+		errs = append(errs, checkHarnessKeys(a, name, at)...)
+		for _, field := range []struct {
+			key   string
+			value *string
+		}{{"configDir", &a.ConfigDir}, {"codexHome", &a.CodexHome}, {"envFile", &a.EnvFile}} {
+			if *field.value == "" {
+				continue
+			}
+			path, err := checkPath(field.key, *field.value)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("%saccounts.%s.%w", at(field.key), name, err))
+			}
+			*field.value = path
+		}
+		for _, field := range [][2]string{{"model", a.Model}, {"permissionMode", a.PermissionMode}} {
+			if err := checkWord(field[0], field[1]); err != nil {
+				errs = append(errs, fmt.Errorf("%saccounts.%s.%w", at(field[0]), name, err))
+			}
+		}
+		if a.Harness == HarnessCodex && a.PermissionMode != "" && !slices.Contains(CodexModes, a.PermissionMode) {
+			errs = append(errs, fmt.Errorf("%saccounts.%s.permissionMode %q is not %s", at("permissionMode"), name, a.PermissionMode, strings.Join(CodexModes, ", ")))
+		}
+		out[name] = a
+	}
+
+	return out, errs
+}
+
+// checkHarnessKeys refuses an account key that belongs to the other harness,
+// and a profile that is no file name.
+func checkHarnessKeys(a Account, name string, at func(string) string) []error {
+	var errs []error
+	switch a.Harness {
+	case HarnessCodex:
+		if a.ConfigDir != "" {
+			errs = append(errs, fmt.Errorf("%saccounts.%s.configDir: a codex account takes codexHome, and configDir is for claude-code", at("configDir"), name))
+		}
+		if a.Profile != "" && !profilePattern.MatchString(a.Profile) {
+			errs = append(errs, fmt.Errorf("%saccounts.%s.profile %q is not 1 to 64 letters, digits, dots, underscores and hyphens, and starts with a letter or digit", at("profile"), name, a.Profile))
+		}
+	case HarnessClaudeCode:
+		for _, field := range [][2]string{{"codexHome", a.CodexHome}, {"profile", a.Profile}} {
+			if field[1] != "" {
+				errs = append(errs, fmt.Errorf("%saccounts.%s.%s: only a codex account takes %s", at(field[0]), name, field[0], field[0]))
+			}
+		}
+	}
+
+	return errs
+}
+
+// checkPath expands ~ in a path, and refuses a path that is not absolute.
+func checkPath(field, path string) (string, error) {
+	expanded, err := expandHome(path)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", field, err)
+	}
+	if !filepath.IsAbs(expanded) {
+		return "", fmt.Errorf("%s %s is not an absolute path", field, path)
+	}
+
+	return expanded, nil
+}
+
+// checkAccountName refuses a name that accounts does not declare. at is the
+// line prefix.
+func checkAccountName(at, field, name string, declared []string) []error {
+	if name == "" || slices.Contains(declared, name) {
+		return nil
+	}
+
+	return []error{fmt.Errorf("%s%s %q is not in accounts, which declares %s", at, field, name, declaredNames(declared))}
+}
+
+func declaredNames(declared []string) string {
+	if len(declared) == 0 {
+		return "none"
+	}
+
+	return strings.Join(declared, ", ")
+}
+
+// checkLevel refuses a permission level outside the three. Empty sets none.
+func checkLevel(at, field, level string) []error {
+	if level == "" {
+		return nil
+	}
+	if _, ok := claudeCodeModes[level]; !ok {
+		return []error{fmt.Errorf("%s%s %q is not %s, %s or %s", at, field, level, PermissionsReadOnly, PermissionsWorkspace, PermissionsFull)}
+	}
+
+	return nil
+}
+
+// checkWorkAccounts checks the account and the level of an entry and of its
+// variants, and fills the run settings of each.
+func (s *Set) checkWorkAccounts(kind string, w *WorkEntry, declared []string, root *yaml.Node) []error {
+	at := func(path ...any) string { return lineOf(root, append([]any{"work", kind}, path...)...) }
+	prefix := fmt.Sprintf("work %q: ", kind)
+	errs := checkAccountName(at("account"), prefix+"account", w.Account, declared)
+	errs = append(errs, checkLevel(at("permissions"), prefix+"permissions", w.Permissions)...)
+	for i, v := range w.Variants {
+		vprefix := fmt.Sprintf("%svariant %q: ", prefix, v.Name)
+		errs = append(errs, checkAccountName(at("variants", i, "account"), vprefix+"account", v.Account, declared)...)
+		errs = append(errs, checkLevel(at("variants", i, "permissions"), vprefix+"permissions", v.Permissions)...)
+	}
+	switch w.Action {
+	case "":
+		w.run = s.resolve(w.Account, w.Model, w.Permissions, false)
+		if w.experiment != nil {
+			w.experiment.settings = make([]RunSettings, len(w.experiment.Variants))
+			for i, v := range w.experiment.Variants {
+				w.experiment.settings[i] = s.resolve(cmp.Or(v.Account, w.Account), v.Model, cmp.Or(v.Permissions, w.Permissions), false)
+			}
+		}
+	case ActionInteractive:
+		w.run = s.resolve(w.Account, w.Model, w.Permissions, true)
+	}
+
+	return errs
+}
+
+// resolve gives the settings of an agent run. An interactive session takes its
+// mode from its own level alone, so it never runs with more rights than it names.
+func (s *Set) resolve(account, model, level string, interactive bool) RunSettings {
+	name := cmp.Or(account, s.fileDefaults.Account)
+	a := s.accounts[name]
+	r := RunSettings{Account: name, Harness: a.Harness, ConfigDir: a.ConfigDir, Model: cmp.Or(model, a.Model, s.defaults.Model), Permissions: level}
+	modes, flagMode := levelModes(a.Harness), s.defaults.PermissionMode
+	if a.Harness == HarnessCodex {
+		// The bridge flags name Claude Code values, which Codex would refuse.
+		r.ConfigDir, r.Profile, r.Model, flagMode = a.CodexHome, a.Profile, cmp.Or(model, a.Model), ""
+	}
+	r.PermissionMode = modes[level]
+	if !interactive {
+		r.PermissionMode = cmp.Or(r.PermissionMode, a.PermissionMode, modes[s.fileDefaults.Permissions], flagMode)
+	}
+	for _, path := range []string{s.envFile, a.EnvFile} {
+		if path != "" {
+			r.EnvFiles = append(r.EnvFiles, path)
+		}
+	}
+
+	return r
+}
+
+// Account gives the settings of a worker run on the named account, with the
+// permissions level of its entry. ok is false when the set has no such account.
+func (s *Set) Account(name, level string) (RunSettings, bool) {
+	if _, ok := s.accounts[name]; !ok {
+		return RunSettings{}, false
+	}
+
+	return s.resolve(name, "", level, false), true
+}
+
+// AgentsOff is why the set runs no worker, interactive entry or app prompt,
+// and "" while it runs them. Command entries run either way.
+func (s *Set) AgentsOff() string {
+	return s.agentsOff
+}
+
+// UsedAccounts names, in order, each account that a worker entry, an
+// interactive entry, one of their variants or an app prompt runs on.
+func (s *Set) UsedAccounts() []string {
+	var out []string
+	runs := []RunSettings{}
+	for _, w := range s.work {
+		runs = append(runs, w.runs()...)
+	}
+	if s.appPrompts {
+		runs = append(runs, s.appRun)
+	}
+	for _, r := range runs {
+		if r.Account != "" && !slices.Contains(out, r.Account) {
+			out = append(out, r.Account)
+		}
+	}
+	slices.Sort(out)
+
+	return out
+}
+
+// DeclaredAccounts names, in order, each account the rule file declares,
+// whether or not a rule runs on it.
+func (s *Set) DeclaredAccounts() []string {
+	return slices.Sorted(maps.Keys(s.accounts))
+}
+
+// NeedsClaude reports whether the bridge must find the claude program: a run
+// takes a claude-code account, or the set names no account at all. A set whose
+// runs all take codex accounts runs on a machine with no Claude Code.
+func (s *Set) NeedsClaude() bool {
+	used := s.UsedAccounts()
+	if len(used) == 0 {
+		return true
+	}
+
+	return slices.ContainsFunc(used, func(name string) bool {
+		run, ok := s.Account(name, "")
+
+		return ok && run.Harness == HarnessClaudeCode
+	})
+}
+
+// SetAccountProblems turns off each entry that runs on an account of m, which
+// maps the account to the reason its check failed. A nil m turns none off.
+func (s *Set) SetAccountProblems(m map[string]string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.accountsOff = maps.Clone(m)
+	if s.accountsOff == nil {
+		s.accountsOff = map[string]string{}
+	}
+}
+
+// AccountsOff maps each account that failed its check to the reason. It is
+// nil until SetAccountProblems ran.
+func (s *Set) AccountsOff() map[string]string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return maps.Clone(s.accountsOff)
+}
+
+// offLocked reports whether one of runs takes an account that failed its
+// check. The caller holds mu.
+func (s *Set) offLocked(runs []RunSettings) bool {
+	return slices.ContainsFunc(runs, func(r RunSettings) bool { return s.accountsOff[r.Account] != "" })
+}
+
+// keyNode is the key node at path in the document root, or nil. A string
+// step names a mapping key, and an int step a sequence index.
+func keyNode(root *yaml.Node, path ...any) *yaml.Node {
+	n, key := root, (*yaml.Node)(nil)
+	for _, step := range path {
+		if n == nil {
+			return nil
+		}
+		key = nil
+		switch step := step.(type) {
+		case string:
+			if n.Kind != yaml.MappingNode {
+				return nil
+			}
+			for i := 0; i+1 < len(n.Content); i += 2 {
+				if n.Content[i].Value == step {
+					key = n.Content[i]
+					n = n.Content[i+1]
+
+					break
+				}
+			}
+		case int:
+			if n.Kind == yaml.SequenceNode && step < len(n.Content) {
+				key, n = n.Content[step], n.Content[step]
+			}
+		}
+		if key == nil {
+			return nil
+		}
+	}
+
+	return key
+}
+
+// lineOf is the "line N: " prefix of the key at path, or "" when the file
+// holds no such key.
+func lineOf(root *yaml.Node, path ...any) string {
+	if key := keyNode(root, path...); key != nil {
+		return fmt.Sprintf("line %d: ", key.Line)
+	}
+
+	return ""
+}
+
 // decodeFile decodes the one document that holds content. An empty document,
 // such as a bare --- before or after it, holds nothing and is skipped.
-func decodeFile(data []byte) (File, error) {
+func decodeFile(data []byte) (File, *yaml.Node, error) {
 	var f File
+	var root *yaml.Node
 	docs := yaml.NewDecoder(bytes.NewReader(data))
 	content := -1
 	for i := 0; ; i++ {
-		var doc any
-		if err := docs.Decode(&doc); errors.Is(err, io.EOF) {
+		var node yaml.Node
+		if err := docs.Decode(&node); errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
-			return f, fmt.Errorf("parse rule file: %w", err)
+			return f, nil, fmt.Errorf("parse rule file: %w", err)
+		}
+		var doc any
+		if err := node.Decode(&doc); err != nil {
+			return f, nil, fmt.Errorf("parse rule file: %w", err)
 		}
 		if doc == nil {
 			continue
 		}
 		if content >= 0 {
-			return f, errors.New("parse rule file: it holds a second YAML document after ---, and the bridge reads one")
+			return f, nil, errors.New("parse rule file: it holds a second YAML document after ---, and the bridge reads one")
 		}
 		if err := refuseOldFormat(doc); err != nil {
-			return f, err
+			return f, nil, err
 		}
-		content = i
+		content, root = i, node.Content[0]
 	}
 	if content < 0 {
-		return f, withExample(ErrEmpty)
+		return f, nil, withExample(ErrEmpty)
 	}
 
 	// A second pass, because KnownFields applies to a decoder and not to a node.
@@ -402,11 +829,11 @@ func decodeFile(data []byte) (File, error) {
 	dec.KnownFields(true)
 	for range content + 1 {
 		if err := dec.Decode(&f); err != nil {
-			return f, fmt.Errorf("parse rule file: %w", err)
+			return f, nil, fmt.Errorf("parse rule file: %w", err)
 		}
 	}
 
-	return f, nil
+	return f, root, nil
 }
 
 // refuseOldFormat names the work map for a file that still lists rules or
@@ -422,6 +849,26 @@ func refuseOldFormat(doc any) error {
 	}
 	if _, ok := top["experiments"]; ok {
 		errs = append(errs, errors.New("parse rule file: the experiments list is gone; give a work entry its variants instead, and the experiment takes the name of its kind"))
+	}
+	// A file with no accounts block loads with its agents off, old keys and all.
+	if _, ok := top["accounts"]; !ok {
+		return errors.Join(errs...)
+	}
+	if defaults, ok := top["defaults"].(map[string]any); ok {
+		if _, ok := defaults["model"]; ok {
+			errs = append(errs, errors.New("parse rule file: defaults.model is gone; move its value into the model of the account that defaults.account names"))
+		}
+		if _, ok := defaults["permissionMode"]; ok {
+			errs = append(errs, errors.New("parse rule file: defaults.permissionMode is gone; move its value into the permissionMode of the account that defaults.account names"))
+		}
+	}
+	work, _ := top["work"].(map[string]any)
+	for _, kind := range slices.Sorted(maps.Keys(work)) {
+		if entry, ok := work[kind].(map[string]any); ok {
+			if _, ok := entry["permissionMode"]; ok {
+				errs = append(errs, fmt.Errorf("parse rule file: work %q: permissionMode is gone; use permissions: %s, %s or %s instead", kind, PermissionsReadOnly, PermissionsWorkspace, PermissionsFull))
+			}
+		}
 	}
 
 	return errors.Join(errs...)
@@ -676,6 +1123,18 @@ func (s *Set) AutoUpdateSet() bool {
 	return s.autoUpdateSet
 }
 
+// Collect reports whether the bridge sends the tool calls and the timing of
+// each worker run, and the host samples.
+func (s *Set) Collect() bool {
+	return !s.noCollect
+}
+
+// OpenRouterPrices reports whether the bridge may fetch model prices from
+// openrouter.ai.
+func (s *Set) OpenRouterPrices() bool {
+	return s.openRouterPrices
+}
+
 // AppPrompts reports whether the bridge runs the app prompt of a kind its work
 // map does not hold.
 func (s *Set) AppPrompts() bool {
@@ -777,13 +1236,18 @@ func (s *Set) ProjectID(slug string) string {
 	return ""
 }
 
-// UnknownPermissionModes lists, in kind order, the modes the work entries pass
-// that are not in PermissionModes. The bridge warns about them, and claude has
-// the last word.
+// UnknownPermissionModes lists the modes the accounts pass, in account order,
+// then the --permission-mode flag, that are not in PermissionModes. The bridge
+// warns about them, and claude has the last word.
 func (s *Set) UnknownPermissionModes() []string {
 	var out []string
-	for _, kind := range slices.Sorted(maps.Keys(s.work)) {
-		mode := s.work[kind].PermissionMode
+	modes := []string{}
+	for _, name := range slices.Sorted(maps.Keys(s.accounts)) {
+		if s.accounts[name].Harness != HarnessCodex {
+			modes = append(modes, s.accounts[name].PermissionMode)
+		}
+	}
+	for _, mode := range append(modes, s.defaults.PermissionMode) {
 		if mode != "" && !slices.Contains(PermissionModes, mode) && !slices.Contains(out, mode) {
 			out = append(out, mode)
 		}
@@ -890,20 +1354,56 @@ type Match struct {
 	Project        string
 	Dir            string
 	PermissionMode string
-	Model          string
-	Prompt         string
+	// Permissions is the level of the entry, and "" when it names none.
+	Permissions string
+	Model       string
+	// Effort is the claude --effort level the request asks for, or "".
+	Effort string
+	// Account, Harness, ConfigDir, Profile and EnvFiles come from the account the run
+	// takes. They are empty for a command entry.
+	Account   string
+	Harness   string
+	ConfigDir string
+	Profile   string
+	EnvFiles  []string
+	Prompt    string
 	// Schema is the compact JSON Schema claude's final reply must match.
 	Schema string
 	// Pool is the worker pool the run takes a slot from. It is empty for an
 	// interactive entry.
 	Pool string
 	// Experiment is the experiment of the entry, with its variants in file
-	// order, or nil. Model is empty when it is set.
+	// order, or nil. Model is empty when it is set, and ApplyVariant fills it.
 	Experiment *Experiment
 	// Before is the command that runs ahead of claude, or nil.
 	Before *Before
 	// Command is the command of a command entry, and nil for any other entry.
 	Command *Command
+}
+
+// ApplyVariant gives the match the settings of a variant of its experiment.
+func (m Match) ApplyVariant(v Variant) Match {
+	if m.Experiment == nil {
+		return m
+	}
+
+	return m.withRun(m.Experiment.Settings(v))
+}
+
+func (m Match) withRun(r RunSettings) Match {
+	r = r.clone()
+	m.Account, m.Harness, m.ConfigDir, m.Profile, m.Model, m.PermissionMode, m.EnvFiles = r.Account, r.Harness, r.ConfigDir, r.Profile, r.Model, r.PermissionMode, r.EnvFiles
+	m.Permissions = r.Permissions
+
+	return m
+}
+
+// Run is the settings of an agent run that the match resolved.
+func (m Match) Run() RunSettings {
+	return RunSettings{
+		Account: m.Account, Harness: m.Harness, ConfigDir: m.ConfigDir, Profile: m.Profile, Model: m.Model,
+		PermissionMode: m.PermissionMode, Permissions: m.Permissions, EnvFiles: slices.Clone(m.EnvFiles),
+	}
 }
 
 // KillWork marks dead the work of the project that a project.renamed event

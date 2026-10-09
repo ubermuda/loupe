@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { hubStubbedTest as test } from '../fixtures';
 import { registerAndVerify, submitRedirectingForm } from '../helpers';
 import { coverageScaled } from '../timeouts';
 
@@ -39,6 +40,8 @@ test('registration waits for a delayed successful POST before checking navigatio
     page,
     request,
 }) => {
+    // Three page loads, the mail round trip and the injected delay overran 30 s on a slow runner.
+    test.slow();
     await page.route('**/register', async (route) => {
         if (route.request().method() !== 'POST') {
             await route.continue();

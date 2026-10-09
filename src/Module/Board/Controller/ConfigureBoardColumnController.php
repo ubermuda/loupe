@@ -9,10 +9,10 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Command\ConfigureBoardColumnCommand;
 use App\Module\Board\Command\ConfigureBoardColumnHandler;
 use App\Module\Board\Entity\BoardColumn;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Form\ConfigureBoardColumnFormType;
 use App\Module\Board\Form\ConfigureBoardColumnRequest;
 use App\Module\Board\Security\BoardColumnVoter;
+use App\Module\Workflow\Contract\Actor;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -51,7 +51,7 @@ final class ConfigureBoardColumnController extends AppController
             try {
                 ($this->configureColumn)(new ConfigureBoardColumnCommand(
                     column: $column,
-                    actor: CardReporter::Human,
+                    actor: Actor::Human,
                     label: $data->label ?? '',
                     terminal: $data->terminal,
                     expectedLabel: $data->expectedLabel ?? '',

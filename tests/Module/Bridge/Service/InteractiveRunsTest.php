@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Bridge\Service;
 
+use App\Mercure\LiveUpdatePublisher;
+use App\Mercure\LiveUpdates;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Event\WorkerRunChanged;
+use App\Module\Bridge\Messenger\CollectSessionUsage;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\Service\InteractiveRuns;
@@ -19,14 +22,25 @@ use App\Tests\Support\DispatchedEvents;
 use Psr\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Mercure\Jwt\StaticTokenProvider;
+use Symfony\Component\Mercure\MockHub;
+use Symfony\Component\Mercure\Update;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
+use Symfony\Contracts\Service\ResetInterface;
+use Ubermuda\FeatureFlagsBundle\Reader\FeatureFlagReaderInterface;
+use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class InteractiveRunsTest extends KernelTestCase
 {
     use BridgeScenario;
 
     private const string NOW = '2026-09-23 12:00:00';
+
+    /** @var list<Update> */
+    private array $runsChanged = [];
 
     public function test_open_starts_a_running_interactive_run_with_one_state(): void
     {
@@ -116,6 +130,31 @@ final class InteractiveRunsTest extends KernelTestCase
         self::assertEquals($failed->id, $late->id);
         self::assertSame(2, $this->runCount($project));
         self::assertSame(WorkerRunState::Closed, $this->reload($again)->state);
+    }
+
+    /** An open Runs page shows the harness fields, so a retry that fills one must reload it. */
+    public function test_a_launch_retry_that_names_the_harness_tells_the_runs_page(): void
+    {
+        $project = $this->scenario('interactive-launch-harness-publish', recordRunsChanged: true);
+        $cardId = Uuid::v7();
+        $sessionId = Uuid::v4();
+        $failedSession = Uuid::v4();
+        $bridgeId = Uuid::v4();
+        $at = new \DateTimeImmutable(self::NOW);
+
+        $this->runs()->recordLaunch($project, $cardId, 3, $sessionId, 'design', $bridgeId, harness: 'codex');
+        self::assertCount(1, $this->publishedRunsChanged());
+        $this->runs()->recordLaunchFailure($project, $cardId, 3, $failedSession, 'design', $bridgeId, 'exited 1', $at, harness: 'codex');
+        self::assertCount(1, $this->publishedRunsChanged());
+
+        $this->runs()->recordLaunch($project, $cardId, 3, $sessionId, 'design', $bridgeId, harness: 'codex');
+        $this->runs()->recordLaunchFailure($project, $cardId, 3, $failedSession, 'design', $bridgeId, 'exited 1', $at, harness: 'codex');
+        self::assertCount(0, $this->publishedRunsChanged());
+
+        $this->runs()->recordLaunch($project, $cardId, 3, $sessionId, 'design', $bridgeId, harnessSessionId: 'thread-1');
+        self::assertCount(1, $this->publishedRunsChanged());
+        $this->runs()->recordLaunchFailure($project, $cardId, 3, $failedSession, 'design', $bridgeId, 'exited 1', $at, model: 'gpt-5');
+        self::assertCount(1, $this->publishedRunsChanged());
     }
 
     public function test_a_launch_failure_records_a_run_that_never_started(): void
@@ -260,9 +299,10 @@ final class InteractiveRunsTest extends KernelTestCase
         $sessionId = Uuid::v4();
         $this->runs()->open($project, $cardId, 3, $sessionId, 'design');
 
-        $closed = $this->runs()->close($project, $cardId, $sessionId);
+        [$closed, $closedNow] = $this->runs()->close($project, $cardId, $sessionId);
 
         self::assertNotNull($closed);
+        self::assertTrue($closedNow);
         $run = $this->reload($closed);
         self::assertSame(WorkerRunState::Closed, $run->state);
         self::assertSame(self::NOW, $run->endedAt?->format('Y-m-d H:i:s'));
@@ -277,9 +317,10 @@ final class InteractiveRunsTest extends KernelTestCase
         $this->runs()->open($project, $cardId, 3, $sessionId, 'design');
         $this->runs()->close($project, $cardId, $sessionId);
 
-        $again = $this->runs()->close($project, $cardId, $sessionId);
+        [$again, $closedNow] = $this->runs()->close($project, $cardId, $sessionId);
 
         self::assertNotNull($again);
+        self::assertFalse($closedNow);
         self::assertSame(WorkerRunState::Closed, $this->reload($again)->state);
         self::assertSame([['running', self::NOW], ['closed', self::NOW]], $this->history($again));
     }
@@ -293,8 +334,9 @@ final class InteractiveRunsTest extends KernelTestCase
         $run = $this->runs()->open($project, $cardId, 3, $sessionId, 'design');
         $this->closeBehindTheEntityManager($run);
 
-        $closed = $this->runs()->close($project, $cardId, $sessionId);
+        [$closed, $closedNow] = $this->runs()->close($project, $cardId, $sessionId);
 
+        self::assertFalse($closedNow);
         self::assertEquals($run->id, $closed?->id);
         self::assertSame(WorkerRunState::Closed, $closed?->state);
         self::assertSame([['running', self::NOW], ['closed', self::NOW]], $this->history($run));
@@ -318,7 +360,7 @@ final class InteractiveRunsTest extends KernelTestCase
     {
         $project = $this->scenario('interactive-close-none');
 
-        self::assertNull($this->runs()->close($project, Uuid::v7(), Uuid::v4()));
+        self::assertSame([null, false], $this->runs()->close($project, Uuid::v7(), Uuid::v4()));
     }
 
     public function test_close_by_id_closes_only_an_interactive_run_of_the_project(): void
@@ -436,10 +478,84 @@ final class InteractiveRunsTest extends KernelTestCase
         self::assertSame([$depth], $changes->transactionDepths());
     }
 
-    private function scenario(string $name): Project
+    public function test_each_close_queues_one_usage_request_and_a_second_close_none(): void
+    {
+        $project = $this->scenario('interactive-usage-close');
+        $cardId = Uuid::v7();
+        $sessionId = Uuid::v4();
+        $run = $this->runs()->open($project, $cardId, 3, $sessionId, 'design');
+        $byId = $this->runs()->open($project, Uuid::v7(), 4, Uuid::v4(), 'design');
+        $byIdRunId = $byId->id ?? throw new \LogicException('An opened run has an id.');
+
+        $this->runs()->close($project, $cardId, $sessionId);
+        $this->runs()->close($project, $cardId, $sessionId);
+        $this->runs()->closeById($project, $byIdRunId);
+        $this->runs()->closeById($project, $byIdRunId);
+
+        self::assertSame([[(string) $project->id, (string) $run->id], [(string) $project->id, (string) $byIdRunId]], $this->usageRequests());
+    }
+
+    public function test_a_move_queues_one_usage_request_for_each_run_it_closes(): void
+    {
+        $project = $this->scenario('interactive-usage-move');
+        $cardId = Uuid::v7();
+        $first = $this->runs()->open($project, $cardId, 3, Uuid::v4(), 'design');
+        $second = $this->runs()->open($project, $cardId, 3, Uuid::v4(), 'review');
+        $this->runs()->open($project, Uuid::v7(), 4, Uuid::v4(), 'design');
+
+        $this->runs()->closeOnMove($project, [$cardId]);
+        $this->runs()->closeOnMove($project, [$cardId]);
+
+        $expected = [[(string) $project->id, (string) $first->id], [(string) $project->id, (string) $second->id]];
+        $actual = $this->usageRequests();
+        sort($expected);
+        sort($actual);
+        self::assertSame($expected, $actual);
+    }
+
+    private function recordRunsChanged(): void
+    {
+        self::getContainer()->set('mercure.hub.default', new MockHub(
+            'http://mercure/.well-known/mercure',
+            new StaticTokenProvider('token'),
+            function (Update $update): string {
+                if (str_contains($update->getData(), WorkerRunChangedPublisher::TYPE)) {
+                    $this->runsChanged[] = $update;
+                }
+
+                return 'id';
+            },
+        ));
+
+        $flags = self::getContainer()->get(FeatureFlagRepository::class);
+        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
+        $flags->findAllIndexed()[LiveUpdates::FLAG]->value = true;
+        $this->em()->flush();
+        $reader = self::getContainer()->get(FeatureFlagReaderInterface::class);
+        self::assertInstanceOf(ResetInterface::class, $reader);
+        $reader->reset();
+    }
+
+    /** @return list<Update> */
+    private function publishedRunsChanged(): array
+    {
+        $live = self::getContainer()->get(LiveUpdatePublisher::class);
+        self::assertInstanceOf(LiveUpdatePublisher::class, $live);
+        $live->publish();
+        $published = $this->runsChanged;
+        $this->runsChanged = [];
+
+        return $published;
+    }
+
+    private function scenario(string $name, bool $recordRunsChanged = false): Project
     {
         self::bootKernel();
         self::getContainer()->set('clock', new MockClock(self::NOW));
+        $this->asyncTransport()->reset();
+        if ($recordRunsChanged) {
+            $this->recordRunsChanged();
+        }
         $em = $this->em();
 
         return $this->project($em, $this->user($em, $name.'@example.com'), 'Project '.substr(md5($name), 0, 8));
@@ -452,12 +568,36 @@ final class InteractiveRunsTest extends KernelTestCase
         $clock = $container->get('clock');
         $publisher = $container->get(WorkerRunChangedPublisher::class);
         $events = $container->get('event_dispatcher');
+        $bus = $container->get(MessageBusInterface::class);
         self::assertInstanceOf(WorkerRunRepository::class, $workerRuns);
         self::assertInstanceOf(ClockInterface::class, $clock);
         self::assertInstanceOf(WorkerRunChangedPublisher::class, $publisher);
         self::assertInstanceOf(EventDispatcherInterface::class, $events);
+        self::assertInstanceOf(MessageBusInterface::class, $bus);
 
-        return new InteractiveRuns($workerRuns, $this->searchIndexer(), $this->em(), $clock, $publisher, $events);
+        return new InteractiveRuns($workerRuns, $this->searchIndexer(), $this->em(), $clock, $publisher, $events, $bus);
+    }
+
+    private function asyncTransport(): InMemoryTransport
+    {
+        $transport = self::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transport);
+
+        return $transport;
+    }
+
+    /** @return list<array{string, string}> project and run of each queued usage request */
+    private function usageRequests(): array
+    {
+        $requests = [];
+        foreach ($this->asyncTransport()->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if ($message instanceof CollectSessionUsage) {
+                $requests[] = [$message->projectId, $message->runId];
+            }
+        }
+
+        return $requests;
     }
 
     private function closeBehindTheEntityManager(WorkerRun $run): void

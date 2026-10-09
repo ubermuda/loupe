@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Entity;
 
-use App\Module\Board\Entity\Card;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use Doctrine\ORM\Mapping as ORM;
@@ -59,10 +58,14 @@ class WorkflowRuleState
     #[ORM\Column(options: ['default' => false])]
     public bool $repaired = false;
 
+    /** The inbox item of the ask the rule opened and the engine has not withdrawn. No foreign key, as the item may go. */
+    #[ORM\Column(type: UuidType::NAME, nullable: true)]
+    public ?Uuid $askItemId = null;
+
     public function __construct(
-        #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
-        #[ORM\ManyToOne(targetEntity: Card::class)]
-        public readonly Card $card,
+        /** No foreign key, as the card may go. A Board listener deletes the row through WorkflowRowCleanup. */
+        #[ORM\Column(type: UuidType::NAME)]
+        public Uuid $cardId,
 
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
         #[ORM\ManyToOne(targetEntity: Project::class)]
@@ -76,7 +79,7 @@ class WorkflowRuleState
     ) {
     }
 
-    /** Forgets the rule, for a card whose slot the rule does not apply to. The fingerprint stays. */
+    /** Forgets the rule, for a card whose slot the rule does not apply to. The fingerprint stays. The caller withdraws the ask first. */
     public function reset(): void
     {
         $this->truth = false;
@@ -88,5 +91,6 @@ class WorkflowRuleState
         $this->subjectPullRequestId = null;
         $this->workRequestId = null;
         $this->repaired = false;
+        $this->askItemId = null;
     }
 }

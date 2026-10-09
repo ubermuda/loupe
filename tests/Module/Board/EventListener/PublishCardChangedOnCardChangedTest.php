@@ -19,8 +19,6 @@ use App\Module\Board\Command\DeleteFeedbackHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\EventListener\PublishCardChangedOnCardChanged;
@@ -42,6 +40,7 @@ use App\Module\SiteReview\Command\ResolveCommentHandler;
 use App\Module\SiteReview\Command\ResolveSiteReviewCommentCommand;
 use App\Module\SiteReview\Command\ResolveSiteReviewCommentHandler;
 use App\Module\SiteReview\Entity\SiteReviewComment;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\FeatureFlags;
 use Doctrine\ORM\EntityManagerInterface;
@@ -106,7 +105,7 @@ final class PublishCardChangedOnCardChangedTest extends KernelTestCase
 
     public function test_creating_a_card_publishes_created_with_content(): void
     {
-        $card = $this->service(CreateCardHandler::class)(new CreateCardCommand($this->project, 'Fix the footer', 'body', CardType::Bug));
+        $card = $this->service(CreateCardHandler::class)(new CreateCardCommand($this->project, 'Fix the footer', 'body', 'bug'));
 
         self::assertSame([$this->message($card, 'created', true)], $this->drain());
     }
@@ -116,19 +115,19 @@ final class PublishCardChangedOnCardChangedTest extends KernelTestCase
         $card = $this->card();
         $update = $this->service(UpdateCardHandler::class);
 
-        $update(new UpdateCardCommand($card, CardReporter::Human, title: 'A new title'));
+        $update(new UpdateCardCommand($card, Actor::Human, title: 'A new title'));
         self::assertSame([$this->message($card, 'updated', true)], $this->drain());
 
-        $update(new UpdateCardCommand($card, CardReporter::Human, body: 'A new body'));
+        $update(new UpdateCardCommand($card, Actor::Human, body: 'A new body'));
         self::assertSame([$this->message($card, 'updated', true)], $this->drain());
 
-        $update(new UpdateCardCommand($card, CardReporter::Human, type: CardType::Tooling));
+        $update(new UpdateCardCommand($card, Actor::Human, type: 'tooling'));
         self::assertSame([$this->message($card, 'updated', false)], $this->drain());
 
-        $update(new UpdateCardCommand($card, CardReporter::Human, column: $this->column($this->project, 'next')));
+        $update(new UpdateCardCommand($card, Actor::Human, column: $this->column($this->project, 'next')));
         self::assertSame([$this->message($card, 'updated', false)], $this->drain());
 
-        $update(new UpdateCardCommand($card, CardReporter::Human, pullRequestUrls: ['https://github.com/acme/app/pull/7']));
+        $update(new UpdateCardCommand($card, Actor::Human, pullRequestUrls: ['https://github.com/acme/app/pull/7']));
         self::assertSame([$this->message($card, 'updated', false)], $this->drain());
     }
 
@@ -136,7 +135,7 @@ final class PublishCardChangedOnCardChangedTest extends KernelTestCase
     {
         $card = $this->card();
 
-        $this->service(UpdateCardHandler::class)(new UpdateCardCommand($card, CardReporter::Human, title: $card->title));
+        $this->service(UpdateCardHandler::class)(new UpdateCardCommand($card, Actor::Human, title: $card->title));
 
         self::assertSame([], $this->drain());
     }
@@ -146,7 +145,7 @@ final class PublishCardChangedOnCardChangedTest extends KernelTestCase
         $card = $this->card();
         $expected = $this->message($card, 'deleted', false);
 
-        $this->service(DeleteCardHandler::class)(new DeleteCardCommand($card, CardReporter::Human));
+        $this->service(DeleteCardHandler::class)(new DeleteCardCommand($card, Actor::Human));
 
         self::assertSame([$expected], $this->drain());
     }
@@ -166,7 +165,7 @@ final class PublishCardChangedOnCardChangedTest extends KernelTestCase
         $this->em->getEventManager()->addEventListener(Events::postFlush, $failing);
 
         try {
-            $this->service(CreateCardHandler::class)(new CreateCardCommand($this->project, 'Lost', 'body', CardType::Bug));
+            $this->service(CreateCardHandler::class)(new CreateCardCommand($this->project, 'Lost', 'body', 'bug'));
             self::fail('a failed transaction must propagate');
         } catch (\RuntimeException $e) {
             self::assertSame('the transaction failed after the flush', $e->getMessage());
@@ -204,7 +203,7 @@ final class PublishCardChangedOnCardChangedTest extends KernelTestCase
         });
 
         try {
-            $this->service(UpdateCardHandler::class)(new UpdateCardCommand($card, CardReporter::Human, column: $this->column($this->project, 'next')));
+            $this->service(UpdateCardHandler::class)(new UpdateCardCommand($card, Actor::Human, column: $this->column($this->project, 'next')));
             self::fail('a failed transaction must propagate');
         } catch (\RuntimeException $e) {
             self::assertSame('the transaction failed after the move', $e->getMessage());

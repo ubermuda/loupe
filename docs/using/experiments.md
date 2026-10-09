@@ -1,13 +1,13 @@
 ---
-title: "Activity: Experiments"
-description: "The Experiments tab of the Activity page, which compares the variants of each experiment a bridge runs."
+title: "Analytics: Experiments"
+description: "The Experiments tab of the Analytics page, which compares the variants of each experiment a bridge runs."
 ---
 
 An [experiment](../extending/cli-bridge.md#experiments) splits the cards of a
-kind of work between models. The **Experiments** tab of the project's
-**Activity** page shows how each variant did.
+kind of work between models or accounts. The **Experiments** tab of the project's
+**Analytics** page shows how each variant did.
 
-Open **Activity** in the project sidebar, then the **Experiments** tab.
+Open **Analytics** in the project sidebar, then the **Experiments** tab.
 
 ## The list of experiments
 
@@ -17,7 +17,10 @@ run comes first. Select a name to open the comparison of that experiment.
 
 A project with no experiment shows how to start one. Give a worker entry of the
 `work:` map in `rules.yaml` its variants. The kind of the entry names the
-experiment.
+experiment. A variant sets a `model` or an
+[`account`](../extending/cli-bridge.md#accounts), and it can set `permissions`.
+A variant with no model takes the model of its account, or the `--model` flag
+of the bridge when the account names none.
 
 ## The comparison
 
@@ -78,6 +81,10 @@ merged cards that have the value, such as a cost or the two times of a merge.
 
 A metric with no clear answer shows a **Too few cards** chip. An experiment
 with one variant never gives a clear answer.
+
+Press **Analyse this experiment** below the metrics to ask an agent to explain
+the comparison. The link opens the [Reports](analytics.md#reports) tab, with
+the topic **Experiment** and this experiment already chosen.
 
 ## Cards that are left out
 

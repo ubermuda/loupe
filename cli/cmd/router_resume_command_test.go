@@ -105,6 +105,11 @@ func TestDrainWaitsForACommandHandler(t *testing.T) {
 // planWorkRules runs the plan kind as a worker and the teardown kind as a
 // command.
 const planWorkRules = `
+accounts:
+  claude:
+    harness: claude-code
+defaults:
+  account: claude
 projects:
   loupe:
     dir: {dir}
@@ -245,6 +250,26 @@ func TestTheResumeOfAClosedAskSaysTheOwnerAnswered(t *testing.T) {
 	}
 	if spec := calls[0]; !spec.resume || spec.sessionID != testSession || spec.prompt != directive.RenderResumeAskClosed() {
 		t.Fatalf("spec = %+v", spec)
+	}
+}
+
+// A resume runs with the model and the effort the work request of the run
+// asked for, as the first run did.
+func TestAPersonsResumeKeepsTheModelAndTheEffortOfTheRun(t *testing.T) {
+	h := newWorkHarness(t)
+	h.withWork()
+	h.states()
+	h.worker.result = finishedRun
+	c := workResumeOf(endedRunKey)
+	c.Model, c.Effort = "opus", "high"
+
+	if state, reason := h.resume(c); state != api.CommandDone {
+		t.Fatalf("resume = %s %q", state, reason)
+	}
+
+	calls := h.worker.recorded()
+	if len(calls) != 1 || calls[0].model != "opus" || calls[0].effort != "high" {
+		t.Fatalf("workers = %+v", calls)
 	}
 }
 
@@ -399,7 +424,7 @@ func TestAPersonsResumeWaitsForTheWorkerOfItsCard(t *testing.T) {
 // A resume of a run about a subject that is no card reads no card, and the
 // run it queues names the subject.
 func TestAResumeOfAnotherSubjectReadsNoCard(t *testing.T) {
-	h := newHarnessWith(t, "projects:\n  loupe:\n    dir: {dir}\nwork:\n  analyse:\n    subject: analysis\n    prompt: Analyse {subjectId}.\n", rules.Defaults{})
+	h := newHarnessWith(t, "accounts:\n  claude:\n    harness: claude-code\ndefaults:\n  account: claude\nprojects:\n  loupe:\n    dir: {dir}\nwork:\n  analyse:\n    subject: analysis\n    prompt: Analyse {subjectId}.\n", rules.Defaults{})
 	rec := h.states()
 	h.transcripts(true)
 	reads := &cardReads{err: errors.New("card read failed (HTTP 404)")}

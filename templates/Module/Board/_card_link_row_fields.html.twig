@@ -4,11 +4,11 @@
     <div class="lp-card-link-row__card">
         {{ form_label(row.card, null, {label_attr: {class: 'sr-only'}}) }}
         {{ form_widget(row.card) }}
-        <div class="lp-field-errors">{{ form_errors(row.card) }}</div>
+        <twig:Ds:FieldErrors :fieldView="row.card" />
     </div>
     <div class="lp-card-link-row__kind">
         {{ form_label(row.kind, null, {label_attr: {class: 'sr-only'}}) }}
-        {{ form_widget(row.kind, {attr: {class: 'lp-input lp-select'}}) }}
-        <div class="lp-field-errors">{{ form_errors(row.kind) }}</div>
+        {{ form_widget(row.kind, {attr: {class: ds_input_class('select')}}) }}
+        <twig:Ds:FieldErrors :fieldView="row.kind" />
     </div>
 </div>

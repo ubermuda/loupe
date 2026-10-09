@@ -11,11 +11,10 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardLinkKind;
-use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Board\Service\BoardColumnSeeder;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Support\OAuthScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -33,7 +32,7 @@ final class CardLinkToolSchemaTest extends WebTestCase
         $client = static::createClient();
         [$raw, $project] = $this->boundToken($client);
         [$a, $b] = [$this->cardIn($project), $this->cardIn($project)];
-        $this->handler(UpdateCardHandler::class)(new UpdateCardCommand($b, CardReporter::Agent, relatedCards: [new CardLinkInput((string) $a->id, CardLinkKind::BlockedBy)]));
+        $this->handler(UpdateCardHandler::class)(new UpdateCardCommand($b, Actor::Agent, relatedCards: [new CardLinkInput((string) $a->id, CardLinkKind::BlockedBy)]));
         $before = $this->links()->findForCard($a)[0];
         $linkId = (string) $before->id;
 
@@ -125,7 +124,7 @@ final class CardLinkToolSchemaTest extends WebTestCase
 
     private function cardIn(Project $project): Card
     {
-        return $this->handler(CreateCardHandler::class)(new CreateCardCommand($project, 'Ship it', 'Body', CardType::Feature));
+        return $this->handler(CreateCardHandler::class)(new CreateCardCommand($project, 'Ship it', 'Body', 'feature'));
     }
 
     /**

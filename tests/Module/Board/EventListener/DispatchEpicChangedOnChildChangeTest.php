@@ -11,10 +11,9 @@ use App\Module\Board\Command\DeleteCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -62,7 +61,7 @@ final class DispatchEpicChangedOnChildChangeTest extends KernelTestCase
     public function test_a_card_that_joins_an_epic_changes_the_epic(): void
     {
         $project = $this->makeProject('epic-face-join');
-        $epic = $this->card($project, type: CardType::Epic);
+        $epic = $this->card($project, type: 'epic');
         $this->changes = [];
 
         $this->card($project, parent: $epic);
@@ -73,7 +72,7 @@ final class DispatchEpicChangedOnChildChangeTest extends KernelTestCase
     public function test_a_card_that_leaves_an_epic_changes_the_epic(): void
     {
         $project = $this->makeProject('epic-face-leave');
-        $epic = $this->card($project, type: CardType::Epic);
+        $epic = $this->card($project, type: 'epic');
         $child = $this->card($project, parent: $epic);
         $this->changes = [];
 
@@ -85,8 +84,8 @@ final class DispatchEpicChangedOnChildChangeTest extends KernelTestCase
     public function test_a_card_that_changes_epic_changes_both_epics(): void
     {
         $project = $this->makeProject('epic-face-switch');
-        $from = $this->card($project, type: CardType::Epic);
-        $to = $this->card($project, type: CardType::Epic);
+        $from = $this->card($project, type: 'epic');
+        $to = $this->card($project, type: 'epic');
         $child = $this->card($project, parent: $from);
         $this->changes = [];
 
@@ -99,11 +98,11 @@ final class DispatchEpicChangedOnChildChangeTest extends KernelTestCase
     public function test_a_deleted_child_changes_its_epic(): void
     {
         $project = $this->makeProject('epic-face-delete');
-        $epic = $this->card($project, type: CardType::Epic);
+        $epic = $this->card($project, type: 'epic');
         $child = $this->card($project, parent: $epic);
         $this->changes = [];
 
-        ($this->deleteCard)(new DeleteCardCommand($this->reload($child), CardReporter::Human));
+        ($this->deleteCard)(new DeleteCardCommand($this->reload($child), Actor::Human));
         $this->em->clear();
 
         self::assertTrue($this->epicChanged($epic));
@@ -112,7 +111,7 @@ final class DispatchEpicChangedOnChildChangeTest extends KernelTestCase
     public function test_a_child_that_finishes_changes_its_epic(): void
     {
         $project = $this->makeProject('epic-face-finish');
-        $epic = $this->card($project, type: CardType::Epic);
+        $epic = $this->card($project, type: 'epic');
         $child = $this->card($project, parent: $epic);
         $this->card($project, parent: $epic);
         $this->changes = [];
@@ -125,7 +124,7 @@ final class DispatchEpicChangedOnChildChangeTest extends KernelTestCase
     public function test_a_child_that_reopens_changes_its_epic(): void
     {
         $project = $this->makeProject('epic-face-reopen');
-        $epic = $this->card($project, type: CardType::Epic);
+        $epic = $this->card($project, type: 'epic');
         $child = $this->card($project, column: 'done', parent: $epic);
         $this->card($project, parent: $epic);
         $this->changes = [];
@@ -138,7 +137,7 @@ final class DispatchEpicChangedOnChildChangeTest extends KernelTestCase
     public function test_a_child_that_leaves_the_backlog_changes_its_epic(): void
     {
         $project = $this->makeProject('epic-face-leave-backlog');
-        $epic = $this->card($project, column: 'next', type: CardType::Epic);
+        $epic = $this->card($project, column: 'next', type: 'epic');
         $child = $this->card($project, parent: $epic);
         $this->changes = [];
 
@@ -150,7 +149,7 @@ final class DispatchEpicChangedOnChildChangeTest extends KernelTestCase
     public function test_a_child_that_enters_the_backlog_changes_its_epic(): void
     {
         $project = $this->makeProject('epic-face-enter-backlog');
-        $epic = $this->card($project, column: 'next', type: CardType::Epic);
+        $epic = $this->card($project, column: 'next', type: 'epic');
         $child = $this->card($project, column: 'in-progress', parent: $epic);
         $this->changes = [];
 
@@ -163,7 +162,7 @@ final class DispatchEpicChangedOnChildChangeTest extends KernelTestCase
     public function test_a_child_ranked_inside_the_backlog_changes_its_epic(): void
     {
         $project = $this->makeProject('epic-face-backlog-rank');
-        $epic = $this->card($project, column: 'next', type: CardType::Epic);
+        $epic = $this->card($project, column: 'next', type: 'epic');
         $this->card($project, parent: $epic);
         $child = $this->card($project, parent: $epic);
         $this->changes = [];
@@ -176,7 +175,7 @@ final class DispatchEpicChangedOnChildChangeTest extends KernelTestCase
     public function test_a_child_that_moves_between_open_columns_leaves_its_epic_alone(): void
     {
         $project = $this->makeProject('epic-face-open-move');
-        $epic = $this->card($project, type: CardType::Epic);
+        $epic = $this->card($project, type: 'epic');
         $child = $this->card($project, column: 'next', parent: $epic);
         $this->card($project, column: 'next', parent: $epic);
         $this->changes = [];
@@ -202,7 +201,7 @@ final class DispatchEpicChangedOnChildChangeTest extends KernelTestCase
         return false;
     }
 
-    private function card(Project $project, string $column = 'backlog', CardType $type = CardType::Feature, ?Card $parent = null): Card
+    private function card(Project $project, string $column = 'backlog', string $type = 'feature', ?Card $parent = null): Card
     {
         $card = ($this->createCard)(new CreateCardCommand(
             $this->reloadProject($project),
@@ -222,7 +221,7 @@ final class DispatchEpicChangedOnChildChangeTest extends KernelTestCase
         $fresh = $this->reload($card);
         ($this->updateCard)(new UpdateCardCommand(
             $fresh,
-            CardReporter::Human,
+            Actor::Human,
             column: null === $column ? null : $this->column($fresh->project, $column),
             position: $position,
             parentCardId: $parentCardId,

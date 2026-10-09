@@ -69,14 +69,20 @@ class BridgeCommandRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
-    /** Locked and read fresh like findOneForBridgeLocked. The unique index allows one pending command per run. */
+    /**
+     * Locked and read fresh like findOneForBridgeLocked. A run has one bridge, so
+     * the unique index allows one such command. A usage collection can wait on
+     * several bridges at once, and a person never cancels it.
+     */
     public function findPendingForRunLocked(WorkerRun $run): ?BridgeCommand
     {
         return $this->createQueryBuilder('c')
             ->andWhere('c.workerRun = :run')
             ->andWhere('c.state = :pending')
+            ->andWhere('c.kind != :collect')
             ->setParameter('run', $run)
             ->setParameter('pending', BridgeCommandState::Pending->value)
+            ->setParameter('collect', BridgeCommandKind::CollectSessionUsage->value)
             ->getQuery()
             ->setHint(Query::HINT_REFRESH, true)
             ->setLockMode(LockMode::PESSIMISTIC_WRITE)
@@ -92,6 +98,22 @@ class BridgeCommandRepository extends ServiceEntityRepository
             ->andWhere('c.state = :pending')
             ->setParameter('run', $run)
             ->setParameter('pending', BridgeCommandState::Pending->value)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /** Reads the state alone, like hasPendingForRun. */
+    public function hasPendingCollectionForRun(WorkerRun $run): bool
+    {
+        return null !== $this->createQueryBuilder('c')
+            ->select('1')
+            ->andWhere('c.workerRun = :run')
+            ->andWhere('c.state = :pending')
+            ->andWhere('c.kind = :collect')
+            ->setParameter('run', $run)
+            ->setParameter('pending', BridgeCommandState::Pending->value)
+            ->setParameter('collect', BridgeCommandKind::CollectSessionUsage->value)
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();

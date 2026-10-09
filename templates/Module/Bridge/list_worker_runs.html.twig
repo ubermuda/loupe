@@ -31,43 +31,64 @@
                 <div class="lp-filter-search">
                     <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
                     <label class="sr-only" for="worker-run-search">{{ 'bridge.worker_runs.filter.search_label'|trans }}</label>
-                    <input type="search"
+                    <twig:Ds:Input type="search"
                            id="worker-run-search"
                            name="search"
-                           class="lp-input lp-filter-input"
+                           class="lp-filter-input"
                            value="{{ listQuery.search }}"
                            placeholder="{{ 'bridge.worker_runs.filter.search_placeholder'|trans }}"
                            data-autosearch-target="field"
-                           data-action="input->autosearch#search">
+                           data-action="input->autosearch#search" />
                 </div>
 
                 <label class="sr-only" for="worker-run-outcome">{{ 'bridge.worker_runs.filter.outcome_label'|trans }}</label>
-                <select id="worker-run-outcome"
+                <twig:Ds:Select id="worker-run-outcome"
                         name="outcome"
-                        class="lp-input lp-select lp-filter-select"
+                        class="lp-filter-select"
                         data-action="change->autosearch#search">
                     <option value="">{{ 'bridge.worker_runs.filter.all_outcomes'|trans }}</option>
                     <option value="open"{{ listQuery.open ? ' selected' : '' }}>{{ 'bridge.worker_runs.filter.open_runs'|trans }}</option>
                     {% for state in states %}
                         <option value="{{ state.value }}"{{ listQuery.state == state ? ' selected' : '' }}>{{ state.translationKey()|trans }}</option>
                     {% endfor %}
-                </select>
+                </twig:Ds:Select>
             </div>
 
             {# One bridge reports many runs, so the control waits until a second
                bridge makes it a choice rather than a label. #}
             {% if bridgeIds|length > 1 %}
                 <label class="sr-only" for="worker-run-bridge">{{ 'bridge.worker_runs.filter.bridge_label'|trans }}</label>
-                <select id="worker-run-bridge"
+                <twig:Ds:Select id="worker-run-bridge"
                         name="bridge"
-                        class="lp-input lp-select lp-filter-select"
+                        class="lp-filter-select"
                         data-action="change->autosearch#search">
                     <option value="">{{ 'bridge.worker_runs.filter.all_bridges'|trans }}</option>
                     {% for bridgeId in bridgeIds %}
                         <option value="{{ bridgeId }}"{{ listQuery.bridgeId == bridgeId ? ' selected' : '' }}>{{ bridgeLabels[bridgeId.toRfc4122()] }}</option>
                     {% endfor %}
-                </select>
+                </twig:Ds:Select>
             {% endif %}
+
+            {# Each select waits for a second value, as the bridge select does. A set filter keeps its select, so the reader can clear it. #}
+            {% for filter in [
+                {name: 'harness', values: harnesses, current: listQuery.harness, label: 'bridge.worker_runs.filter.harness_label', all: 'bridge.worker_runs.filter.all_harnesses'},
+                {name: 'account', values: accounts, current: listQuery.account, label: 'bridge.worker_runs.filter.account_label', all: 'bridge.worker_runs.filter.all_accounts'},
+                {name: 'model', values: models, current: listQuery.model, label: 'bridge.worker_runs.filter.model_label', all: 'bridge.worker_runs.filter.all_models'},
+            ] %}
+                {% if filter.values|length > 1 or filter.current is not null %}
+                    {% set values = filter.current is null or filter.current in filter.values ? filter.values : filter.values|merge([filter.current]) %}
+                    <label class="sr-only" for="worker-run-{{ filter.name }}">{{ filter.label|trans }}</label>
+                    <twig:Ds:Select id="worker-run-{{ filter.name }}"
+                            name="{{ filter.name }}"
+                            class="lp-filter-select"
+                            data-action="change->autosearch#search">
+                        <option value="">{{ filter.all|trans }}</option>
+                        {% for value in values %}
+                            <option value="{{ value }}"{{ filter.current == value ? ' selected' : '' }}>{{ value }}</option>
+                        {% endfor %}
+                    </twig:Ds:Select>
+                {% endif %}
+            {% endfor %}
 
             <a href="{{ path('app_project_worker_runs', {id: project.id}) }}"
                data-autosearch-target="clearButton"
@@ -112,14 +133,14 @@
                     {% if item.cardTitle is not null %}<span class="lp-data-table__title">{{ item.cardTitle }}</span>{% endif %}
                     <span class="sr-only">{{ 'bridge.worker_runs.details.open'|trans }}</span>
                 </button>
-                {% if item.interactive %}<span class="lp-tag lp-tag--neutral">{{ 'bridge.worker_runs.interactive'|trans }}</span>{% endif %}
-                {% if item.command %}<span class="lp-tag lp-tag--neutral" data-worker-run-command>{{ 'bridge.worker_runs.command'|trans }}</span>{% endif %}
+                {% if item.interactive %}<twig:Ds:Tag tone="neutral">{{ 'bridge.worker_runs.interactive'|trans }}</twig:Ds:Tag>{% endif %}
+                {% if item.command %}<twig:Ds:Tag tone="neutral" data-worker-run-command>{{ 'bridge.worker_runs.command'|trans }}</twig:Ds:Tag>{% endif %}
             </div>
             <div class="lp-worker-run-outcome">
-                <twig:StatusChip :modifier="item.state.chipModifier()" :label="item.state.translationKey()|trans" :reason="run.failureReason" :id="'worker-run-reason-' ~ run.id" />
+                <twig:Ds:StatusChip :modifier="item.state.chipModifier()" :label="item.state.translationKey()|trans" :reason="run.failureReason" :id="'worker-run-reason-' ~ run.id" />
                 {% if item.control and item.control.label %}{% set controlLabel = item.control.label|trans(item.control.labelParameters) %}<span class="lp-worker-run-control-label{{ item.control.labelWarns ? ' lp-worker-run-control-label--warns' : '' }}" title="{{ controlLabel }}" data-worker-run-control-label>{{ controlLabel }}</span>{% endif %}
             </div>
-            <span class="lp-data-table__cell">{{ run.workKind ?? 'bridge.worker_runs.no_work_kind'|trans }}{% if run.workerPool is not null %} <span class="lp-tag lp-tag--neutral" data-worker-pool>{{ 'bridge.worker_runs.worker_pool_label'|trans({'%pool%': run.workerPool}) }}</span>{% endif %}</span>
+            <span class="lp-data-table__cell">{{ run.workKind ?? 'bridge.worker_runs.no_work_kind'|trans }}{% if run.workerPool is not null %} <twig:Ds:Tag tone="neutral" data-worker-pool>{{ 'bridge.worker_runs.worker_pool_label'|trans({'%pool%': run.workerPool}) }}</twig:Ds:Tag>{% endif %}{% if run.harness is not null %} <twig:Ds:Tag tone="neutral" title="{{ 'bridge.worker_runs.details.harness'|trans }}" data-worker-run-harness>{{ run.harness }}</twig:Ds:Tag>{% endif %}{% if run.account is not null %} <twig:Ds:Tag tone="neutral" title="{{ 'bridge.worker_runs.details.account'|trans }}" data-worker-run-account>{{ run.account }}</twig:Ds:Tag>{% endif %}{% if run.model is not null %} <twig:Ds:Tag tone="neutral" title="{{ 'bridge.worker_runs.details.model'|trans }}" data-worker-run-model>{{ run.model }}</twig:Ds:Tag>{% endif %}</span>
             <span class="lp-data-table__cell lp-data-table__cell--end">{% if item.interactive and item.state.isOpen() and item.duration() is not null %}{{ 'bridge.worker_runs.running_for'|trans({'%duration%': item.duration()}) }}{% else %}{{ item.duration() }}{% endif %}</span>
             <span class="lp-data-table__cell"><time datetime="{{ shownAt|date('c') }}" title="{{ shownAt|date('Y-m-d H:i:s T') }}">{{ shownAt|relative_time }}</time></span>
             {% include '@Bridge/_worker_run_drawer.html.twig' with {item: item, project: project, bridgeLabels: bridgeLabels} only %}
@@ -127,12 +148,9 @@
         {% endfor %}
     </twig:DataTable>
 
-    <twig:Pagination route="app_project_worker_runs" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}|merge(listQuery.routeParams)" />
+    <twig:Ds:Pagination route="app_project_worker_runs" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}|merge(listQuery.routeParams)" />
     {% else %}
-    <div class="lp-empty-state">
-        <twig:ux:icon name="lucide:bot" class="lp-empty-state__icon text-accent w-12 h-12" />
-        <h2 class="lp-empty-state__title">{{ (listQuery.isNarrowed ? 'bridge.worker_runs.empty_filtered' : 'bridge.worker_runs.empty')|trans }}</h2>
-    </div>
+    <twig:Ds:EmptyState icon="lucide:bot" iconClass="text-accent w-12 h-12" :title="(listQuery.isNarrowed ? 'bridge.worker_runs.empty_filtered' : 'bridge.worker_runs.empty')|trans" />
     {% endif %}
     </turbo-frame>
     </div>

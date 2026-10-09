@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"slices"
@@ -8,46 +10,24 @@ import (
 	"testing"
 
 	"github.com/ubermuda/loupe/cli/internal/config"
+	harn "github.com/ubermuda/loupe/cli/internal/harness"
 	"github.com/ubermuda/loupe/cli/internal/transcript"
 )
 
 const (
-	ceilingVar = "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="
+	ceilingEnv = "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"
+	ceilingVar = ceilingEnv + "="
 	sessionVar = "LOUPE_SESSION_ID="
 )
 
-// claude -p ends a worker at its background wait ceiling and exits 0. The
-// bridge lifts the ceiling unless the operator set it.
-func TestWorkerEnvLiftsTheWaitCeiling(t *testing.T) {
-	base := make([]string, 1, 3)
-	base[0] = "HOME=/home/a"
-
-	got := workerEnv(base, "s1", nil)
-	if !slices.Equal(got, []string{"HOME=/home/a", ceilingVar + "0", sessionVar + "s1"}) {
-		t.Fatalf("workerEnv = %q", got)
-	}
-	if extended := base[:3]; extended[1] != "" || extended[2] != "" {
-		t.Fatalf("workerEnv wrote into the caller's array: %q", extended)
-	}
-}
-
-func TestWorkerEnvKeepsTheOperatorsCeiling(t *testing.T) {
-	for _, set := range []string{ceilingVar + "5000", ceilingVar + "0", ceilingVar} {
-		base := []string{"HOME=/home/a", set}
-		want := []string{"HOME=/home/a", set, sessionVar + "s1"}
-		if got := workerEnv(base, "s1", nil); !slices.Equal(got, want) {
-			t.Fatalf("workerEnv(%q) = %q", base, got)
-		}
-	}
-}
-
 // The bridge names the session of each worker, so the server can name the run
-// that moves a card. An inherited value names another session.
+// that moves a card. An inherited value names another session. The harness
+// then adds what it needs.
 func TestWorkerEnvReplacesAnInheritedSession(t *testing.T) {
 	base := []string{sessionVar + "outer", "HOME=/home/a", sessionVar + "again"}
 
-	got := workerEnv(base, "s1", nil)
-	if !slices.Equal(got, []string{"HOME=/home/a", ceilingVar + "0", sessionVar + "s1"}) {
+	got := workerSpec{sessionID: "s1"}.harnessCommand(workerEnv(base, "s1", nil)).Env
+	if !slices.Equal(got, []string{"HOME=/home/a", sessionVar + "s1", ceilingVar + "0"}) {
 		t.Fatalf("workerEnv = %q", got)
 	}
 	if !slices.Equal(base, []string{sessionVar + "outer", "HOME=/home/a", sessionVar + "again"}) {
@@ -68,7 +48,7 @@ func TestWorkerEnvPushesAsTheAgentAccount(t *testing.T) {
 
 	got := workerEnv(base, "s1", account)
 	want := []string{
-		"HOME=/home/a", ceilingVar + "0", sessionVar + "s1",
+		"HOME=/home/a", sessionVar + "s1",
 		"GH_TOKEN=ghp_agent",
 		"GIT_AUTHOR_NAME=loupe-bot", "GIT_COMMITTER_NAME=loupe-bot",
 		"GIT_AUTHOR_EMAIL=4242+loupe-bot@users.noreply.github.com",
@@ -113,8 +93,9 @@ func TestWorkerEnvKeepsTheInheritedGitConfig(t *testing.T) {
 	}
 }
 
-// The shapes claude -p --output-format json --json-schema prints. A run that
-// --max-turns cuts off exits 1 with is_error and a null structured_output.
+// The result lines claude -p --output-format stream-json --json-schema prints.
+// A run that --max-turns cuts off exits 1 with is_error and a null
+// structured_output.
 func TestDecodeWorkerOutput(t *testing.T) {
 	long := strings.Repeat("x", maxOutput+10)
 	for name, tc := range map[string]struct {
@@ -128,31 +109,31 @@ func TestDecodeWorkerOutput(t *testing.T) {
 			want:   workerResult{hasResult: true, status: "finished", output: "Wrote the plan.", fields: map[string]any{}},
 		},
 		"unfinished": {
-			stdout: `{"is_error":false,"result":"","structured_output":{"status":"unfinished","summary":"Tests still run."}}`,
+			stdout: `{"type":"result","is_error":false,"result":"","structured_output":{"status":"unfinished","summary":"Tests still run."}}`,
 			want:   workerResult{hasResult: true, status: "unfinished", output: "Tests still run.", fields: map[string]any{}},
 		},
 		"blocked": {
-			stdout: `{"is_error":false,"result":"","structured_output":{"status":"blocked","summary":"Asked the owner."}}` + "\n",
+			stdout: `{"type":"result","is_error":false,"result":"","structured_output":{"status":"blocked","summary":"Asked the owner."}}` + "\n",
 			want:   workerResult{hasResult: true, status: "blocked", output: "Asked the owner.", fields: map[string]any{}},
 		},
 		"extras": {
-			stdout: `{"structured_output":{"status":"finished","summary":"Opened a PR.","prUrl":"https://x.test/1","card":87}}`,
+			stdout: `{"type":"result","structured_output":{"status":"finished","summary":"Opened a PR.","prUrl":"https://x.test/1","card":87}}`,
 			want:   workerResult{hasResult: true, status: "finished", output: "Opened a PR.", fields: map[string]any{"prUrl": "https://x.test/1", "card": float64(87)}},
 		},
 		"a reason": {
-			stdout: `{"structured_output":{"status":"blocked","summary":"Asked the owner.","reason":"needs-owner","prUrl":"https://x.test/1"}}`,
+			stdout: `{"type":"result","structured_output":{"status":"blocked","summary":"Asked the owner.","reason":"needs-owner","prUrl":"https://x.test/1"}}`,
 			want:   workerResult{hasResult: true, status: "blocked", reason: "needs-owner", output: "Asked the owner.", fields: map[string]any{"prUrl": "https://x.test/1"}},
 		},
 		"a reason that is no string": {
-			stdout: `{"structured_output":{"status":"finished","summary":"Done.","reason":3}}`,
+			stdout: `{"type":"result","structured_output":{"status":"finished","summary":"Done.","reason":3}}`,
 			want:   workerResult{hasResult: true, status: "finished", output: "Done.", fields: map[string]any{}},
 		},
 		"a reason with no result": {
-			stdout: `{"result":"r","structured_output":{"status":"done","summary":"x","reason":"needs-owner"}}`,
+			stdout: `{"type":"result","result":"r","structured_output":{"status":"done","summary":"x","reason":"needs-owner"}}`,
 			want:   workerResult{output: "r"},
 		},
 		"an empty summary falls back to the result": {
-			stdout: `{"result":"All done.","structured_output":{"status":"finished","summary":""}}`,
+			stdout: `{"type":"result","result":"All done.","structured_output":{"status":"finished","summary":""}}`,
 			want:   workerResult{hasResult: true, status: "finished", output: "All done.", fields: map[string]any{}},
 		},
 		"max turns": {
@@ -161,25 +142,34 @@ func TestDecodeWorkerOutput(t *testing.T) {
 			want:   workerResult{output: "claude: reached the turn limit"},
 		},
 		"an unknown status": {
-			stdout: `{"result":"I did it.","structured_output":{"status":"done","summary":"x"}}`,
+			stdout: `{"type":"result","result":"I did it.","structured_output":{"status":"done","summary":"x"}}`,
 			want:   workerResult{output: "I did it."},
 		},
 		"a summary that is no string": {
-			stdout: `{"result":"r","structured_output":{"status":"finished","summary":3}}`,
+			stdout: `{"type":"result","result":"r","structured_output":{"status":"finished","summary":3}}`,
 			want:   workerResult{output: "r"},
 		},
 		"structured output that is no object": {
-			stdout: `{"result":"r","structured_output":"finished"}`,
+			stdout: `{"type":"result","result":"r","structured_output":"finished"}`,
 			want:   workerResult{output: "r"},
 		},
 		"broken JSON": {
-			stdout: `{"structured_output":{"status":"finished","summary":"x"}`,
+			stdout: `{"type":"result","structured_output":{"status":"finished","summary":"x"}`,
 			stderr: "stream closed",
 			want:   workerResult{output: "stream closed"},
 		},
 		"text after the document": {
-			stdout: `{"structured_output":{"status":"finished","summary":"x"}} STAGE RESULT: done`,
-			want:   workerResult{output: `{"structured_output":{"status":"finished","summary":"x"}} STAGE RESULT: done`},
+			stdout: `{"type":"result","structured_output":{"status":"finished","summary":"x"}} STAGE RESULT: done`,
+			want:   workerResult{},
+		},
+		"stream lines with no result stay out": {
+			stdout: `{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"echo secret"}}]}}` + "\nclaude: killed\n",
+			want:   workerResult{output: "claude: killed"},
+		},
+		"a cut stream line stays out": {
+			stdout:   `{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"echo sec`,
+			overflow: true,
+			want:     workerResult{},
 		},
 		"undecoded stdout with no stderr is capped": {
 			stdout:   long,
@@ -187,7 +177,7 @@ func TestDecodeWorkerOutput(t *testing.T) {
 			want:     workerResult{output: long[:maxOutput] + "… (truncated)"},
 		},
 		"a decoded document with no text stays empty": {
-			stdout: `{"result":"","structured_output":null}`,
+			stdout: `{"type":"result","result":"","structured_output":null}`,
 			want:   workerResult{},
 		},
 		"overflow": {
@@ -197,30 +187,34 @@ func TestDecodeWorkerOutput(t *testing.T) {
 			want:     workerResult{output: "too much"},
 		},
 		"usage": {
-			stdout: `{"result":"r","total_cost_usd":0.5,"modelUsage":{"claude-opus-5-5":{"inputTokens":1,"outputTokens":2,"cacheReadInputTokens":3,"cacheCreationInputTokens":4,"costUSD":0.5}}}`,
+			stdout: `{"type":"result","result":"r","total_cost_usd":0.5,"modelUsage":{"claude-opus-5-5":{"inputTokens":1,"outputTokens":2,"cacheReadInputTokens":3,"cacheCreationInputTokens":4,"costUSD":0.5}}}`,
 			want: workerResult{output: "r", reported: transcript.Usage{
 				"claude-opus-5-5": {InputTokens: 1, OutputTokens: 2, CacheReadTokens: 3, CacheWriteTokens: 4, CostUSD: ptr(0.5)},
 			}},
 		},
 		"usage of nothing": {
-			stdout: `{"result":"r","modelUsage":{}}`,
+			stdout: `{"type":"result","result":"r","modelUsage":{}}`,
 			want:   workerResult{output: "r", reported: transcript.Usage{}},
 		},
 		"null usage": {
-			stdout: `{"result":"r","modelUsage":null}`,
+			stdout: `{"type":"result","result":"r","modelUsage":null}`,
 			want:   workerResult{output: "r"},
 		},
 		"usage that is no object": {
-			stdout: `{"result":"r","modelUsage":[]}`,
+			stdout: `{"type":"result","result":"r","modelUsage":[]}`,
 			want:   workerResult{output: "r"},
 		},
 		"a long summary is capped": {
-			stdout: `{"structured_output":{"status":"finished","summary":"` + long + `"}}`,
+			stdout: `{"type":"result","structured_output":{"status":"finished","summary":"` + long + `"}}`,
 			want:   workerResult{hasResult: true, status: "finished", output: long[:maxOutput] + "… (truncated)", fields: map[string]any{}},
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			got := decodeWorkerOutput([]byte(tc.stdout), tc.overflow, tc.stderr)
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, "stdout"), []byte(tc.stdout), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			got := decodeWorkerOutput(defaultHarness().ReadRun(dir, harn.RunInfo{}), []byte(tc.stdout), tc.overflow, tc.stderr)
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Fatalf("decodeWorkerOutput = %+v, want %+v", got, tc.want)
 			}
@@ -260,26 +254,6 @@ func TestCapWriterAcceptsWritesPastTheCap(t *testing.T) {
 	}
 }
 
-// A rule's permission mode and model reach claude as flags, and an empty value
-// passes none. The session id always follows -p, and the prompt is always the
-// last argument.
-func TestWorkerArgsCarryTheRulesSettings(t *testing.T) {
-	for _, tc := range []struct {
-		spec workerSpec
-		want string
-	}{
-		{workerSpec{sessionID: testSession, prompt: "go"}, "--output-format json -p --session-id " + testSession + " -- go"},
-		{workerSpec{sessionID: testSession, permissionMode: "plan", prompt: "go"}, "--permission-mode plan --output-format json -p --session-id " + testSession + " -- go"},
-		{workerSpec{sessionID: testSession, model: "opus", prompt: "go"}, "--model opus --output-format json -p --session-id " + testSession + " -- go"},
-		{workerSpec{sessionID: testSession, schema: `{"type":"object"}`, prompt: "go"}, `--output-format json --json-schema {"type":"object"} -p --session-id ` + testSession + " -- go"},
-		{workerSpec{sessionID: testSession, permissionMode: "plan", model: "opus", schema: "{}", prompt: "go"}, "--permission-mode plan --model opus --output-format json --json-schema {} -p --session-id " + testSession + " -- go"},
-	} {
-		if got := strings.Join(workerArgs(tc.spec), " "); got != tc.want {
-			t.Fatalf("workerArgs(%+v) = %q, want %q", tc.spec, got, tc.want)
-		}
-	}
-}
-
 var v4UUID = regexp.MustCompile(`\A[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z`)
 
 // claude refuses a session id that is not a uuid, and two workers must never
@@ -298,22 +272,41 @@ func TestTheDefaultOpsGiveEachWorkerANewV4SessionID(t *testing.T) {
 	}
 }
 
-// claude reads `-p "- x"` as the unknown option "- x". After --, any prompt
-// text is the prompt.
-func TestAPromptThatLooksLikeAnOptionFollowsTheSeparator(t *testing.T) {
-	for _, prompt := range []string{"- x", "--version", "-p"} {
-		args := workerArgs(workerSpec{model: "opus", sessionID: testSession, prompt: prompt})
-		if len(args) < 2 || args[len(args)-2] != "--" || args[len(args)-1] != prompt {
-			t.Fatalf("workerArgs(%q) = %q, want the prompt right after --", prompt, args)
-		}
-	}
-}
-
 func TestCapWriterKeepsShortOutputWhole(t *testing.T) {
 	w := &capWriter{limit: maxOutput}
 	_, _ = w.Write([]byte("all done\n"))
 
 	if got := w.text(); got != "all done" {
 		t.Fatalf("text = %q", got)
+	}
+}
+
+// A run record of an older image names no harness, so it reads as Claude Code.
+func TestHarnessByName(t *testing.T) {
+	for _, name := range []string{"", "claude-code"} {
+		if h, err := harnessByName(name, "", ""); err != nil || h.Name() != "claude-code" {
+			t.Fatalf("harnessByName(%q) = %v, %v", name, h, err)
+		}
+	}
+	if _, err := harnessByName("other", "", ""); err == nil {
+		t.Fatal("an unknown harness resolved")
+	}
+	if got := recordHarness(runRecord{Harness: "other"}).Name(); got != "claude-code" {
+		t.Fatalf("recordHarness of an unknown name = %q", got)
+	}
+}
+
+// A stdout that does not read names its error in the output once, though the
+// capped read and the harness both fail on it.
+func TestAnOutcomeWithNoStdoutNamesTheReadErrorOnce(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "stderr"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	res := workerOutcome(dir, false, nil)
+
+	if n := strings.Count(res.output, "read worker output"); n != 1 || res.streamed {
+		t.Fatalf("output = %q, streamed = %v", res.output, res.streamed)
 	}
 }

@@ -9,15 +9,15 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
-use App\Module\Board\Entity\CardType;
+use App\Module\Board\Entity\CardSourceKind;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Security\CardFeedbackVoter;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\SiteReview\Entity\SiteReviewComment;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\CardMovedOutbox;
 use App\Tests\Support\MercureCookies;
 use Doctrine\ORM\EntityManagerInterface;
@@ -149,7 +149,7 @@ final class CardCrudControllerTest extends WebTestCase
         $client->submitForm('Create card', [
             'create_card_form[title]' => 'Ship the board',
             'create_card_form[body]' => "It needs **columns**.\n",
-            'create_card_form[type]' => CardType::Tooling->value,
+            'create_card_form[type]' => 'tooling',
             'create_card_form[column]' => (string) $this->column($project, 'next')->id,
             'create_card_form[pullRequestUrls]' => "https://github.com/loupe/loupe/pull/12\n\nnot-a-known-forge\n",
         ]);
@@ -160,9 +160,10 @@ final class CardCrudControllerTest extends WebTestCase
         $created = $cards->findOneBy(['title' => 'Ship the board']);
         self::assertInstanceOf(Card::class, $created);
         self::assertSame('next', $created->column->slug);
-        self::assertSame(CardType::Tooling, $created->type);
+        self::assertSame('tooling', $created->type);
         // A form is a person writing the card down, whatever an agent does later.
-        self::assertSame(CardReporter::Human, $created->reporter);
+        self::assertSame(Actor::Human, $created->reporter);
+        self::assertSame(CardSourceKind::Person, $created->source->kind);
         self::assertCount(2, $created->pullRequests);
     }
 
@@ -245,7 +246,7 @@ final class CardCrudControllerTest extends WebTestCase
         $client->submitForm('Save card', [
             'create_card_form[title]' => 'After',
             'create_card_form[body]' => 'Rewritten.',
-            'create_card_form[type]' => CardType::Bug->value,
+            'create_card_form[type]' => 'bug',
             'create_card_form[column]' => (string) $this->column($project, 'in-progress')->id,
             'create_card_form[pullRequestUrls]' => 'https://github.com/loupe/loupe/pull/99',
         ]);
@@ -263,7 +264,7 @@ final class CardCrudControllerTest extends WebTestCase
 
         // The status changed, so the edit is also a move with an outbox row.
         $payload = CardMovedOutbox::onlyPayload(static::getContainer(), $project);
-        self::assertSame(CardReporter::Human->value, $payload['actor'] ?? null);
+        self::assertSame(Actor::Human->value, $payload['actor'] ?? null);
     }
 
     public function test_an_emptied_url_box_clears_every_link(): void
@@ -384,7 +385,7 @@ final class CardCrudControllerTest extends WebTestCase
         // The overview names its linked work and shows the card's dates, never a raw key.
         self::assertSelectorTextContains('.lp-card-docs', 'Linked work');
         self::assertStringNotContainsString('board.', $crawler->filter('.lp-card-overview')->text());
-        self::assertSame(['Status', 'Type', 'Reporter', 'Created', 'Updated'], $crawler->filter('.lp-card-fields dt')->each(static fn (Crawler $term): string => $term->text()));
+        self::assertSame(['Status', 'Type', 'Reporter', 'Source', 'Created', 'Updated'], $crawler->filter('.lp-card-fields dt')->each(static fn (Crawler $term): string => $term->text()));
         // A finished run leaves the list. The owner still gets the runs section, for its pause control.
         self::assertCount(0, $crawler->filter('[data-card-run="'.$runId.'"]'));
         self::assertCount(1, $crawler->filter('turbo-frame#card-worker-runs [data-card-runs] form[data-card-agents-pause]'));

@@ -18,9 +18,8 @@ use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardLinkKind;
-use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
@@ -56,7 +55,7 @@ final class BacklogCardMovesTest extends KernelTestCase
 
     public function test_a_move_puts_the_card_at_the_end_of_the_target_and_keeps_its_epic(): void
     {
-        $epic = $this->card('Epic', 'next', CardType::Epic);
+        $epic = $this->card('Epic', 'next', 'epic');
         $this->card('Already next', 'next');
         $mover = $this->card('Mover', parent: $epic);
 
@@ -158,7 +157,7 @@ final class BacklogCardMovesTest extends KernelTestCase
     {
         $audit = RecordingAuditor::installedIn(self::getContainer());
         $plain = $this->card('Plain');
-        $epic = $this->card('Epic', type: CardType::Epic);
+        $epic = $this->card('Epic', type: 'epic');
         $this->card('Open child', 'next', parent: $epic);
         $audit->forget();
 
@@ -176,7 +175,7 @@ final class BacklogCardMovesTest extends KernelTestCase
     public function test_a_bulk_move_takes_an_epic_to_a_terminal_column_with_its_open_children(): void
     {
         $audit = RecordingAuditor::installedIn(self::getContainer());
-        $epic = $this->card('Epic', type: CardType::Epic);
+        $epic = $this->card('Epic', type: 'epic');
         $child = $this->card('Child', parent: $epic);
         $audit->forget();
 
@@ -191,7 +190,7 @@ final class BacklogCardMovesTest extends KernelTestCase
     public function test_a_bulk_move_takes_an_epic_and_its_last_child_to_a_terminal_column_that_is_not_the_first(): void
     {
         $this->configureColumn($this->project, 'in-progress', terminal: true);
-        $epic = $this->card('Epic', type: CardType::Epic);
+        $epic = $this->card('Epic', type: 'epic');
         $child = $this->card('Child', parent: $epic);
 
         $this->bulkMove([(string) $epic->id, (string) $child->id], 'done');
@@ -202,7 +201,7 @@ final class BacklogCardMovesTest extends KernelTestCase
 
     public function test_a_bulk_move_orders_the_cards_for_a_column_another_request_made_terminal_before_the_lock(): void
     {
-        $epic = $this->card('Epic', type: CardType::Epic);
+        $epic = $this->card('Epic', type: 'epic');
         $child = $this->card('Child', parent: $epic);
         $target = $this->column($this->project, 'in-progress');
         $this->em->getConnection()->executeStatement(
@@ -221,7 +220,7 @@ final class BacklogCardMovesTest extends KernelTestCase
     {
         $this->em->persist(new BoardColumn(project: $this->project, label: 'Implementation', slug: 'implementation', position: 4));
         $this->em->flush();
-        $epic = $this->card('Epic', type: CardType::Epic);
+        $epic = $this->card('Epic', type: 'epic');
         $blocker = $this->card('Blocker');
         $child = $this->card('Child', parent: $epic, relatedCards: [new CardLinkInput((string) $blocker->id, CardLinkKind::BlockedBy)]);
 
@@ -269,7 +268,7 @@ final class BacklogCardMovesTest extends KernelTestCase
     {
         $handler = self::getContainer()->get(MoveBacklogCardHandler::class);
         self::assertInstanceOf(MoveBacklogCardHandler::class, $handler);
-        $handler(new MoveBacklogCardCommand($card, CardReporter::Human, $this->column($this->project, $slug)));
+        $handler(new MoveBacklogCardCommand($card, Actor::Human, $this->column($this->project, $slug)));
     }
 
     /**
@@ -285,7 +284,7 @@ final class BacklogCardMovesTest extends KernelTestCase
         return $handler(new BulkMoveBacklogCardsCommand(
             $this->column($this->project, 'backlog'),
             $ids,
-            CardReporter::Human,
+            Actor::Human,
             $this->column($this->project, $slug),
         ));
     }
@@ -305,7 +304,7 @@ final class BacklogCardMovesTest extends KernelTestCase
     }
 
     /** @param list<CardLinkInput> $relatedCards */
-    private function card(string $title, string $slug = 'backlog', CardType $type = CardType::Feature, ?Card $parent = null, array $relatedCards = []): Card
+    private function card(string $title, string $slug = 'backlog', string $type = 'feature', ?Card $parent = null, array $relatedCards = []): Card
     {
         $handler = self::getContainer()->get(CreateCardHandler::class);
         self::assertInstanceOf(CreateCardHandler::class, $handler);

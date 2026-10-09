@@ -9,8 +9,12 @@
  * and the tests cannot disturb each other.
  */
 
-import { test, expect, type Page } from '@playwright/test';
-import { suppressToolbar, suppressWidget } from '../fixtures';
+import { expect, type Page } from '@playwright/test';
+import {
+    hubStubbedTest as test,
+    suppressToolbar,
+    suppressWidget,
+} from '../fixtures';
 
 // Guest by default — each test logs in as the user it just created.
 test.use({ storageState: { cookies: [], origins: [] } });

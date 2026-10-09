@@ -8,7 +8,10 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\ValueObject\WorkerRunUsageReport;
 use Symfony\Component\Uid\Uuid;
 
-/** The usage of each process of one claude session, in the order the processes started. */
+/**
+ * The usage of each process of one claude session, in the order the processes
+ * started. With a run id, the one process is the interactive run of that id.
+ */
 final readonly class ReportSessionUsageCommand
 {
     /** @param list<WorkerRunUsageReport> $processes */
@@ -17,6 +20,7 @@ final readonly class ReportSessionUsageCommand
         public string $handle,
         public Uuid $sessionId,
         public array $processes,
+        public ?Uuid $runId = null,
     ) {
     }
 }

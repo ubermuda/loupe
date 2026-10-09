@@ -10,15 +10,14 @@ use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Service\CardExporter;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -69,8 +68,8 @@ final class CardExporterTest extends KernelTestCase
             title: 'Rotate the signing key',
             body: 'The key is a year old.',
             number: 1,
-            type: CardType::Bug,
-            origin: CardReporter::Human,
+            type: 'bug',
+            origin: Actor::Human,
             position: 7,
             createdAt: $createdAt,
         );
@@ -95,6 +94,9 @@ final class CardExporterTest extends KernelTestCase
             'column' => 'Done',
             'type' => 'bug',
             'reporter' => 'human',
+            'source' => 'person',
+            'sourceRunId' => null,
+            'sourceRunCardId' => null,
             'position' => 7,
             'completedAt' => $completedAt->format(\DateTimeInterface::ATOM),
             'createdAt' => $createdAt->format(\DateTimeInterface::ATOM),
@@ -141,8 +143,8 @@ final class CardExporterTest extends KernelTestCase
             title: 'Checkout feedback',
             body: '',
             number: 1,
-            type: CardType::SiteReview,
-            origin: CardReporter::Reviewer,
+            type: 'site-review',
+            origin: Actor::Reviewer,
             position: 0,
         );
         $this->em->persist($card);
@@ -195,7 +197,7 @@ final class CardExporterTest extends KernelTestCase
         $this->em->persist($project);
         $this->seedColumns($project);
 
-        $epic = new Card(project: $project, column: $this->column($project, 'backlog'), title: 'Epic', body: '', number: 1, type: CardType::Epic, createdAt: new \DateTimeImmutable('2026-03-01 09:00:00'));
+        $epic = new Card(project: $project, column: $this->column($project, 'backlog'), title: 'Epic', body: '', number: 1, type: 'epic', createdAt: new \DateTimeImmutable('2026-03-01 09:00:00'));
         $epic->laneEnabled = false;
         $child = new Card(project: $project, column: $this->column($project, 'backlog'), title: 'Child', body: '', number: 2, createdAt: new \DateTimeImmutable('2026-03-02 09:00:00'));
         $child->parent = $epic;
@@ -249,8 +251,8 @@ final class CardExporterTest extends KernelTestCase
         $events = self::getContainer()->get(CardEventRepository::class);
         self::assertInstanceOf(CardEventRepository::class, $events);
         $createdAt = new \DateTimeImmutable('2026-03-01 09:00:00');
-        $events->record($card, CardEventKind::Created, CardReporter::Human, $owner, ['column' => ['slug' => 'backlog']], $createdAt);
-        $events->record($card, CardEventKind::Moved, CardReporter::System, null, ['cause' => ['type' => 'merged', 'pullRequest' => 5]], $createdAt->modify('+1 hour'));
+        $events->record($card, CardEventKind::Created, Actor::Human, $owner, ['column' => ['slug' => 'backlog']], $createdAt);
+        $events->record($card, CardEventKind::Moved, Actor::System, null, ['cause' => ['type' => 'merged', 'pullRequest' => 5]], $createdAt->modify('+1 hour'));
         $this->em->flush();
         $this->em->clear();
 

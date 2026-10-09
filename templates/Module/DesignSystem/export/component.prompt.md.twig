@@ -1,0 +1,32 @@
+{# twig-cs-fixer-disable #}{% autoescape false %}
+{% set name = entry.name %}
+Loupe's {{ name|lower }}. {{ entry.summary }}
+
+```jsx
+{% if 'button' == entry.element %}
+<{{ name }} variant="{{ entry.variants|first }}">Save</{{ name }}>
+<{{ name }} variant="ghost" href="/back">Back</{{ name }}>
+<{{ name }} size="{{ entry.sizes|first }}" disabled>Disabled</{{ name }}>
+{% elseif 'input' == entry.element %}
+<{{ name }} placeholder="Example" />
+{% for variant in entry.variants %}
+<{{ name }} variant="{{ variant }}" placeholder="Example" />
+{% endfor %}
+{% elseif 'select' == entry.element %}
+<{{ name }}><option>Example</option></{{ name }}>
+{% elseif entry.variants %}
+{% for variant in entry.variants %}
+<{{ name }} variant="{{ variant }}">Example</{{ name }}>
+{% endfor %}
+{% else %}
+<{{ name }}>Example</{{ name }}>
+{% endif %}
+```
+{% if entry.variants %}
+
+Variants: {{ entry.variants|map(v => '`' ~ v ~ '`')|join(', ') }}.{% if entry.sizes %} Sizes: {{ entry.sizes|map(v => '`' ~ v ~ '`')|join(', ') }}.{% endif %}{% if entry.states %} States: {{ entry.states|join(', ') }}.{% endif %}
+
+{% endif %}
+
+Labels are sentence case and never end in a full stop.{% if 'button' == entry.element %} Combine modifiers with a space, such as `variant="ghost icon"`.{% endif %} The component emits the real `{{ entry.rootClass }}` classes of the app.
+{% endautoescape %}

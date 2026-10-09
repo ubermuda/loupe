@@ -60,6 +60,10 @@ final class ReportInteractiveLaunchController extends AppController
             failureReason: $payload->failureReason(),
             workRequestId: $payload->workRequestId(),
             ruleId: $payload->ruleId,
+            harness: $payload->harness,
+            account: $payload->account,
+            model: $payload->model,
+            harnessSessionId: $payload->harnessSessionId,
         ));
 
         if (null === $result->run) {

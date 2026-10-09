@@ -8,8 +8,8 @@ use App\Controller\AppController;
 use App\Module\Board\Command\SearchCardsCommand;
 use App\Module\Board\Command\SearchCardsHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
@@ -35,6 +35,7 @@ final class ListCardsController extends AppController
     public function __construct(
         private readonly SearchCardsHandler $handler,
         private readonly AuthenticatedProjectResolver $projectResolver,
+        private readonly CardTypeCatalog $catalog,
     ) {
     }
 
@@ -45,13 +46,23 @@ final class ListCardsController extends AppController
             return $this->json(['error' => 'token_not_bound_to_site'], JsonResponse::HTTP_FORBIDDEN);
         }
 
+        $known = $this->catalog->forProject($project->requireId());
         $query = $request->query->get('q');
         $type = $request->query->get('type');
+        $types = \is_string($type) && $known->has($type) ? [$type] : [];
+        if ($request->query->getBoolean('parent')) {
+            $types = $known->withChildren();
+            // An empty list would mean every type, which is the wrong answer here.
+            if ([] === $types) {
+                return $this->json(['cards' => []]);
+            }
+        }
+
         $view = ($this->handler)(new SearchCardsCommand(
             $project,
             \is_string($query) ? trim($query) : '',
             self::LIMIT,
-            \is_string($type) ? CardType::tryFrom($type) : null,
+            $types,
         ));
 
         return $this->json(['cards' => array_map(

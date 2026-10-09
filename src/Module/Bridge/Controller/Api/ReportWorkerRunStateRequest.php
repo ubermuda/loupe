@@ -10,6 +10,7 @@ use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunReason;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkSubject;
+use App\Module\Workflow\Contract\WorkKind;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
@@ -58,7 +59,7 @@ final class ReportWorkerRunStateRequest
         public ?string $workRequestId = null,
 
         #[Assert\NotBlank(allowNull: true)]
-        #[Assert\Regex(pattern: WorkRequest::KIND_PATTERN)]
+        #[Assert\Regex(pattern: WorkKind::PATTERN)]
         public ?string $workKind = null,
 
         #[Assert\NotBlank(allowNull: true)]
@@ -114,6 +115,10 @@ final class ReportWorkerRunStateRequest
         #[Assert\Valid]
         public ?WorkerRunUsageInput $usage = null,
 
+        /** The largest main-session context of the run, stored from an outcome or a stop alone. */
+        #[Assert\PositiveOrZero]
+        public ?int $peakContextTokens = null,
+
         /** Null from a bridge that predates worker pools. */
         #[Assert\NotBlank(allowNull: true)]
         #[Assert\Regex(pattern: WorkerRun::WORKER_POOL_PATTERN)]
@@ -140,6 +145,27 @@ final class ReportWorkerRunStateRequest
         /** Null from a bridge that predates command rules, which runs workers alone. */
         #[Assert\Choice(choices: self::BRIDGE_KINDS)]
         public ?string $kind = null,
+
+        /** The four harness fields are null from a bridge that predates harnesses. A null keeps the stored value. */
+        #[Assert\Length(max: WorkerRun::MAX_HARNESS_LENGTH)]
+        #[Assert\NotBlank(allowNull: true)]
+        #[Assert\Regex(pattern: WorkerRun::HARNESS_PATTERN)]
+        public ?string $harness = null,
+
+        #[Assert\Length(max: WorkerRun::MAX_ACCOUNT_LENGTH)]
+        #[Assert\NotBlank(allowNull: true)]
+        #[Assert\Regex(pattern: WorkerRun::ACCOUNT_PATTERN)]
+        public ?string $account = null,
+
+        #[Assert\Length(max: WorkerRun::MAX_MODEL_LENGTH)]
+        #[Assert\NotBlank(allowNull: true)]
+        #[Assert\Regex(pattern: WorkerRun::MODEL_PATTERN)]
+        public ?string $model = null,
+
+        #[Assert\Length(max: WorkerRun::MAX_HARNESS_SESSION_ID_LENGTH)]
+        #[Assert\NotBlank(allowNull: true)]
+        #[Assert\Regex(pattern: WorkerRun::HARNESS_SESSION_ID_PATTERN)]
+        public ?string $harnessSessionId = null,
     ) {
     }
 

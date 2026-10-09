@@ -12,10 +12,9 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardLinkKind;
-use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
@@ -151,7 +150,7 @@ final class CardLinkWriteTest extends KernelTestCase
             $project,
             'Linked from the start',
             'Body',
-            CardType::Feature,
+            'feature',
             relatedCards: [new CardLinkInput((string) $a->id, CardLinkKind::BlockedBy), new CardLinkInput((string) $b->id)],
         ));
         $this->em->clear();
@@ -170,12 +169,12 @@ final class CardLinkWriteTest extends KernelTestCase
     /** @param list<CardLinkInput>|null $relatedCards */
     private function update(Card $card, ?array $relatedCards, ?string $title = null): void
     {
-        ($this->updateCard)(new UpdateCardCommand($this->reload($card), CardReporter::Agent, title: $title, relatedCards: $relatedCards));
+        ($this->updateCard)(new UpdateCardCommand($this->reload($card), Actor::Agent, title: $title, relatedCards: $relatedCards));
     }
 
     private function cardIn(Project $project): Card
     {
-        return ($this->createCard)(new CreateCardCommand($project, 'Ship it', 'Body', CardType::Feature));
+        return ($this->createCard)(new CreateCardCommand($project, 'Ship it', 'Body', 'feature'));
     }
 
     private function reload(Card $card): Card

@@ -14,6 +14,8 @@ use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunToolCallKind;
+use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\McpTokenScenario;
@@ -52,6 +54,79 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         self::assertSame('2026-01-01T10:05:00+00:00', $row['endedAt']);
         self::assertSame('last line', $row['reason']);
         self::assertNull($row['pendingCommand']);
+    }
+
+    public function test_each_row_carries_the_usage_the_experiment_and_the_metrics_of_its_run(): void
+    {
+        [$project] = $this->projects('list-usage');
+        $em = $this->em();
+        $used = $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-09-03 00:00:00'));
+        $used->experiment = 'prompt-length';
+        $used->variant = 'short';
+        $this->seedUsage($em, $used, model: 'claude-opus-5-5', costUsd: '0.500000', inputTokens: 1000);
+        $this->seedUsage($em, $used, model: 'claude-haiku-5', source: WorkerRunUsageSource::Estimated, costUsd: null);
+        $bare = $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-09-02 00:00:00'));
+        $factless = $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-09-01 00:00:00'));
+        $em->getConnection()->executeStatement('DELETE FROM bridge_worker_run_facts WHERE run_id = ?', [(string) $factless->id]);
+        $this->actAsMcpTokenBoundTo($project);
+
+        [$usedRow, $bareRow, $factlessRow] = $this->listTool()()['runs'];
+
+        self::assertSame((string) $used->id, $usedRow['runId']);
+        self::assertSame([
+            ['model' => 'claude-haiku-5', 'source' => 'estimated', 'inputTokens' => 100, 'outputTokens' => 20, 'cacheReadTokens' => 300, 'cacheWriteTokens' => 40, 'costUsd' => null],
+            ['model' => 'claude-opus-5-5', 'source' => 'reported', 'inputTokens' => 1000, 'outputTokens' => 20, 'cacheReadTokens' => 300, 'cacheWriteTokens' => 40, 'costUsd' => '0.500000'],
+        ], $usedRow['usage']);
+        self::assertSame('claude-opus-5-5', $usedRow['model']);
+        self::assertSame('prompt-length', $usedRow['experiment']);
+        self::assertSame('short', $usedRow['variant']);
+        self::assertSame(['durationMs' => 300_000, 'costUsd' => null, 'tokensIn' => 1100, 'tokensOut' => 40, 'tokensCacheRead' => 600, 'tokensCacheWrite' => 80, 'toolTimeMs' => null, 'modelTimeMs' => null, 'toolCalls' => null, 'failedCalls' => null, 'longestCallMs' => null, 'idleGapMs' => null, 'subagentMs' => null, 'peakContextTokens' => null, 'meanCpuPct' => null, 'peakMemBytes' => null, 'peakSwapBytes' => null, 'concurrentRuns' => 1, 'onBattery' => null], $usedRow['metrics']);
+
+        self::assertSame([], $bareRow['usage']);
+        self::assertNull($bareRow['model']);
+        self::assertNull($bareRow['experiment']);
+        self::assertSame(['durationMs' => 300_000, 'costUsd' => null, 'tokensIn' => null, 'tokensOut' => null, 'tokensCacheRead' => null, 'tokensCacheWrite' => null, 'toolTimeMs' => null, 'modelTimeMs' => null, 'toolCalls' => null, 'failedCalls' => null, 'longestCallMs' => null, 'idleGapMs' => null, 'subagentMs' => null, 'peakContextTokens' => null, 'meanCpuPct' => null, 'peakMemBytes' => null, 'peakSwapBytes' => null, 'concurrentRuns' => 1, 'onBattery' => null], $bareRow['metrics']);
+
+        self::assertSame((string) $factless->id, $factlessRow['runId']);
+        self::assertNull($factlessRow['metrics']);
+        self::assertNull($factlessRow['model']);
+
+        $detail = $this->getTool()((string) $factless->id)['runs'][0];
+        self::assertSame([], $detail['usage']);
+        self::assertNull($detail['metrics']);
+        self::assertSame($usedRow['usage'], $this->getTool()((string) $used->id)['runs'][0]['usage']);
+    }
+
+    public function test_the_metrics_give_the_cost_in_dollars_when_every_usage_row_has_a_price(): void
+    {
+        [$project] = $this->projects('list-cost');
+        $run = $this->seedRun($this->em(), $project);
+        $this->seedUsage($this->em(), $run, costUsd: '1.250000');
+        $this->seedUsage($this->em(), $run, model: 'claude-haiku-5', costUsd: '0.750000');
+        $this->actAsMcpTokenBoundTo($project);
+
+        $row = $this->listTool()()['runs'][0];
+
+        self::assertSame(2.0, $row['metrics']['costUsd'] ?? null);
+        self::assertSame(['durationMs' => 300_000, 'costUsd' => 2.0, 'tokensIn' => 200, 'tokensOut' => 40, 'tokensCacheRead' => 600, 'tokensCacheWrite' => 80, 'toolTimeMs' => null, 'modelTimeMs' => null, 'toolCalls' => null, 'failedCalls' => null, 'longestCallMs' => null, 'idleGapMs' => null, 'subagentMs' => null, 'peakContextTokens' => null, 'meanCpuPct' => null, 'peakMemBytes' => null, 'peakSwapBytes' => null, 'concurrentRuns' => 1, 'onBattery' => null], $this->getTool()((string) $run->id)['runs'][0]['metrics']);
+    }
+
+    public function test_the_metrics_carry_the_timing_and_the_tool_calls_of_the_run(): void
+    {
+        [$project] = $this->projects('list-timing');
+        $em = $this->em();
+        $run = $this->seedRun($em, $project);
+        $this->seedToolCall($run, 1, 'Bash');
+        $this->seedToolCall($run, 2, 'Agent', WorkerRunToolCallKind::Subagent);
+        $run->toolTimeMs = 4000;
+        $run->idleGapMs = 6000;
+        $run->peakContextTokens = 150_000;
+        $em->flush();
+        $this->actAsMcpTokenBoundTo($project);
+
+        $expected = ['durationMs' => 300_000, 'costUsd' => null, 'tokensIn' => null, 'tokensOut' => null, 'tokensCacheRead' => null, 'tokensCacheWrite' => null, 'toolTimeMs' => 4000, 'modelTimeMs' => 290_000, 'toolCalls' => 2, 'failedCalls' => 0, 'longestCallMs' => 1500, 'idleGapMs' => 6000, 'subagentMs' => 1500, 'peakContextTokens' => 150_000, 'meanCpuPct' => null, 'peakMemBytes' => null, 'peakSwapBytes' => null, 'concurrentRuns' => 1, 'onBattery' => null];
+        self::assertSame($expected, $this->listTool()()['runs'][0]['metrics']);
+        self::assertSame($expected, $this->getTool()((string) $run->id)['runs'][0]['metrics']);
     }
 
     public function test_the_reason_prefers_the_failure_reason_and_is_cut_to_300_characters(): void
@@ -137,6 +212,63 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         $result = $this->listTool()(bridgeId: (string) $run->bridgeId, search: 'deploy');
 
         self::assertSame([(string) $run->id], array_column($result['runs'], 'runId'));
+    }
+
+    public function test_each_row_carries_the_harness_account_model_and_harness_session(): void
+    {
+        [$project] = $this->projects('list-harness-fields');
+        $this->seedRun($this->em(), $project, harness: 'codex', account: 'work', model: 'gpt-5', harnessSessionId: 'thread_abc123');
+        $this->actAsMcpTokenBoundTo($project);
+
+        $row = $this->listTool()()['runs'][0];
+
+        self::assertSame(
+            ['harness' => 'codex', 'account' => 'work', 'harnessSessionId' => 'thread_abc123', 'model' => 'gpt-5'],
+            array_intersect_key($row, array_flip(['harness', 'account', 'model', 'harnessSessionId'])),
+        );
+    }
+
+    public function test_the_model_the_bridge_reported_wins_over_the_model_of_the_usage(): void
+    {
+        [$project] = $this->projects('list-reported-model');
+        $em = $this->em();
+        $run = $this->seedRun($em, $project, harness: 'codex', model: 'gpt-5');
+        $this->seedUsage($em, $run, model: 'claude-opus-5-5', costUsd: '0.500000');
+        $this->actAsMcpTokenBoundTo($project);
+
+        self::assertSame('gpt-5', $this->listTool()()['runs'][0]['model']);
+        self::assertSame('gpt-5', $this->getTool()((string) $run->id)['runs'][0]['model']);
+        self::assertSame(0, $this->listTool()(model: 'claude-opus-5-5')['total']);
+    }
+
+    public function test_the_model_filter_finds_a_run_by_the_model_its_row_shows(): void
+    {
+        [$project] = $this->projects('list-fact-model');
+        $em = $this->em();
+        $older = $this->seedRun($em, $project);
+        $this->seedUsage($em, $older, model: 'claude-opus-5-5', costUsd: '0.500000');
+        $this->seedRun($em, $project, model: 'gpt-5');
+        $this->actAsMcpTokenBoundTo($project);
+
+        $runs = $this->listTool()(model: 'claude-opus-5-5')['runs'];
+
+        self::assertSame([(string) $older->id], array_column($runs, 'runId'));
+        self::assertSame('claude-opus-5-5', $runs[0]['model']);
+    }
+
+    public function test_the_list_filters_by_harness_account_and_model(): void
+    {
+        [$project] = $this->projects('list-harness');
+        $em = $this->em();
+        $codex = $this->seedRun($em, $project, harness: 'codex', account: 'work', model: 'gpt-5');
+        $claude = $this->seedRun($em, $project, harness: 'claude-code', account: 'home', model: 'opus');
+        $this->seedRun($em, $project);
+        $this->actAsMcpTokenBoundTo($project);
+
+        self::assertSame([(string) $codex->id], array_column($this->listTool()(harness: ' codex ')['runs'], 'runId'));
+        self::assertSame([(string) $claude->id], array_column($this->listTool()(account: 'home')['runs'], 'runId'));
+        self::assertSame([(string) $codex->id], array_column($this->listTool()(model: 'gpt-5')['runs'], 'runId'));
+        self::assertSame(3, $this->listTool()(harness: ' ', account: '', model: '')['total']);
     }
 
     public function test_an_unknown_state_is_refused_with_the_valid_states(): void
@@ -312,6 +444,8 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         $live->name = 'laptop';
         $live->requestedName = 'laptop';
         $live->pushLogin = 'acme-agent';
+        $live->accounts = [['name' => 'work', 'harness' => 'claude-code', 'state' => 'failing', 'reason' => 'not logged in']];
+        $live->accountsReportedAt = new \DateTimeImmutable('2026-09-30 10:59:00');
         $quiet = $this->seedBridge($em, $project->owner, projects: [(string) $project->id], lastSeenAt: new \DateTimeImmutable('-1 day'));
         $quiet->requestedName = 'laptop';
         $this->seedBridge($em, $project->owner, projects: [(string) $other->id]);
@@ -339,6 +473,10 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         self::assertTrue($row['takesReruns']);
         self::assertSame([['name' => 'default', 'size' => 2, 'inUse' => 1, 'queued' => 0]], $row['workerPools']);
         self::assertSame('2026-09-30T11:00:00+00:00', $row['workerPoolsReportedAt']);
+        self::assertSame([['name' => 'work', 'harness' => 'claude-code', 'state' => 'failing', 'reason' => 'not logged in', 'used' => true]], $row['accounts']);
+        self::assertSame('2026-09-30T10:59:00+00:00', $row['accountsReportedAt']);
+        self::assertNull($bridges[$quiet->id->toRfc4122()]['accounts']);
+        self::assertNull($bridges[$quiet->id->toRfc4122()]['accountsReportedAt']);
         self::assertSame([['runId' => (string) $open->id, 'subjectType' => 'card', 'subjectId' => (string) $open->subjectId, 'cardNumber' => 3, 'workKind' => 'plan', 'state' => 'running']], $row['openRuns']);
         self::assertSame('quiet', $bridges[$quiet->id->toRfc4122()]['liveness']);
         self::assertNull($bridges[$quiet->id->toRfc4122()]['name']);

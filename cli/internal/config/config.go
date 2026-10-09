@@ -73,6 +73,17 @@ func RunsDir() (string, error) {
 	return filepath.Join(d, "runs"), nil
 }
 
+// CodexThreadsDir is the directory that maps the id of a run to the thread id
+// Codex gave its session.
+func CodexThreadsDir() (string, error) {
+	d, err := Dir()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(d, "codex-threads"), nil
+}
+
 // Load reads stored credentials, returning ErrNotLoggedIn if none are present.
 func Load() (Config, error) {
 	var c Config

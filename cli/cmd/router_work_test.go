@@ -20,6 +20,11 @@ import (
 // workRules claims two kinds of work: implement runs a worker, and check runs
 // a command.
 const workRules = `
+accounts:
+  claude:
+    harness: claude-code
+defaults:
+  account: claude
 projects:
   loupe:
     dir: {dir}
@@ -505,7 +510,7 @@ func TestTheHeartbeatRenewsTheHeldClaims(t *testing.T) {
 	if got := client.sent[1].WorkClaims; len(got) != 0 {
 		t.Fatalf("claims after the result = %v", got)
 	}
-	if got := client.sent[0].Capabilities; !slices.Equal(got, []string{"commands", "rerun-command", "work-requests"}) {
+	if got := client.sent[0].Capabilities; !slices.Equal(got, []string{"commands", "rerun-command", "session-usage", "work-requests"}) {
 		t.Fatalf("capabilities = %v", got)
 	}
 }
@@ -664,6 +669,11 @@ func TestAHandoverKeepsTheWorkClaims(t *testing.T) {
 // interactiveWorkRules opens a session for each design request, and runs a
 // worker with a variant for each split request.
 const interactiveWorkRules = `
+accounts:
+  claude:
+    harness: claude-code
+defaults:
+  account: claude
 projects:
   loupe:
     dir: {dir}
@@ -678,6 +688,7 @@ work:
     variants:
       - {name: a, weight: 1, model: opus}
       - {name: b, weight: 3, model: sonnet}
+    metrics: [cost, merge-rate]
 `
 
 // An interactive entry launches only once the claim holds. A launch that
@@ -718,7 +729,7 @@ func TestAnInteractiveWorkEntryLaunchesAfterItsClaim(t *testing.T) {
 }
 
 // An entry with variants pins its variant per card, as an experiment named
-// after the kind.
+// after the kind, and sends the metrics it declares.
 func TestAWorkEntryWithVariantsPinsItsVariant(t *testing.T) {
 	h, rec := launchHarnessWith(t, interactiveWorkRules, `[sh, -c, 'exit 0', sh, '{script}']`)
 	f := h.withWork()
@@ -727,13 +738,31 @@ func TestAWorkEntryWithVariantsPinsItsVariant(t *testing.T) {
 	h.offer(f, workRequest(1, 87, "split", api.WorkRequestOpen))
 
 	calls := pins.recorded()
-	if len(calls) != 1 || calls[0].experiment != "split" || calls[0].cardID != cardUUID(87) || calls[0].handle != testProject {
+	if len(calls) != 1 || calls[0].experiment != "split" || calls[0].cardID != cardUUID(87) || calls[0].handle != testProject ||
+		!slices.Equal(calls[0].metrics, []string{"cost", "merge-rate"}) {
 		t.Fatalf("pin calls = %+v", calls)
 	}
 	if got := h.worker.recorded(); len(got) != 1 || got[0].model != "sonnet" {
 		t.Fatalf("workers = %+v", got)
 	}
 	wantExperiment(t, rec.states(), runPin{Experiment: "split", Variant: "b", RequestedModel: "sonnet"})
+}
+
+// A variant that names an account and no model runs with the model of that
+// account, and its pin names that model.
+func TestAVariantWithAnAccountRunsWithTheModelOfTheAccount(t *testing.T) {
+	body := strings.Replace(interactiveWorkRules, "defaults:", "  other:\n    harness: claude-code\n    model: haiku\ndefaults:", 1)
+	body = strings.Replace(body, "{name: b, weight: 3, model: sonnet}", "{name: b, weight: 3, account: other}", 1)
+	h, rec := launchHarnessWith(t, body, `[sh, -c, 'exit 0', sh, '{script}']`)
+	f := h.withWork()
+	h.pins(func(context.Context, string) (string, string, error) { return "b", "", nil })
+
+	h.offer(f, workRequest(1, 87, "split", api.WorkRequestOpen))
+
+	if got := h.worker.recorded(); len(got) != 1 || got[0].model != "haiku" {
+		t.Fatalf("workers = %+v", got)
+	}
+	wantExperiment(t, rec.states(), runPin{Experiment: "split", Variant: "b", RequestedModel: "haiku"})
 }
 
 // analysisID is the id of the analysis that the subject tests run on.
@@ -751,7 +780,7 @@ func analysisRequest(n int, kind string) api.WorkRequest {
 // Work about a subject that is no card claims, runs and settles, and each of
 // its run states names the subject and no card.
 func TestAWorkOfferAboutAnotherSubjectReportsItsRun(t *testing.T) {
-	h := newHarnessWith(t, "projects:\n  loupe:\n    dir: {dir}\nwork:\n  analyse:\n    subject: analysis\n    prompt: Analyse {subjectType} {subjectId}.\n", rules.Defaults{})
+	h := newHarnessWith(t, "accounts:\n  claude:\n    harness: claude-code\ndefaults:\n  account: claude\nprojects:\n  loupe:\n    dir: {dir}\nwork:\n  analyse:\n    subject: analysis\n    prompt: Analyse {subjectType} {subjectId}.\n", rules.Defaults{})
 	rec := h.states()
 	f := h.withWork()
 	h.worker.result = workerResult{hasResult: true, status: "finished"}
@@ -835,6 +864,18 @@ func TestCheckClaimComparesTheSubject(t *testing.T) {
 	} {
 		if err := checkClaim(api.Claim{WorkRequest: w}, offer); err == nil {
 			t.Fatalf("%s: the claim was taken", name)
+		}
+	}
+}
+
+// A person's resume or rerun takes its settings from the match as well, so
+// both paths carry the effort.
+func TestApplyCarriesTheEffortOfTheMatch(t *testing.T) {
+	for _, continues := range []string{"", "run-1"} {
+		p := pending{continues: continues}
+		p.apply(rules.Match{Model: "opus", Effort: "high"})
+		if p.spec.model != "opus" || p.spec.effort != "high" {
+			t.Fatalf("continues %q: spec = %+v", continues, p.spec)
 		}
 	}
 }

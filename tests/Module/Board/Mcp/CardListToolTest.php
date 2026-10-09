@@ -11,15 +11,14 @@ use App\Module\Board\Command\PauseCardCommand;
 use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
-use App\Module\Board\Entity\CardPauseKind;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardListTool;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
@@ -502,7 +501,7 @@ final class CardListToolTest extends KernelTestCase
         self::assertInstanceOf(Card::class, $card);
         $handler = self::getContainer()->get(PauseCardHandler::class);
         self::assertInstanceOf(PauseCardHandler::class, $handler);
-        $pause = $handler(new PauseCardCommand($card, 'on-hold', 'hold', CardPauseKind::Rule));
+        $pause = $handler(new PauseCardCommand($card, 'on-hold', 'hold', PauseKind::Rule));
         self::assertInstanceOf(CardPause::class, $pause);
 
         return $pause;
@@ -597,8 +596,8 @@ final class CardListToolTest extends KernelTestCase
             project: $project,
             title: $title,
             body: 'Body',
-            type: CardType::Idea,
-            reporter: CardReporter::Reviewer,
+            type: 'idea',
+            reporter: Actor::Reviewer,
         ));
     }
 }

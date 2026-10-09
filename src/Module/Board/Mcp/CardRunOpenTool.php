@@ -10,13 +10,13 @@ use App\Module\Board\Command\OpenCardRunCommand;
 use App\Module\Board\Command\OpenCardRunHandler;
 use App\Module\Board\Command\ShowCardCommand;
 use App\Module\Board\Command\ShowCardHandler;
-use App\Module\Board\Entity\CardReporter;
+use App\Module\Workflow\Contract\Actor;
 use App\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
 
-#[McpTool(name: self::NAME, description: 'Record an open interactive session on a card. Call it when an interactive skill starts work on a card. Pass $CLAUDE_CODE_SESSION_ID as sessionId, and the skill name as name, for example loupe:product-design. Pass one of cardId or number to name the card, never both. While the run is open, a bridge rule with card: { interactiveRun: false } skips the card. status is optional, and takes the slug of a column on this board. It moves the card in the same step, and this move keeps the run open. Every later move of the card to another column closes the run. A move inside the same column closes nothing. Call card_run_close when the session ends. A second call for the same session and card that does not move the card returns the run that is already open. A second call whose status moves the card to another column closes that run and opens a new one.')]
+#[McpTool(name: self::NAME, description: 'Record an open interactive session on a card. Call it when an interactive skill starts work on a card. Pass your sessionId, the first set value of $LOUPE_SESSION_ID, $CLAUDE_CODE_SESSION_ID and $CODEX_THREAD_ID. Pass the skill name as name, for example loupe:product-design. Pass one of cardId or number to name the card, never both. While the run is open, a bridge rule with card: { interactiveRun: false } skips the card. status is optional, and takes the slug of a column on this board. It moves the card in the same step, and this move keeps the run open. Every later move of the card to another column closes the run. A move inside the same column closes nothing. Call card_run_close when the session ends. A second call for the same session and card that does not move the card returns the run that is already open. A second call whose status moves the card to another column closes that run and opens a new one.')]
 final readonly class CardRunOpenTool
 {
     public const string NAME = 'card_run_open';
@@ -31,7 +31,7 @@ final readonly class CardRunOpenTool
     }
 
     /**
-     * @param string      $sessionId the id of the interactive session, the value of $CLAUDE_CODE_SESSION_ID
+     * @param string      $sessionId the id of the interactive session, the first set value of $LOUPE_SESSION_ID, $CLAUDE_CODE_SESSION_ID and $CODEX_THREAD_ID
      * @param string      $name      the name of the skill that runs the session, for example loupe:product-design
      * @param string|null $cardId    the id of the card; pass it or number, never both
      * @param int|null    $number    the card number, the short label that counts from 1 inside this project; pass it instead of cardId
@@ -48,7 +48,7 @@ final readonly class CardRunOpenTool
 
             $opened = ($this->openRun)(new OpenCardRunCommand(
                 card: $card,
-                actor: CardReporter::Agent,
+                actor: Actor::Agent,
                 sessionId: $session,
                 name: $name,
                 column: $this->subjects->optionalColumn($card->project, $status),

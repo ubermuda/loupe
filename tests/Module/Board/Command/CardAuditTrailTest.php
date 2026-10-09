@@ -14,8 +14,6 @@ use App\Module\Board\Command\MoveCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardGroupOrder;
@@ -24,9 +22,11 @@ use App\Module\Board\Service\PullRequestTracking;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\InteractiveRuns;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
+use App\Tests\Support\ShippedCardTypes;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -84,7 +84,7 @@ final class CardAuditTrailTest extends KernelTestCase
         self::assertInstanceOf(CardHolds::class, $cardHolds);
         $pullRequestTracking = self::getContainer()->get(PullRequestTracking::class);
         self::assertInstanceOf(PullRequestTracking::class, $pullRequestTracking);
-        $this->deleteCard = new DeleteCardHandler($cards, $links, new CardGroupOrder($cards), new CardParentPolicy($cards), $pullRequestTracking, $this->em, $this->audit->auditor, new EventDispatcher(), $interactiveRuns, $cardHolds);
+        $this->deleteCard = new DeleteCardHandler($cards, $links, new CardGroupOrder($cards), new CardParentPolicy($cards, new ShippedCardTypes()), new ShippedCardTypes(), $pullRequestTracking, $this->em, $this->audit->auditor, new EventDispatcher(), $interactiveRuns, $cardHolds);
 
         $owner = new User(fullName: 'Riley', email: 'board-audit-'.uniqid().'@example.com', password: 'hashed');
         $this->em->persist($owner);
@@ -112,6 +112,7 @@ final class CardAuditTrailTest extends KernelTestCase
             'status' => 'next',
             'columnId' => (string) $this->column($this->project, 'next')->id,
             'reporter' => 'agent',
+            'source' => 'agent',
             'pullRequestCount' => 0,
             'documentCount' => 0,
             'relatedCardCount' => 0,
@@ -126,7 +127,7 @@ final class CardAuditTrailTest extends KernelTestCase
         $card = $this->card('Movable', 'backlog');
         $this->audit->forget();
 
-        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'in-progress')));
+        ($this->moveCard)(new MoveCardCommand($card, Actor::Human, $this->column($this->project, 'in-progress')));
 
         $record = $this->audit->record('board.card_moved');
         self::assertNotNull($record->subject);
@@ -150,7 +151,7 @@ final class CardAuditTrailTest extends KernelTestCase
         $cardNumber = $card->number;
         $this->audit->forget();
 
-        ($this->deleteCard)(new DeleteCardCommand($card, CardReporter::Human));
+        ($this->deleteCard)(new DeleteCardCommand($card, Actor::Human));
 
         $record = $this->audit->record('board.card_deleted');
         self::assertNotNull($record->subject);
@@ -176,10 +177,10 @@ final class CardAuditTrailTest extends KernelTestCase
 
         ($this->updateCard)(new UpdateCardCommand(
             card: $card,
-            actor: CardReporter::Agent,
+            actor: Actor::Agent,
             title: 'After',
             body: 'Body',
-            type: CardType::Bug,
+            type: 'bug',
         ));
 
         $record = $this->audit->record('board.card_updated');
@@ -206,7 +207,7 @@ final class CardAuditTrailTest extends KernelTestCase
         $card = $this->card('Promotable', 'backlog');
         $this->audit->forget();
 
-        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Agent, column: $this->column($this->project, 'done')));
+        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: Actor::Agent, column: $this->column($this->project, 'done')));
 
         $move = $this->audit->record('board.card_moved');
         self::assertSame('backlog', $move->context['fromStatus']);
@@ -220,7 +221,7 @@ final class CardAuditTrailTest extends KernelTestCase
         $card = $this->card('Promotable', 'backlog');
         $this->audit->forget();
 
-        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Agent, title: 'Promoted', column: $this->column($this->project, 'done')));
+        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: Actor::Agent, title: 'Promoted', column: $this->column($this->project, 'done')));
 
         $update = $this->audit->record('board.card_updated');
         self::assertTrue($update->context['titleChanged']);
@@ -237,10 +238,10 @@ final class CardAuditTrailTest extends KernelTestCase
 
         ($this->updateCard)(new UpdateCardCommand(
             card: $card,
-            actor: CardReporter::Agent,
+            actor: Actor::Agent,
             title: 'Unchanged',
             body: 'Body',
-            type: CardType::Bug,
+            type: 'bug',
             column: $this->column($this->project, 'next'),
         ));
 
@@ -252,7 +253,7 @@ final class CardAuditTrailTest extends KernelTestCase
         $card = $this->card('Draggable', 'backlog');
         $this->audit->forget();
 
-        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'next'), 0));
+        ($this->moveCard)(new MoveCardCommand($card, Actor::Human, $this->column($this->project, 'next'), 0));
 
         self::assertSame(['board.card_moved'], $this->audit->operations());
         self::assertSame('next', $this->audit->record('board.card_moved')->context['toStatus']);
@@ -284,9 +285,9 @@ final class CardAuditTrailTest extends KernelTestCase
             project: $this->project,
             title: $title,
             body: 'Body',
-            type: CardType::Bug,
+            type: 'bug',
             column: $this->column($this->project, $column),
-            reporter: CardReporter::Agent,
+            reporter: Actor::Agent,
         ));
     }
 }

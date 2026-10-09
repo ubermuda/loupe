@@ -6,7 +6,6 @@ namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
@@ -17,6 +16,7 @@ use App\Module\Board\Service\BoardLanes;
 use App\Module\Board\Service\CardMarkers;
 use App\Module\Board\Service\CardPullRequestStates;
 use App\Module\Board\Service\LaneDecks;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 
 /** Reads one card and its neighbours, so the cost does not grow with the board. */
 final readonly class ShowCardPlacementHandler
@@ -31,6 +31,7 @@ final readonly class ShowCardPlacementHandler
         private CardPullRequestStates $pullRequestStates,
         private CardMarkers $markers,
         private BoardAutomation $automation,
+        private CardTypeCatalog $catalog,
     ) {
     }
 
@@ -60,10 +61,11 @@ final readonly class ShowCardPlacementHandler
         }
 
         $card = $command->card;
+        $types = $this->catalog->forProject($command->project->requireId());
         $columnId = null === $card ? null : $this->columnCards->shownColumnId($card, $windowStart);
         $laneEpicIds = null === $columnId ? [] : array_map(
             static fn (Card $epic): string => (string) $epic->id,
-            $this->cards->findLaneEpics($command->project),
+            $this->cards->findLaneEpics($command->project, $types->withLane()),
         );
         $laneIndex = null === $card ? false : array_search((string) $card->id, $laneEpicIds, true);
         $laneHead = \is_int($laneIndex);
@@ -80,7 +82,7 @@ final readonly class ShowCardPlacementHandler
         }
 
         $progress = null;
-        if (CardType::Epic === $card->type) {
+        if ($types->get($card->type)->children) {
             $children = $this->cards->childProgressOf($card);
             $progress = new CardProgress($children['done'], $children['total']);
         }

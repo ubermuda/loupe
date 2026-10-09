@@ -14,6 +14,7 @@ use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
@@ -22,6 +23,35 @@ use Symfony\Component\HttpFoundation\Request;
 final class ShowCardControllerTest extends WebTestCase
 {
     use BoardScenario;
+
+    public function test_the_card_page_shows_a_site_review_badge_for_a_widget_card_only(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'card-source-badge@example.com');
+        $project = $this->project($em, $owner);
+        $widget = new Card(
+            project: $project,
+            column: $this->column($project, 'backlog'),
+            title: 'From the widget',
+            body: '',
+            number: 50,
+            origin: Actor::Reviewer,
+        );
+        $em->persist($widget);
+        $plain = $this->card($em, $project, 'By an agent');
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$widget->id);
+        self::assertResponseIsSuccessful();
+        self::assertSame(1, $crawler->filter('.lp-card-drawer__identity .lp-tag--purple')->count());
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$plain->id);
+        self::assertResponseIsSuccessful();
+        self::assertSame(0, $crawler->filter('.lp-card-drawer__identity .lp-tag--purple')->count());
+    }
 
     public function test_the_card_page_shows_the_stored_state_of_each_pull_request(): void
     {

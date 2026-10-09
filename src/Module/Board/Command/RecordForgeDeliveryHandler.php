@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\PullRequestCommentRepository;
 use App\Module\Board\Repository\PullRequestNoticeRepository;
 use App\Module\Forge\ForgeDelivery;
 use App\Module\Forge\ForgeEventType;
+use App\Module\Workflow\Contract\Actor;
 use App\Outbox\OutboxWriter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Uid\Uuid;
@@ -104,7 +104,7 @@ final readonly class RecordForgeDeliveryHandler
                 'projectId' => (string) $project->id,
                 'cardNumber' => $card->number,
                 'forge' => $forge->value,
-                'actor' => CardReporter::System->value,
+                'actor' => Actor::System->value,
             ]);
         }
     }

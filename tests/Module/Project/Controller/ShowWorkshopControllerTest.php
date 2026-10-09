@@ -9,8 +9,6 @@ use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
@@ -25,7 +23,9 @@ use App\Module\Readiness\Command\StartDiscoveryCommand;
 use App\Module\Readiness\Command\StartDiscoveryHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
+use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Entity\WorkflowBinding;
+use App\Module\Workflow\Template\ShippedTemplates;
 use App\Outbox\Entity\OutboxEvent;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\AcceptedTerms;
@@ -73,13 +73,13 @@ final class ShowWorkshopControllerTest extends WebTestCase
         $owner = $this->user($em, 'workshop-cards@example.com');
         [$project, $foreign] = $this->projects($em, $owner, 'Card workshop', 'Other cards');
         $create = self::getContainer()->get(CreateCardHandler::class);
-        $idle = $create(new CreateCardCommand($project, 'Idle work', '', CardType::Feature));
-        $queued = $create(new CreateCardCommand($project, 'Queued work', '', CardType::Feature));
-        $session = $create(new CreateCardCommand($project, 'Session work', '', CardType::Feature));
-        $blocked = $create(new CreateCardCommand($project, 'Blocked work', '', CardType::Feature));
-        $command = $create(new CreateCardCommand($project, 'Command work', '', CardType::Feature));
-        $done = $create(new CreateCardCommand($project, 'Done work', '', CardType::Feature, column: $this->column($project, 'done')));
-        $foreignCard = $create(new CreateCardCommand($foreign, 'Foreign work', '', CardType::Feature));
+        $idle = $create(new CreateCardCommand($project, 'Idle work', '', 'feature'));
+        $queued = $create(new CreateCardCommand($project, 'Queued work', '', 'feature'));
+        $session = $create(new CreateCardCommand($project, 'Session work', '', 'feature'));
+        $blocked = $create(new CreateCardCommand($project, 'Blocked work', '', 'feature'));
+        $command = $create(new CreateCardCommand($project, 'Command work', '', 'feature'));
+        $done = $create(new CreateCardCommand($project, 'Done work', '', 'feature', column: $this->column($project, 'done')));
+        $foreignCard = $create(new CreateCardCommand($foreign, 'Foreign work', '', 'feature'));
         $this->openRun($em, $project, $queued, WorkerRunState::Queued, 'tech-design', '-3 days');
         $this->openRun($em, $project, $session, WorkerRunState::Queued, 'implement', '-2 hours');
         $this->openRun($em, $project, $session, WorkerRunState::Running, 'Work on it', '-30 minutes', WorkerRunKind::Interactive);
@@ -133,7 +133,7 @@ final class ShowWorkshopControllerTest extends WebTestCase
         $create = self::getContainer()->get(CreateCardHandler::class);
         $numbers = [];
         for ($index = 1; $index <= 8; ++$index) {
-            $card = $create(new CreateCardCommand($project, 'Work '.$index, '', CardType::Feature));
+            $card = $create(new CreateCardCommand($project, 'Work '.$index, '', 'feature'));
             $this->openRun($em, $project, $card, WorkerRunState::Queued, 'implement', '-'.(20 - $index).' minutes');
             $numbers[] = (string) $card->number;
         }
@@ -157,7 +157,7 @@ final class ShowWorkshopControllerTest extends WebTestCase
         [$project] = $this->projects($em, $owner, 'Idle workshop');
         $project->readinessGuideHiddenAt = new \DateTimeImmutable();
         $em->flush();
-        self::getContainer()->get(CreateCardHandler::class)(new CreateCardCommand($project, 'Idle work', '', CardType::Feature));
+        self::getContainer()->get(CreateCardHandler::class)(new CreateCardCommand($project, 'Idle work', '', 'feature'));
         $em->clear();
         $client->loginUser($owner);
 
@@ -175,7 +175,7 @@ final class ShowWorkshopControllerTest extends WebTestCase
         $em = self::getContainer()->get(EntityManagerInterface::class);
         $owner = $this->user($em, 'workshop-frame@example.com');
         [$project] = $this->projects($em, $owner, 'Framed workshop');
-        $card = self::getContainer()->get(CreateCardHandler::class)(new CreateCardCommand($project, 'Framed work', '', CardType::Feature));
+        $card = self::getContainer()->get(CreateCardHandler::class)(new CreateCardCommand($project, 'Framed work', '', 'feature'));
         $this->openRun($em, $project, $card, WorkerRunState::Queued, 'implement', '-2 days');
         $em->clear();
         $client->loginUser($owner);
@@ -264,7 +264,7 @@ final class ShowWorkshopControllerTest extends WebTestCase
         $em->persist($document);
         $em->persist(new DocumentVersion(document: $document, versionNumber: 1, markdownSource: '# Spec', renderedHtml: '<h1>Spec</h1>'));
         $em->flush();
-        $card = self::getContainer()->get(CreateCardHandler::class)(new CreateCardCommand($project, 'Checkout', '', CardType::Feature));
+        $card = self::getContainer()->get(CreateCardHandler::class)(new CreateCardCommand($project, 'Checkout', '', 'feature'));
         $pullRequest = new CardPullRequest($card, 'https://github.com/example/app/pull/7', repository: 'example/app', number: 7);
         $em->persist($pullRequest);
         $question = new InboxItem($project, 1, InboxItemKind::Question, 'Question', false);
@@ -408,7 +408,7 @@ final class ShowWorkshopControllerTest extends WebTestCase
         $owner = $this->user($em, 'workshop-guide-discovering@example.com');
         [$project] = $this->projects($em, $owner, 'Guide discovering');
         $this->readyForDiscovery($em, $owner, $project);
-        $run = self::getContainer()->get(StartDiscoveryHandler::class)(new StartDiscoveryCommand($project, CardReporter::Human));
+        $run = self::getContainer()->get(StartDiscoveryHandler::class)(new StartDiscoveryCommand($project, Actor::Human));
         $this->openRun($em, $project, $run->card, WorkerRunState::Running, 'discovery', '-5 minutes');
         $em->clear();
         $client->loginUser($owner);
@@ -429,9 +429,9 @@ final class ShowWorkshopControllerTest extends WebTestCase
         $owner = $this->user($em, 'workshop-guide-discovering-busy@example.com');
         [$project] = $this->projects($em, $owner, 'Guide discovering busy');
         $this->readyForDiscovery($em, $owner, $project);
-        $run = self::getContainer()->get(StartDiscoveryHandler::class)(new StartDiscoveryCommand($project, CardReporter::Human));
+        $run = self::getContainer()->get(StartDiscoveryHandler::class)(new StartDiscoveryCommand($project, Actor::Human));
         $this->openRun($em, $project, $run->card, WorkerRunState::Running, 'discovery', '-5 minutes');
-        $card = self::getContainer()->get(CreateCardHandler::class)(new CreateCardCommand($project, 'Running work', '', CardType::Feature));
+        $card = self::getContainer()->get(CreateCardHandler::class)(new CreateCardCommand($project, 'Running work', '', 'feature'));
         $this->openRun($em, $project, $card, WorkerRunState::Running, 'implement', '-5 minutes');
         $em->clear();
         $client->loginUser($owner);
@@ -472,7 +472,7 @@ final class ShowWorkshopControllerTest extends WebTestCase
         $em = self::getContainer()->get(EntityManagerInterface::class);
         $owner = $this->user($em, 'workshop-guide-run@example.com');
         [$project] = $this->projects($em, $owner, 'Guide run');
-        $card = self::getContainer()->get(CreateCardHandler::class)(new CreateCardCommand($project, 'Running work', '', CardType::Feature));
+        $card = self::getContainer()->get(CreateCardHandler::class)(new CreateCardCommand($project, 'Running work', '', 'feature'));
         $this->openRun($em, $project, $card, WorkerRunState::Running, 'implement', '-5 minutes');
         $em->clear();
         $client->loginUser($owner);
@@ -521,8 +521,10 @@ final class ShowWorkshopControllerTest extends WebTestCase
     /** A live bridge serves the projects, and each project has a workflow. */
     private function readyForDiscovery(EntityManagerInterface $em, User $owner, Project ...$projects): void
     {
+        $shipped = static::getContainer()->get(ShippedTemplates::class);
+        self::assertInstanceOf(ShippedTemplates::class, $shipped);
         foreach ($projects as $project) {
-            $em->persist(new WorkflowBinding($project, 'simple', 1, []));
+            $em->persist(new WorkflowBinding($project, 'simple', 1, $shipped->source('simple')));
         }
         $em->persist(new Bridge(AgentCredential::managed($em, $owner, $owner->id), Uuid::v4(), array_values(array_map(static fn (Project $project): string => (string) $project->id, $projects)), 'b4e39aa7', new \DateTimeImmutable()));
         $em->flush();

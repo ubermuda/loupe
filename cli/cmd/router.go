@@ -63,6 +63,19 @@ type router struct {
 	runs    *runReports
 	// heartbeat tells Loupe the bridge runs. A nil one sends nothing.
 	heartbeat *heartbeater
+	// hostSampling and hostInterval are the host sampling flags, under mu.
+	hostSampling bool
+	hostInterval time.Duration
+	// beatInterval is the heartbeat interval flag, under mu.
+	beatInterval time.Duration
+	// sampler is the running host sampler, or nil. samplerMu guards it, and
+	// is taken before mu.
+	samplerMu sync.Mutex
+	sampler   *hostSampler
+	// hostAfter and hostSample stand in for time.After and the host reader in
+	// a test. Nil uses the real ones.
+	hostAfter  func(time.Duration) <-chan time.Time
+	hostSample func(context.Context) (api.HostSample, error)
 	// hookRunner runs the hook packages on start, stop, busy and idle. A nil
 	// one runs nothing.
 	hookRunner *hookRunner
@@ -80,7 +93,7 @@ type router struct {
 	readHolds func(ctx context.Context) ([]api.CardHold, error)
 	// resolvePin asks which variant of an experiment a card runs with, before
 	// its worker starts. A nil one runs the variant the bridge drew.
-	resolvePin func(ctx context.Context, handle, experiment, cardID, candidate string, variants []string, weights []int) (string, string, error)
+	resolvePin func(ctx context.Context, handle, experiment, cardID, candidate string, variants []string, weights []int, metrics []string) (string, string, error)
 	// control is the socket that `loupe bridge reload` reaches, and source is
 	// what a reload reads. A nil control, as in most tests, opens no socket.
 	control net.Listener
@@ -112,11 +125,17 @@ type router struct {
 	signal    func(pid int, sig stopSignal) error
 	stopAfter func(time.Duration) <-chan time.Time
 	// findTranscript fails when this machine holds no transcript of the
-	// session. A nil one looks in the Claude Code config directory.
+	// session. A nil one asks the default harness.
 	findTranscript func(sessionID string) error
+	// reportRunUsage sends the usage of one run of a session. A nil one
+	// refuses each usage request.
+	reportRunUsage func(ctx context.Context, handle, sessionID, runID string, usage api.Usage) error
 	// startDir is the folder a session started in, and "" when this machine
-	// holds no transcript of it. A nil one is transcriptStartDir.
+	// holds no transcript of it. A nil one asks the harness of the run.
 	startDir func(sessionID string) (string, error)
+
+	// prices is the state of the OpenRouter price refresh.
+	prices priceState
 
 	mu sync.Mutex
 	// reloading is on while a reload builds its set. reloadKills holds each
@@ -251,8 +270,9 @@ type pending struct {
 	// reload swapped the set in between.
 	set *rules.Set
 	// continues is the run id that a person's resume or rerun continues, and
-	// "" for any other run.
+	// "" for any other run. startedOn is what that run started on.
 	continues string
+	startedOn runStart
 	// action and project are the rule's action and project slug.
 	action  string
 	project string
@@ -293,20 +313,31 @@ func (p *pending) apply(m rules.Match) {
 	p.rule, p.action, p.project, p.pool = m.Rule, m.Action, m.Project, m.Pool
 	p.experiment, p.pin = m.Experiment, runPin{}
 	if p.continues != "" {
-		p.spec.dir, p.spec.permissionMode, p.spec.model, p.spec.schema = m.Dir, m.PermissionMode, m.Model, m.Schema
+		p.spec.dir, p.spec.effort, p.spec.schema = m.Dir, m.Effort, m.Schema
 		p.spec.before, p.spec.command = m.Before, m.Command
+		run, _ := p.startedOn.settings(p.set, m.Run())
+		p.spec.useSettings(run)
 
 		return
 	}
-	p.spec = workerSpec{
-		dir: m.Dir, permissionMode: m.PermissionMode, model: m.Model, schema: m.Schema, prompt: m.Prompt,
-		before: m.Before, command: m.Command,
-	}
+	p.spec = workerSpec{dir: m.Dir, effort: m.Effort, schema: m.Schema, prompt: m.Prompt, before: m.Before, command: m.Command}
+	p.spec.useRun(m)
 	// The server asks the work to resume the session of an unfinished run,
 	// which the offer found on this machine.
 	if p.isWork() && p.event.SessionID != "" && m.Action == "" && !p.fresh {
 		p.spec.resume, p.spec.prompt = true, directive.RenderResumeUnfinished("status unfinished")
 	}
+}
+
+// useRun takes the account, the harness, the model and the mode that the
+// match resolved.
+func (s *workerSpec) useRun(m rules.Match) {
+	s.useSettings(m.Run())
+}
+
+func (s *workerSpec) useSettings(r rules.RunSettings) {
+	s.account, s.harnessName, s.configDir, s.profile, s.envFiles = r.Account, r.Harness, r.ConfigDir, r.Profile, slices.Clone(r.EnvFiles)
+	s.model, s.permissionMode = r.Model, r.PermissionMode
 }
 
 // sessionCard is the key a session's worker ran under, and its card when the
@@ -544,15 +575,33 @@ func (r *router) markGone(id string, seq uint64) ([]pending, bool) {
 }
 
 // applyFlags keeps the flags of one GET /api/events answer for the workers that
-// start after it, and gives its heartbeat interval to the heartbeat.
+// start after it, gives its heartbeat interval to the heartbeat, and starts or
+// stops the host sampler.
 func (r *router) applyFlags(events api.Events) {
 	r.mu.Lock()
+	r.keepFlagsLocked(events)
+	r.mu.Unlock()
+	r.useFlags()
+}
+
+// keepFlagsLocked keeps the flags that workers and the sampler read. The
+// caller holds mu.
+func (r *router) keepFlagsLocked(events api.Events) {
 	r.inbox = events.Enabled(api.InboxFlag)
 	r.stopWaits = stopWaitsOf(events)
-	r.mu.Unlock()
+	r.hostSampling, r.hostInterval = events.Enabled(api.HostSamplingFlag), hostSampleInterval(events)
+	r.beatInterval = heartbeatInterval(events)
+}
+
+// useFlags gives the heartbeat the kept interval and starts or stops the host
+// sampler. The caller does not hold mu.
+func (r *router) useFlags() {
 	if r.heartbeat != nil {
-		r.heartbeat.setInterval(heartbeatInterval(events))
+		r.mu.Lock()
+		r.heartbeat.setInterval(r.beatInterval)
+		r.mu.Unlock()
 	}
+	r.syncHostSampler()
 }
 
 // onRefresh applies the flags of a fresh GET /api/events. It logs, once for
@@ -878,6 +927,11 @@ func (r *router) start(p pending) {
 		return
 	}
 	args := append(about(p.event, p.rule), "worker_pool", p.slot)
+	// The variant of an experiment sets the account and the mode, and its
+	// worker_variant line names them.
+	if p.experiment == nil {
+		args = append(args, "account", p.spec.account, "permission_mode", p.spec.permissionMode)
+	}
 	switch {
 	case p.continues != "":
 		// The command set the session of the run this one continues.
@@ -903,9 +957,29 @@ func (r *router) start(p pending) {
 		defer r.wg.Done()
 
 		if p.experiment != nil {
-			p.spec.model, p.pin = r.resolveVariant(p)
+			var settings rules.RunSettings
+			settings, p.pin = r.resolveVariant(p)
+			// A resume runs with what the run started on, so it names no
+			// variant that would run with other settings.
+			run, _ := p.startedOn.settings(p.set, settings)
+			if run.Account != settings.Account || run.Model != settings.Model {
+				p.pin = runPin{}
+			}
+			p.spec.useSettings(run)
+			r.log.Info("worker_variant", append(about(p.event, p.rule),
+				"session_id", p.spec.sessionID, "experiment", p.pin.Experiment, "variant", p.pin.Variant,
+				"account", p.spec.account, "permission_mode", p.spec.permissionMode, "model", p.spec.model,
+			)...)
 		}
 		if p.spec.before != nil {
+			// A bad env file fails the run before the command changes the
+			// worktree. runAgent reads the files again for the agent.
+			if _, err := p.spec.accountEnv(); err != nil {
+				began := time.Now()
+				r.settle(p, endedRun{res: workerResult{err: err}, began: began, elapsed: time.Since(began)})
+
+				return
+			}
 			r.prepare(p)
 
 			return
@@ -948,6 +1022,14 @@ func (r *router) runAgent(p pending, began time.Time, beforeDir string) {
 	}
 	spec := p.spec
 	spec.agent = r.agent
+	env, err := spec.accountEnv()
+	if err != nil {
+		failed := workerResult{err: err, dir: beforeDir}
+		r.settle(p, endedRun{res: failed, began: began, elapsed: time.Since(began)})
+
+		return
+	}
+	spec.env = env
 	res := r.worker.run(r.workerContext(), spec, onStart)
 	// A claude that never started made no run directory, so the files of the
 	// before command are what remains.
@@ -956,13 +1038,26 @@ func (r *router) runAgent(p pending, began time.Time, beforeDir string) {
 }
 
 // resumeDir starts a resume in the folder its conversation started in, because
-// claude --resume finds the conversation only from there. When that folder is
-// gone, the run starts a new session in the folder it has, with the rule's
-// prompt. reason says why the run cannot start at all.
+// claude --resume finds the conversation only from there. When that folder or
+// the session is gone, a run that no command started takes a new session with
+// the rule's prompt. reason says why the run cannot start at all.
 func (r *router) resumeDir(p pending) (pending, string) {
+	// The variant of an experiment resolves at start, and its account may not
+	// hold the session that the work request names.
+	// A read error says nothing about the session, so the resume goes on.
+	if p.event.Type != event.CommandType {
+		run := rules.RunSettings{Harness: p.spec.harnessName, ConfigDir: p.spec.configDir, Profile: p.spec.profile}
+		err := r.findSession(p.spec.sessionID, run)
+		if errors.Is(err, transcript.ErrNotFound) {
+			return r.freshSession(p, "resume_session_missing", "the session is not in the config folder of account "+p.spec.account)
+		}
+		if err != nil {
+			r.log.Warn("resume_session_unknown", append(about(p.event, p.rule), "session_id", p.spec.sessionID, "account", p.spec.account, "error", err.Error())...)
+		}
+	}
 	lookup := r.startDir
 	if lookup == nil {
-		lookup = transcriptStartDir
+		lookup = p.spec.adapter().StartDir
 	}
 	recorded, err := lookup(p.spec.sessionID)
 	if err != nil {
@@ -988,12 +1083,19 @@ func (r *router) resumeDir(p pending) (pending, string) {
 	if p.event.Type == event.CommandType {
 		return p, gone + ", so the bridge cannot resume it"
 	}
+
+	return r.freshSession(p, "resume_dir_gone", gone)
+}
+
+// freshSession replaces a resume that cannot run with a new session and the
+// prompt of the rule. why says what is missing, and msg names the log line.
+func (r *router) freshSession(p pending, msg, why string) (pending, string) {
 	r.mu.Lock()
 	m, ok := matchPending(r.rules(), p)
 	if !ok {
 		r.mu.Unlock()
 
-		return p, gone + ", and the rule no longer runs the event"
+		return p, why + ", and the rule no longer runs the event"
 	}
 	old := p.spec.sessionID
 	p.fresh, p.spec.resume, p.spec.sessionID, p.spec.prompt = true, false, r.worker.sessionID(), m.Prompt
@@ -1004,30 +1106,12 @@ func (r *router) resumeDir(p pending) (pending, string) {
 		r.sessions[p.spec.sessionID] = s
 	}
 	r.mu.Unlock()
-	r.log.Warn("resume_dir_gone", append(about(p.event, p.rule),
+	r.log.Warn(msg, append(about(p.event, p.rule),
 		"session_id", old, "new_session_id", p.spec.sessionID, "dir", p.spec.dir,
-		"message", gone+", so the bridge starts a new session",
+		"message", why+", so the bridge starts a new session",
 	)...)
 
 	return p, ""
-}
-
-// transcriptStartDir is the folder the session started in, from its transcript
-// in the Claude Code config directory, and "" when there is none.
-func transcriptStartDir(sessionID string) (string, error) {
-	dir, err := transcript.ConfigDir()
-	if err != nil {
-		return "", err
-	}
-	path, err := transcript.Find(dir, sessionID)
-	if errors.Is(err, transcript.ErrNotFound) {
-		return "", nil
-	}
-	if err != nil {
-		return "", err
-	}
-
-	return transcript.StartDir(path)
 }
 
 // prepare runs the before command of the run's rule in the project dir, in
@@ -1108,19 +1192,20 @@ func (r *router) afterBefore(p pending, began time.Time, res procResult) {
 	r.settle(p, endedRun{res: failed, began: began, elapsed: time.Since(began)})
 }
 
-// resolveVariant is the model and the variant of a run in an experiment. The
+// resolveVariant is the settings and the variant of a run in an experiment. The
 // server keeps the variant a card first ran with. A run with no card, or with
 // no answer from the server, runs the variant the bridge drew.
-func (r *router) resolveVariant(p pending) (string, runPin) {
+func (r *router) resolveVariant(p pending) (rules.RunSettings, runPin) {
 	exp := p.experiment
 	cardID, number := cardOf(p.event)
 	if number < 1 {
 		cardID = ""
 	}
 	candidate := exp.Pick(cmp.Or(cardID, p.key))
-	drawn := runPin{Experiment: exp.Name, Variant: candidate.Name, RequestedModel: candidate.Model}
+	settings := exp.Settings(candidate)
+	drawn := runPin{Experiment: exp.Name, Variant: candidate.Name, RequestedModel: settings.Model}
 	if cardID == "" || r.resolvePin == nil {
-		return candidate.Model, drawn
+		return settings, drawn
 	}
 
 	names := make([]string, len(exp.Variants))
@@ -1133,7 +1218,7 @@ func (r *router) resolveVariant(p pending) (string, runPin) {
 		timeout = readTimeout
 	}
 	ctx, cancel := context.WithTimeout(r.workerContext(), timeout)
-	name, switchedFrom, err := r.resolvePin(ctx, p.event.ProjectID, exp.Name, cardID, candidate.Name, names, weights)
+	name, switchedFrom, err := r.resolvePin(ctx, p.event.ProjectID, exp.Name, cardID, candidate.Name, names, weights, exp.Metrics)
 	cancel()
 	i := slices.IndexFunc(exp.Variants, func(v rules.Variant) bool { return v.Name == name })
 	if err == nil && i < 0 {
@@ -1150,11 +1235,12 @@ func (r *router) resolveVariant(p pending) (string, runPin) {
 			)...)
 		}
 
-		return candidate.Model, drawn
+		return settings, drawn
 	}
 	v := exp.Variants[i]
+	settings = exp.Settings(v)
 
-	return v.Model, runPin{Experiment: exp.Name, Variant: v.Name, RequestedModel: v.Model, SwitchedFrom: switchedFrom}
+	return settings, runPin{Experiment: exp.Name, Variant: v.Name, RequestedModel: settings.Model, SwitchedFrom: switchedFrom}
 }
 
 // liveRun is a worker that started, with what its report and a handover need.
@@ -1186,6 +1272,7 @@ func (r *router) settle(p pending, e endedRun) {
 	defer r.quiesce.RUnlock()
 	done := func() {
 		r.end(p, e)
+		r.sendToolCalls(p, e.res)
 		if e.res.dir != "" {
 			_ = os.RemoveAll(e.res.dir)
 		}
@@ -1207,6 +1294,26 @@ func (r *router) settle(p pending, e endedRun) {
 	}
 	r.mu.Unlock()
 	done()
+}
+
+// sendToolCalls queues the tool calls and the timing that the harness read
+// from the run, behind the outcome of the run. The reports hold the calls, so
+// the run directory can go. A run the server holds no record of sends none.
+func (r *router) sendToolCalls(p pending, res workerResult) {
+	subjectType, _, cardNumber := subjectOf(p)
+	if !res.streamed || !r.reporting() || !r.rules().Collect() || subjectType == "" || (p.isWork() && p.claimToken == "") {
+		return
+	}
+	timeout := r.checkTimeout
+	if timeout <= 0 {
+		timeout = readTimeout
+	}
+	ctx, cancel := context.WithTimeout(r.workerContext(), timeout)
+	reports := r.runs.toolCalls(ctx, p.event.ProjectID, p.runID, cardNumber, p.rule, res.calls, res.timing)
+	cancel()
+	for _, report := range reports {
+		r.reports.Enqueue(report)
+	}
 }
 
 // endedRun is how one worker ended. state is the outcome to report, and
@@ -1398,6 +1505,7 @@ func (r *router) outcome(p pending, e endedRun) api.RunStateReport {
 		report.ResultFields = r.resultFields(p, e.res.fields)
 	}
 	report.Usage = r.usage(p, e.res.usage)
+	report.PeakContextTokens = e.res.peakContextTokens
 
 	return report
 }
@@ -1534,6 +1642,7 @@ func (r *router) emitLocked(p pending, report api.RunStateReport) {
 	if report.State == api.RunRunning || api.IsOutcome(report.State) {
 		report.Experiment, report.Variant = p.pin.Experiment, p.pin.Variant
 		report.RequestedModel, report.SwitchedFrom = p.pin.RequestedModel, p.pin.SwitchedFrom
+		report.Harness, report.Account, report.Model = p.spec.harnessName, p.spec.account, p.spec.model
 	}
 	// The handle is the project id the event carried, which a rename never
 	// changes.

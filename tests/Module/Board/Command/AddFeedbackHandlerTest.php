@@ -9,11 +9,11 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Command\AddFeedbackCommand;
 use App\Module\Board\Command\AddFeedbackHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
+use App\Module\Board\Entity\CardSourceKind;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Command\NewAnchor;
 use App\Module\SiteReview\Command\NewStroke;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\DBAL\Types\ConversionException;
@@ -57,8 +57,9 @@ final class AddFeedbackHandlerTest extends KernelTestCase
         self::assertSame(80, mb_strlen($card->title));
         self::assertStringStartsWith('Footer overlaps the launcher Footer', $card->title);
         self::assertSame('', $card->body);
-        self::assertSame(CardType::SiteReview, $card->type);
-        self::assertSame(CardReporter::Reviewer, $card->reporter);
+        self::assertSame('feature', $card->type);
+        self::assertSame(Actor::Reviewer, $card->reporter);
+        self::assertSame(CardSourceKind::Widget, $card->source->kind);
         self::assertNull($card->parent);
         self::assertSame(trim($body), $link->comment->body);
         self::assertCount(1, $link->comment->anchors);
@@ -83,13 +84,13 @@ final class AddFeedbackHandlerTest extends KernelTestCase
     public function test_a_note_creates_a_child_card_of_an_epic(): void
     {
         $project = $this->project('feedback-epic');
-        $epic = $this->card($project, 'backlog', CardType::Epic);
+        $epic = $this->card($project, 'backlog', 'epic');
 
         $link = ($this->handler)($this->command($project, 'Checkout button is grey', parentCardId: (string) $epic->id));
 
         self::assertTrue($link->createdCard);
         self::assertSame((string) $epic->id, (string) $link->card->parent?->id);
-        self::assertSame(CardType::SiteReview, $link->card->type);
+        self::assertSame('feature', $link->card->type);
     }
 
     public function test_a_card_of_another_project_reads_as_not_found(): void
@@ -121,7 +122,7 @@ final class AddFeedbackHandlerTest extends KernelTestCase
     public function test_an_epic_in_a_terminal_column_is_closed(): void
     {
         $project = $this->project('feedback-closed-epic');
-        $epic = $this->card($project, 'done', CardType::Epic);
+        $epic = $this->card($project, 'done', 'epic');
 
         $this->assertRefused('target', AddFeedbackHandler::TARGET_CLOSED, $project, parentCardId: (string) $epic->id);
     }
@@ -166,8 +167,8 @@ final class AddFeedbackHandlerTest extends KernelTestCase
     public function test_a_retry_under_another_epic_is_a_conflict(): void
     {
         $project = $this->project('feedback-retry-other-epic');
-        $epic = $this->card($project, 'backlog', CardType::Epic);
-        $other = $this->card($project, 'backlog', CardType::Epic);
+        $epic = $this->card($project, 'backlog', 'epic');
+        $other = $this->card($project, 'backlog', 'epic');
         $deliveryId = (string) Uuid::v4();
         ($this->handler)($this->command($project, 'One note', parentCardId: (string) $epic->id, deliveryId: $deliveryId));
 
@@ -187,8 +188,8 @@ final class AddFeedbackHandlerTest extends KernelTestCase
     public function test_a_retry_to_the_same_epic_still_matches_after_the_card_moved_to_another(): void
     {
         $project = $this->project('feedback-retry-moved-card');
-        $epic = $this->card($project, 'backlog', CardType::Epic);
-        $other = $this->card($project, 'backlog', CardType::Epic);
+        $epic = $this->card($project, 'backlog', 'epic');
+        $other = $this->card($project, 'backlog', 'epic');
         $command = $this->command($project, 'One note', parentCardId: (string) $epic->id, deliveryId: (string) Uuid::v4());
         $first = ($this->handler)($command);
         self::assertSame(1, $this->em->getConnection()->executeStatement(
@@ -205,7 +206,7 @@ final class AddFeedbackHandlerTest extends KernelTestCase
     public function test_a_retry_to_the_same_epic_returns_the_saved_note(): void
     {
         $project = $this->project('feedback-retry-same-epic');
-        $epic = $this->card($project, 'backlog', CardType::Epic);
+        $epic = $this->card($project, 'backlog', 'epic');
         $command = $this->command($project, 'One note', parentCardId: (string) $epic->id, deliveryId: (string) Uuid::v4());
 
         $first = ($this->handler)($command);
@@ -305,7 +306,7 @@ final class AddFeedbackHandlerTest extends KernelTestCase
 
     private static int $number = 0;
 
-    private function card(Project $project, string $slug, CardType $type = CardType::Feature): Card
+    private function card(Project $project, string $slug, string $type = 'feature'): Card
     {
         $card = new Card($project, $this->column($project, $slug), 'Existing card', '', ++self::$number, $type);
         $this->em->persist($card);

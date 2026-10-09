@@ -45,13 +45,20 @@ final class ShowWorkflowSettingsControllerTest extends WebTestCase
         self::assertSelectorTextContains('[data-rule-id="product-design-approved"]', 'Move the card to Tech design');
         self::assertSelectorTextContains('[data-rule-id="implement"]', 'implement');
         self::assertSelectorTextContains('[data-rule-id="implement"] [data-condition-source="workflow.source.board"]', 'Board: not card.type (type: epic)');
-        self::assertSelectorTextContains('[data-rule-id="implement"] [data-condition-source="workflow.source.forge"]', 'Forge: not pr.linked');
-        self::assertSelectorTextContains('[data-rule-id="merged"] [data-condition-source="workflow.source.board"]', 'Board: not card.in_slot (slot: @terminal), card.children_finished');
+        self::assertSelectorTextContains('[data-rule-id="implement"] [data-condition-source="workflow.source.forge"]', 'Forge: not card.pr.linked');
+        self::assertSelectorTextContains('[data-rule-id="merged"] [data-condition-source="workflow.source.board"]', 'Board: not card.in_slot (slot: @terminal), card.children.finished');
         self::assertSelectorNotExists('[data-rule-missing]');
-        self::assertSelectorTextContains('[data-workflow-app-rules] [data-rule-id="discovery"] [data-condition-source="workflow.source.readiness"]', 'Readiness: card.discovery_requested');
+        self::assertSelectorTextContains('[data-workflow-app-rules] [data-rule-id="discovery"] [data-condition-source="workflow.source.readiness"]', 'Readiness: card.discovery.requested');
         self::assertSelectorNotExists('[data-workflow-template-rules] [data-rule-id="discovery"]');
         self::assertSelectorExists('[data-manual-move]');
-        self::assertSame(['Anyone', 'A run of the parent epic'], array_values(array_unique($crawler->filter('[data-manual-move-by]')->extract(['_text']))));
+        self::assertSame(['Anyone'], array_values(array_unique($crawler->filter('[data-manual-move-by]')->extract(['_text']))));
+        self::assertSame(['feature', 'bug', 'security', 'tooling', 'docs', 'idea', 'epic'], $crawler->filter('[data-workflow-types] [data-card-type]')->extract(['data-card-type']));
+        self::assertSelectorTextContains('[data-workflow-types] [data-card-type="feature"]', 'Feature');
+        self::assertSelectorTextContains('[data-workflow-types] [data-card-type="feature"]', 'Default');
+        self::assertSelectorTextNotContains('[data-workflow-types] [data-card-type="bug"]', 'Default');
+        self::assertSelectorExists('[data-workflow-types] [data-card-type="bug"] .lp-tag--amber');
+        self::assertSelectorTextSame('[data-workflow-types] [data-card-type="bug"] [data-card-type-capabilities]', 'None');
+        self::assertSelectorTextSame('[data-workflow-types] [data-card-type="epic"] [data-card-type-capabilities]', 'Can have children, Gets a lane');
         self::assertSelectorTextContains('[data-workflow-timings]', '10, 60, 360');
         self::assertSelectorTextContains('[data-workflow-timings]', '120');
         self::assertSelectorTextContains('[data-workflow-timings]', 'Retries after failed work: 2, 3, 5 minutes');
@@ -80,13 +87,23 @@ final class ShowWorkflowSettingsControllerTest extends WebTestCase
         $this->em()->persist(new WorkflowBinding($project, 'test', 1, [
             'key' => 'test',
             'version' => 1,
+            'defaultType' => 'feature',
+            'types' => [
+                ['key' => 'feature', 'label' => 'board.card.type.feature', 'tone' => 'lime'],
+                ['key' => 'bug', 'label' => 'board.card.type.bug', 'tone' => 'amber'],
+                ['key' => 'security', 'label' => 'board.card.type.security', 'tone' => 'red'],
+                ['key' => 'tooling', 'label' => 'board.card.type.tooling', 'tone' => 'neutral'],
+                ['key' => 'docs', 'label' => 'board.card.type.docs', 'tone' => 'green'],
+                ['key' => 'idea', 'label' => 'board.card.type.idea', 'tone' => 'purple'],
+                ['key' => 'epic', 'label' => 'board.card.type.epic', 'tone' => 'blue', 'capabilities' => ['children', 'lane']],
+            ],
             'slots' => [],
             'manualMoves' => [],
             'backoffMinutes' => [10],
             'workTimeoutMinutes' => 120,
             'rules' => [
-                ['id' => 'gone', 'when' => ['all' => [['card.gone' => []], ['card.is_child' => []]]], 'then' => ['request' => ['kind' => 'gone']]],
-                ['id' => 'hold', 'when' => ['card.is_child' => []], 'then' => ['pause' => ['reason' => 'held', 'until' => ['all' => [['card.is_child' => []], ['pr.open' => []]]]]]],
+                ['id' => 'gone', 'when' => ['all' => [['card.gone' => []], ['card.parent.exists' => []]]], 'then' => ['request' => ['kind' => 'gone']]],
+                ['id' => 'hold', 'when' => ['card.parent.exists' => []], 'then' => ['pause' => ['reason' => 'held', 'until' => ['all' => [['card.parent.exists' => []], ['pr.open' => []]]]]]],
             ],
         ]));
         $owner = $this->stampedOwner($project);
@@ -96,10 +113,10 @@ final class ShowWorkflowSettingsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('[data-rule-id="gone"][data-rule-missing] .lp-tag', 'Condition no longer exists: card.gone');
-        self::assertSelectorTextContains('[data-rule-id="gone"] [data-condition-source="workflow.source.board"]', 'Board: card.is_child');
+        self::assertSelectorTextContains('[data-rule-id="gone"] [data-condition-source="workflow.source.board"]', 'Board: card.parent.exists');
         self::assertSelectorNotExists('[data-rule-id="gone"] [data-rule-until]');
         self::assertSelectorTextContains('[data-rule-id="hold"] [data-rule-until]', 'Until:');
-        self::assertSelectorTextContains('[data-rule-id="hold"] [data-rule-until] [data-condition-source="workflow.source.board"]', 'Board: card.is_child');
+        self::assertSelectorTextContains('[data-rule-id="hold"] [data-rule-until] [data-condition-source="workflow.source.board"]', 'Board: card.parent.exists');
         self::assertSelectorTextContains('[data-rule-id="hold"] [data-rule-until] [data-condition-source="workflow.source.forge"]', 'Forge: pr.open');
         self::assertCount(2, $crawler->filter('[data-rule-id="hold"] [data-condition-source="workflow.source.board"]'));
     }

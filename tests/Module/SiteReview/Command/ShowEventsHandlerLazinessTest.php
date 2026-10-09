@@ -10,6 +10,7 @@ use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\Service\EventStreamGate;
 use App\Module\Bridge\Service\HeartbeatInterval;
+use App\Module\Bridge\Service\HostSampling;
 use App\Module\Bridge\Service\StopLadder;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Module\SiteReview\Command\ShowEventsCommand;
@@ -47,6 +48,7 @@ final class ShowEventsHandlerLazinessTest extends TestCase
             FeatureFlags::service(),
             new HeartbeatInterval(FeatureFlags::service(), 30),
             new StopLadder(FeatureFlags::service(), 7500, 2500),
+            new HostSampling(FeatureFlags::service(), false, 60),
             new EventStreamGate($bridges, new NullLogger()),
             static function () use (&$built): never {
                 $built = true;

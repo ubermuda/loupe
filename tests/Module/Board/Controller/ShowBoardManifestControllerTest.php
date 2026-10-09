@@ -7,9 +7,7 @@ namespace App\Tests\Module\Board\Controller;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
@@ -18,6 +16,7 @@ use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\PullRequestSnapshot;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Session\ReadOnlyAwareSessionHandler;
 use Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector;
 use Doctrine\ORM\EntityManagerInterface;
@@ -133,7 +132,7 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
         $em->flush();
-        $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next'), 'epic');
         $child = $this->childOf($em, $epic, $this->card($em, $project, 'In the lane', 'triage', 0));
         $other = $this->card($em, $project, 'Outside', 'triage', 1);
         $em->clear();
@@ -162,7 +161,7 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
         $em->flush();
-        $epic = $this->typed($em, $this->card($em, $project, 'Waiting epic', 'backlog'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Waiting epic', 'backlog'), 'epic');
         $this->childOf($em, $epic, $this->card($em, $project, 'Waiting child', 'backlog', 1));
         $other = $this->card($em, $project, 'Outside', 'triage');
         $joining = $this->card($em, $project, 'Waiting with no epic yet', 'backlog', 2);
@@ -316,7 +315,7 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $em->clear();
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $paused = $em->find(Card::class, $card->id) ?? throw new \LogicException('No card.');
-        $em->persist(new CardPause($paused, $paused->project, 'on-hold', 'hold', CardPauseKind::Rule, new \DateTimeImmutable()));
+        $em->persist(new CardPause($paused, $paused->project, 'on-hold', 'hold', PauseKind::Rule, new \DateTimeImmutable()));
         $em->flush();
         $em->clear();
         $after = $this->manifest($client, $project);
@@ -386,8 +385,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->addTriageColumn($project);
         $em->flush();
-        $first = $this->typed($em, $this->card($em, $project, 'First epic', 'next', 0), CardType::Epic);
-        $second = $this->typed($em, $this->card($em, $project, 'Second epic', 'next', 1), CardType::Epic);
+        $first = $this->typed($em, $this->card($em, $project, 'First epic', 'next', 0), 'epic');
+        $second = $this->typed($em, $this->card($em, $project, 'Second epic', 'next', 1), 'epic');
         $em->clear();
 
         $client->loginUser($owner);
@@ -581,7 +580,7 @@ final class ShowBoardManifestControllerTest extends WebTestCase
     {
         $card->laneEnabled = false;
 
-        return $this->typed($em, $card, CardType::Epic);
+        return $this->typed($em, $card, 'epic');
     }
 
     /** @param \Closure(Card): void $change */

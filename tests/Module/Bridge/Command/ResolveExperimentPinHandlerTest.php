@@ -142,6 +142,32 @@ final class ResolveExperimentPinHandlerTest extends KernelTestCase
         self::assertSame($later, $definition->reportedAt->format(\DateTimeInterface::ATOM));
     }
 
+    /** A pin with no metrics resets the list, so the page shows the default metrics. */
+    public function test_the_metrics_are_stored_then_reset_for_the_experiment(): void
+    {
+        $this->boot();
+        [$owner, $project] = $this->scenario('pin-metrics');
+        $weights = [['name' => 'opus', 'weight' => 1], ['name' => 'sonnet', 'weight' => 1]];
+
+        $this->resolve($owner, $project, Uuid::v7(), 'sonnet', ['opus', 'sonnet'], weights: $weights, metrics: ['merge-rate', 'cost']);
+
+        self::assertSame(['merge-rate', 'cost'], $this->onlyDefinition()->metrics);
+
+        $this->resolve($owner, $project, Uuid::v7(), 'sonnet', ['opus', 'sonnet'], weights: $weights);
+
+        self::assertNull($this->onlyDefinition()->metrics);
+    }
+
+    public function test_metrics_with_no_weights_store_no_definition(): void
+    {
+        $this->boot();
+        [$owner, $project] = $this->scenario('pin-metrics-no-weights');
+
+        $this->resolve($owner, $project, Uuid::v7(), 'sonnet', ['opus', 'sonnet'], metrics: ['cost']);
+
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM bridge_experiment_definitions'));
+    }
+
     public function test_no_weights_store_no_definition(): void
     {
         $this->boot();
@@ -191,6 +217,7 @@ final class ResolveExperimentPinHandlerTest extends KernelTestCase
     /**
      * @param non-empty-list<string>                      $variants
      * @param list<array{name: string, weight: int}>|null $weights
+     * @param list<string>|null                           $metrics
      */
     private function resolve(
         User $owner,
@@ -200,6 +227,7 @@ final class ResolveExperimentPinHandlerTest extends KernelTestCase
         array $variants,
         string $experiment = 'impl-model',
         ?array $weights = null,
+        ?array $metrics = null,
     ): ResolveExperimentPinResult {
         $handler = self::getContainer()->get(ResolveExperimentPinHandler::class);
         self::assertInstanceOf(ResolveExperimentPinHandler::class, $handler);
@@ -212,6 +240,7 @@ final class ResolveExperimentPinHandlerTest extends KernelTestCase
             candidate: $candidate,
             variants: $variants,
             weights: $weights,
+            metrics: $metrics,
         ));
     }
 

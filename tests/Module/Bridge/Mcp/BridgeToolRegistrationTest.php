@@ -6,17 +6,24 @@ namespace App\Tests\Module\Bridge\Mcp;
 
 use App\Mcp\FlagGatedToolInterface;
 use App\Module\Board\Mcp\AutomationSettingsUpdateTool;
+use App\Module\Board\Mcp\CardPauseReleaseTool;
+use App\Module\Bridge\Command\ListBridgeHostSamplesHandler;
 use App\Module\Bridge\Command\ListWorkerRunsHandler;
+use App\Module\Bridge\Command\ListWorkerRunToolCallsHandler;
 use App\Module\Bridge\Mcp\BridgeCommandCancelTool;
+use App\Module\Bridge\Mcp\BridgeHostSamplesTool;
 use App\Module\Bridge\Mcp\BridgeListTool;
 use App\Module\Bridge\Mcp\CardHoldTool;
 use App\Module\Bridge\Mcp\CardReleaseTool;
+use App\Module\Bridge\Mcp\ExperimentGetTool;
+use App\Module\Bridge\Mcp\MetricListTool;
+use App\Module\Bridge\Mcp\MetricQueryTool;
 use App\Module\Bridge\Mcp\WorkerRunGetTool;
 use App\Module\Bridge\Mcp\WorkerRunListTool;
 use App\Module\Bridge\Mcp\WorkerRunResumeTool;
 use App\Module\Bridge\Mcp\WorkerRunStopTool;
+use App\Module\Bridge\Mcp\WorkerRunToolCallsTool;
 use App\Module\Project\Mcp\AdvertisedTools;
-use App\Module\Workflow\Mcp\CardPauseReleaseTool;
 use Mcp\Capability\Registry;
 use Mcp\Server;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -48,6 +55,11 @@ final class BridgeToolRegistrationTest extends KernelTestCase
     {
         yield 'worker_run_list' => [WorkerRunListTool::NAME, WorkerRunListTool::class];
         yield 'worker_run_get' => [WorkerRunGetTool::NAME, WorkerRunGetTool::class];
+        yield 'worker_run_tool_calls' => [WorkerRunToolCallsTool::NAME, WorkerRunToolCallsTool::class];
+        yield 'bridge_host_samples' => [BridgeHostSamplesTool::NAME, BridgeHostSamplesTool::class];
+        yield 'metric_list' => [MetricListTool::NAME, MetricListTool::class];
+        yield 'metric_query' => [MetricQueryTool::NAME, MetricQueryTool::class];
+        yield 'experiment_get' => [ExperimentGetTool::NAME, ExperimentGetTool::class];
         yield 'bridge_list' => [BridgeListTool::NAME, BridgeListTool::class];
         yield 'worker_run_resume' => [WorkerRunResumeTool::NAME, WorkerRunResumeTool::class];
         yield 'worker_run_stop' => [WorkerRunStopTool::NAME, WorkerRunStopTool::class];
@@ -99,8 +111,14 @@ final class BridgeToolRegistrationTest extends KernelTestCase
         self::assertIsInt($start);
 
         self::assertSame(
-            [WorkerRunListTool::NAME, WorkerRunGetTool::NAME, BridgeListTool::NAME, WorkerRunResumeTool::NAME, WorkerRunStopTool::NAME, CardHoldTool::NAME, CardReleaseTool::NAME, CardPauseReleaseTool::NAME, BridgeCommandCancelTool::NAME],
-            \array_slice($names, $start, 9),
+            [WorkerRunListTool::NAME, WorkerRunGetTool::NAME, WorkerRunToolCallsTool::NAME, BridgeHostSamplesTool::NAME, MetricListTool::NAME, MetricQueryTool::NAME, ExperimentGetTool::NAME],
+            \array_slice($names, $start, 7),
+        );
+        $bridgeList = array_search(BridgeListTool::NAME, $names, true);
+        self::assertIsInt($bridgeList);
+        self::assertSame(
+            [BridgeListTool::NAME, WorkerRunResumeTool::NAME, WorkerRunStopTool::NAME, CardHoldTool::NAME, CardReleaseTool::NAME, CardPauseReleaseTool::NAME, BridgeCommandCancelTool::NAME],
+            \array_slice($names, $bridgeList, 7),
         );
         $close = array_search(AutomationSettingsUpdateTool::NAME, $names, true);
         self::assertIsInt($close);
@@ -133,6 +151,33 @@ final class BridgeToolRegistrationTest extends KernelTestCase
         self::assertSame([], $schema['required'] ?? []);
     }
 
+    public function test_worker_run_tool_calls_publishes_its_paging(): void
+    {
+        $properties = $this->registry->getTool(WorkerRunToolCallsTool::NAME)->tool->inputSchema['properties'];
+
+        self::assertSame(1, $properties['page']['default']);
+        self::assertSame(ListWorkerRunToolCallsHandler::PER_PAGE, $properties['perPage']['default']);
+    }
+
+    public function test_bridge_host_samples_requires_a_run_and_publishes_its_paging(): void
+    {
+        $schema = $this->registry->getTool(BridgeHostSamplesTool::NAME)->tool->inputSchema;
+
+        self::assertSame(['runId'], $schema['required']);
+        self::assertSame(1, $schema['properties']['page']['default']);
+        self::assertSame(ListBridgeHostSamplesHandler::PER_PAGE, $schema['properties']['perPage']['default']);
+    }
+
+    public function test_metric_query_requires_unit_metric_and_statistic(): void
+    {
+        $schema = $this->registry->getTool(MetricQueryTool::NAME)->tool->inputSchema;
+
+        self::assertSame(['unit', 'metric', 'statistic'], $schema['required']);
+        self::assertSame('none', $schema['properties']['group']['default']);
+        self::assertSame('thirty-days', $schema['properties']['range']['default']);
+        self::assertSame('week', $schema['properties']['bucket']['default']);
+    }
+
     public function test_the_card_hold_tools_take_a_card_id_or_a_number(): void
     {
         foreach ([CardHoldTool::NAME, CardReleaseTool::NAME] as $toolName) {
@@ -146,7 +191,7 @@ final class BridgeToolRegistrationTest extends KernelTestCase
 
     public function test_the_single_run_tools_require_a_run_id(): void
     {
-        foreach ([WorkerRunGetTool::NAME, WorkerRunStopTool::NAME, BridgeCommandCancelTool::NAME] as $toolName) {
+        foreach ([WorkerRunGetTool::NAME, WorkerRunToolCallsTool::NAME, WorkerRunStopTool::NAME, BridgeCommandCancelTool::NAME] as $toolName) {
             self::assertSame(['runId'], $this->registry->getTool($toolName)->tool->inputSchema['required'], $toolName);
         }
     }

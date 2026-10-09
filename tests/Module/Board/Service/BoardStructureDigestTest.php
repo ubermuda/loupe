@@ -9,10 +9,9 @@ use App\Module\Board\Command\BoardColumnView;
 use App\Module\Board\Command\BoardLaneView;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
-use App\Module\Board\Entity\LabelTone;
 use App\Module\Board\Service\BoardStructureDigest;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\LabelTone;
 use PHPUnit\Framework\TestCase;
 
 final class BoardStructureDigestTest extends TestCase
@@ -29,7 +28,7 @@ final class BoardStructureDigestTest extends TestCase
         $this->backlog = new BoardColumn(project: $this->project, label: 'Backlog', slug: 'backlog', position: 0);
         $this->done = new BoardColumn(project: $this->project, label: 'Done', slug: 'done', position: 1);
         $this->epic = new Card(project: $this->project, column: $this->backlog, title: 'Epic', body: '', number: 1);
-        $this->epic->type = CardType::Epic;
+        $this->epic->type = 'epic';
     }
 
     public function test_the_digest_is_a_twelve_character_hash_that_repeats_for_the_same_board(): void

@@ -59,8 +59,8 @@ final class DeleteWorkflowDataOnProjectDeletingTest extends KernelTestCase
     {
         $card = new Card($project, $this->column($project, 'next'), 'Card', '', 1);
         $this->em()->persist($card);
-        $this->em()->persist(new WorkflowRuleState($card, $project, 'start-design'));
-        $this->em()->persist(new WorkflowPendingBaseline($card, $project));
+        $this->em()->persist(new WorkflowRuleState($card->id ?? throw new \LogicException('The card is persisted.'), $project, 'start-design'));
+        $this->em()->persist(new WorkflowPendingBaseline($card->id ?? throw new \LogicException('The card is persisted.'), $project));
         $this->em()->flush();
     }
 

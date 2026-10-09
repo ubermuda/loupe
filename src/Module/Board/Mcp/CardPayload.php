@@ -12,7 +12,6 @@ use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardSiteReviewComment;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Repository\CardRepository;
@@ -22,6 +21,7 @@ use App\Module\Board\Service\PullRequestStates;
 use App\Module\Board\Service\PullRequestStateView;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentAnchor;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -47,6 +47,7 @@ final readonly class CardPayload
         private CardRepository $cards,
         private CardPullRequestStates $pullRequestStates,
         private CardPauseRepository $cardPauses,
+        private CardTypeCatalog $catalog,
     ) {
     }
 
@@ -77,7 +78,7 @@ final readonly class CardPayload
     {
         $commentsByCard = $this->cardSiteReviewComments->findForCards($cards);
         $linksByCard = $this->cardLinks->findForCards($cards);
-        $epics = array_values(array_filter($cards, static fn (Card $card): bool => CardType::Epic === $card->type));
+        $epics = array_values(array_filter($cards, fn (Card $card): bool => $this->catalog->forProject($card->project->requireId())->get($card->type)->children));
         $childrenByCard = [] === $epics ? [] : $this->cards->findChildrenOfCards($epics);
         $this->cards->loadParentsOf($cards);
         $states = $this->pullRequestStates->forCards($cards);
@@ -117,7 +118,7 @@ final readonly class CardPayload
                 'cardId' => (string) $card->id,
                 'number' => $card->number,
                 'title' => $card->title,
-                'type' => $card->type->value,
+                'type' => $card->type,
                 'status' => $card->column->slug,
                 'reporter' => $card->reporter->value,
                 // The id alone, which a parent proxy holds without a query.
@@ -131,13 +132,13 @@ final readonly class CardPayload
     /**
      * @param list<CardSiteReviewComment> $links
      * @param list<RelatedCard>           $relatedCards
-     * @param list<Card>                  $children     empty for a card that is not an epic
+     * @param list<Card>                  $children     empty for a card whose type may not have children
      *
      * @return CardSummary
      */
     private function render(Card $card, array $links, array $relatedCards, array $children, PullRequestStates $states, ?CardPause $pause): array
     {
-        $progress = CardType::Epic === $card->type
+        $progress = $this->catalog->forProject($card->project->requireId())->get($card->type)->children
             ? ['done' => \count(array_filter($children, static fn (Card $child): bool => $child->column->terminal)), 'total' => \count($children)]
             : null;
 
@@ -147,7 +148,7 @@ final readonly class CardPayload
             'number' => $card->number,
             'title' => $card->title,
             'body' => $card->body,
-            'type' => $card->type->value,
+            'type' => $card->type,
             'status' => $card->column->slug,
             'reporter' => $card->reporter->value,
             'position' => $card->position,

@@ -8,8 +8,8 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEvent;
 use App\Module\Board\Entity\CardEventKind;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
@@ -33,7 +33,7 @@ class CardEventRepository extends ServiceEntityRepository
      *
      * @param array<string, mixed> $detail
      */
-    public function record(Card $card, CardEventKind $kind, CardReporter $actorKind, ?User $actorUser, array $detail, ?\DateTimeImmutable $at = null): CardEvent
+    public function record(Card $card, CardEventKind $kind, Actor $actorKind, ?User $actorUser, array $detail, ?\DateTimeImmutable $at = null): CardEvent
     {
         $event = new CardEvent($card, $card->project, $kind, $actorKind, $actorUser, $detail, $at ?? new \DateTimeImmutable());
         $this->getEntityManager()->persist($event);
@@ -68,7 +68,7 @@ class CardEventRepository extends ServiceEntityRepository
                     (string) $card->id,
                     (string) $card->project->id,
                     CardEventKind::RunFinished->value,
-                    CardReporter::Agent->value,
+                    Actor::Agent->value,
                     $actorUser?->id?->toRfc4122(),
                     $detail,
                     $at,
@@ -177,6 +177,17 @@ class CardEventRepository extends ServiceEntityRepository
                 'detail' => \is_array($detail) ? $detail : [],
             ];
         }, $rows);
+    }
+
+    /** The type the card was created with, or null when its `created` row records none. */
+    public function createdType(Card $card): ?string
+    {
+        $type = $this->getEntityManager()->getConnection()->fetchOne(
+            "SELECT detail->>'type' FROM board_card_events WHERE card_id = :card AND kind = :kind ORDER BY occurred_at, id LIMIT 1",
+            ['card' => (string) $card->id, 'kind' => CardEventKind::Created->value],
+        );
+
+        return \is_string($type) && '' !== $type ? $type : null;
     }
 
     public function findFirstOccurredAt(Project $project): ?\DateTimeImmutable

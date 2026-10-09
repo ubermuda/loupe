@@ -43,9 +43,9 @@
     <div class="flex items-center justify-end gap-3 pt-2">
         <form method="POST" action="{{ path('app_welcome_skip') }}">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('wizard-skip') }}">
-            <button type="submit" class="lp-btn lp-btn--ghost">{{ 'project.wizard.skip'|trans }}</button>
+            <twig:Ds:Button variant="ghost" type="submit">{{ 'project.wizard.skip'|trans }}</twig:Ds:Button>
         </form>
-        <a class="lp-btn lp-btn--primary" href="{{ path('app_welcome_done') }}">{{ 'project.wizard.connect.continue'|trans }}</a>
+        <twig:Ds:Button variant="primary" href="{{ path('app_welcome_done') }}">{{ 'project.wizard.connect.continue'|trans }}</twig:Ds:Button>
     </div>
 </div>
 {% endblock %}

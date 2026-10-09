@@ -8,6 +8,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Project\Security\ProjectVoter;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use Doctrine\ORM\QueryBuilder;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Form\AbstractType;
@@ -18,7 +19,7 @@ use Symfony\UX\Autocomplete\Form\AsEntityAutocompleteField;
 use Symfony\UX\Autocomplete\Form\BaseEntityAutocompleteType;
 
 /**
- * A search-as-you-type pick of an epic of the project, as the parent of a card.
+ * A search-as-you-type pick of a card of the project whose type may have children, as the parent of a card.
  * It takes the `extra_options` of {@see CardLinkAutocompleteField}, for the
  * same reason.
  *
@@ -31,6 +32,7 @@ final class CardParentAutocompleteField extends AbstractType
 
     public function __construct(
         private readonly ProjectRepository $projects,
+        private readonly CardTypeCatalog $catalog,
     ) {
     }
 
@@ -49,11 +51,17 @@ final class CardParentAutocompleteField extends AbstractType
             'choice_translation_domain' => false,
             'max_results' => self::MAX_RESULTS,
             // Also the choice list a submitted id must be in, so a card that is
-            // not an epic of this project fails validation.
-            'query_builder' => static fn (Options $options): \Closure => static fn (CardRepository $cards): QueryBuilder => $cards->parentCandidates(
-                self::uuidOption($options, 'projectId'),
-                self::uuidOption($options, 'excludeCardId'),
-            ),
+            // not a parent type of this project fails validation.
+            'query_builder' => fn (Options $options): \Closure => function (CardRepository $cards) use ($options): QueryBuilder {
+                $projectId = self::uuidOption($options, 'projectId');
+                $project = null === $projectId ? null : $this->projects->find($projectId);
+
+                return $cards->parentCandidates(
+                    $projectId,
+                    self::uuidOption($options, 'excludeCardId'),
+                    null === $project ? [] : $this->catalog->forProject($project->requireId())->withChildren(),
+                );
+            },
             'filter_query' => static function (QueryBuilder $qb, string $query, CardRepository $cards): void {
                 $cards->matchLinkQuery($qb->setMaxResults(self::MAX_RESULTS), $query);
             },

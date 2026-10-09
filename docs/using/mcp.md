@@ -135,6 +135,8 @@ including ones you create later. The approval page says so before you allow it.
 
 `loupe status` checks the setup. Run it in the repository. It calls
 `project_current` through the MCP server and prints the name of the project.
+When a rule file exists, it also checks each account of the file, as
+[Account checks](../extending/cli-bridge.md#account-checks) says.
 
 ## Connecting by URL
 
@@ -221,7 +223,7 @@ claude plugin marketplace add ubermuda/loupe
 claude plugin install loupe@loupe
 ```
 
-It installs twelve skills, each covering one part of working a Loupe project:
+It installs one skill for each part of working a Loupe project:
 
 | Skill | Covers |
 |---|---|
@@ -230,6 +232,7 @@ It installs twelve skills, each covering one part of working a Loupe project:
 | `loupe:loupe-board` | Reading a board, writing a card, linking a pull request |
 | `loupe:loupe-inbox` | Asking the project owner, and ending a turn on a blocking ask |
 | `loupe:loupe-workers` | Reading worker runs and bridges, and stopping, resuming or cancelling a run |
+| `loupe:loupe-analysis` | Running an analysis: a cost report, or a comparison of the variants of an experiment, with proposals |
 | `loupe:loupe-discovery` | A read-only discovery run that writes the readiness report of a project |
 | `loupe:product-design` | An interactive product design session with the owner, from a card or a one-line idea |
 | `loupe:loupe-stage-product-design` | One review round on a product document |
@@ -286,13 +289,13 @@ Roughly in the order an agent uses them:
 | `feedback_mark_addressed` | Mark feedback items acted on, so the next `feedback_list` skips them (off with the board, see below) |
 | `card_create` | Put a card on the project board (off with the board, see below) |
 | `card_list` | Read a page of the board, filtered by status, type, reporter or parent, with the board's columns |
-| `board_columns` | List the board's columns, each with its slug, label, terminal flag, default flag and backlog flag |
+| `board_columns` | List the board's columns, each with its slug, label, terminal flag, default flag and backlog flag, and the card types of the project |
 | `card_search` | Search every card's title and body by words, finished ones included |
 | `card_get` | Read one card, with the pull requests and their stored state, and the feedback linked to it |
 | `card_get_history` | Read a page of one card's history, newest first: its creation, its moves and the automation's actions |
 | `card_update` | Change a card, or move it to another column |
 | `card_run_open` | Record an open interactive session on a card, and optionally move the card in the same step |
-| `card_run_close` | Close the interactive run a session opened on a card |
+| `card_run_close` | Close the interactive run a session opened on a card, and ask the bridges for the usage of the run |
 | `column_create` | Add a column at the end of the board, from a label |
 | `column_update` | Rename a column, or set whether it is terminal |
 | `column_reorder` | Put the columns in a new order; Backlog stays first |
@@ -305,9 +308,18 @@ Roughly in the order an agent uses them:
 | `inbox_get` | Read one inbox item, with its answer and its links |
 | `inbox_withdraw` | Withdraw an open item that is no longer needed, with a reason |
 | `inbox_settings_update` | Turn the inbox wait switches on or off (off with the inbox) |
-| `worker_run_list` | Read a page of the worker runs, newest first, filtered by state, card, work kind, bridge, words or the time a run ended, each with the reason it ended |
-| `worker_run_get` | Read one worker run in full, with every run of its series, its state changes, its output and the commands sent to its bridge |
-| `bridge_list` | List the bridges that follow the project, with their name, their push login, their heartbeat, their pause, their worker pools and their open runs |
+| `worker_run_list` | Read a page of the worker runs, newest first, filtered by state, card, work kind, bridge, harness, account, model, words or the time a run ended. Each row gives the reason the run ended, its harness and account, its usage per model, its model, its experiment and variant, and its metrics. The metrics hold the sums of the run and its timing: the tool time, the model time, the idle gaps, the subagent time, and the count, failures and longest duration of its tool calls. They also hold the host of the run: the mean CPU use, the peak memory and swap, the count of runs that overlapped it on its bridge, and whether its machine ran on battery |
+| `worker_run_get` | Read one worker run in full, with every run of its series, its state changes, its output, its metrics and the commands sent to its bridge |
+| `worker_run_tool_calls` | Read a page of the tool calls of one worker run, in the order the worker made them. Each call gives its tool, its start, its duration, its error flag, whether a subagent made it, and its signatures. `perPage` defaults to 20, with a maximum of 100 |
+| `bridge_host_samples` | Read a page of the host samples of the bridge that ran one worker run, oldest first, from the start of the run to its end, or to now while the run is open. Each sample gives its time, the use of each core, the memory and swap in use, the total memory, the battery charge and the power source. The samples cover the whole machine, so they cover every run on that bridge at that time. `perPage` defaults to 100, with a maximum of 500 |
+| `metric_list` | List the metrics of the worker runs and the finished cards, with the units, statistics and groups each one takes. It adds one `bucket-time:<name>` entry for each bucket that has time on a run of the project |
+| `metric_query` | Read one metric over time, by run or by card. Each group gives a series with a total, a point per period and the rows behind it. The metric `bucket-time:<name>` reads the time of the main-session tool calls of a run in one bucket, in milliseconds. A name is 1 to 64 characters of `a-z`, `0-9`, `_` and `-`. A run with no data for any bucket has an unknown value |
+| `experiment_get` | Read the comparison of one experiment: the variants, each metric with its likely range per variant and whether it gives a clear answer, and one page of the cards, with the reasons a card is left out |
+| `analysis_get` | Read one analysis, with its topic, its range, the experiment that an experiment analysis compares, its model and effort, its state and reason, its cost so far and its proposals |
+| `analysis_report` | Finish an analysis with its report document and at most 20 proposals, each a `card` or a `bucket-rule` |
+| `analytics_settings_get` | Read the analysis settings of the project: the default model and effort, the programs with subcommands, and whether the bridge sends the full text of each tool call |
+| `analytics_settings_update` | Change the analysis settings of the project. An empty model or effort, or an empty list of programs, clears the project value, so the instance default applies |
+| `bridge_list` | List the bridges that follow the project, with their name, their push login, their heartbeat, their pause, their worker pools, their account checks and their open runs |
 | `worker_run_resume` | Ask the bridges to resume up to 50 ended worker runs, each resumed or refused on its own |
 | `worker_run_stop` | Ask the bridge to stop a queued or running worker run. The stop does not make the card unmanaged, so call `card_hold` for that |
 | `card_hold` | Make a card unmanaged, by `cardId` or `number`. The workflow makes no move and starts no work on the card, and no bridge starts a worker on it, until `card_release`. A live run goes on |
@@ -530,24 +542,32 @@ A `card_list` or `card_search` row is a summary with eight fields: `cardId`,
 `number`, `title`, `type`, `status`, `reporter`, `parentCardId` and
 `updatedAt`. `parentCardId` is null for a card with no parent.
 
-A card has a `type`: `feature`, `bug`, `security`, `tooling`, `docs`, `idea`,
-`epic` or `site-review`. An epic is one feature that is too large for one pull
-request, and its child cards hold the parts. `card_create` and `card_update` take
-`parentCardId`, the id of an epic of the same project. On `card_update`, omit it
-to keep the parent, send an empty string to clear it, and send an id to set it.
-Only an epic can be a parent, and an epic cannot have a parent. A card with a
-parent cannot become an epic, and an epic with children keeps its type. Both
-tools also take `laneEnabled`, which says whether the board draws a lane for an
-epic. It defaults to `true`.
+A card has a `type`. The workflow template of the project declares the types,
+so each project can have its own. `board_columns` returns them in `types`, and
+`defaultType` names the type of a card that is created with no type chosen. Each
+entry has a `key`, a `label`, and two capabilities: `children` and `lane`. The
+`type` argument of `card_create`, `card_update` and `card_list` takes a key. A
+key that the template does not declare is refused, and the error lists the
+declared keys.
+
+A type with the `children` capability groups other cards. Its cards are one
+feature that is too large for one pull request, and their child cards hold the
+parts. `card_create` and `card_update` take `parentCardId`, the id of a card of
+the same project. On `card_update`, omit it to keep the parent, send an empty
+string to clear it, and send an id to set it. Only a card of a type with the
+`children` capability can be a parent, and such a card cannot have a parent. A
+card with a parent cannot change to such a type, and a card with children keeps
+its type. Both tools also take `laneEnabled`, which says whether the board draws
+a lane for a card of a type with the `lane` capability. It defaults to `true`.
 
 `card_list` takes `parentCardId` as a filter, which reads the children of one
-epic. The full card, from `card_get` or from `card_list` with `full`, carries
+card. The full card, from `card_get` or from `card_list` with `full`, carries
 `state` on each entry of `pullRequests`, the last state Loupe read.
 [The board](board.md#the-mcp-tools) lists its keys. It also carries four more
 keys. `parent` holds `cardId`, `number`, `title` and `status`, or
-null. `laneEnabled` is a boolean. `children` lists the children of an epic with
-the same four keys. `progress` holds `done` and `total` for an epic, and null
-for any other card. A child counts as done when it sits in a terminal column.
+null. `laneEnabled` is a boolean. `children` lists the children of a card with
+the same four keys. `progress` holds `done` and `total` for a card of a type with
+the `children` capability, and null for any other card. A child counts as done when it sits in a terminal column.
 
 The full card also carries `pause`, the active workflow pause of the card, or
 null. A pause holds `pauseId`, `kind`, `reason`, `ruleId` and `since`. The kind
@@ -564,8 +584,9 @@ that calls one anyway gets a plain refusal.
 
 An item is one question, review request, or to-do for the project owner. An ask is the set of
 items that one agent session hands over at once. `inbox_ask` and `inbox_join`
-take a required `sessionId`, which a Claude Code session reads from
-`$CLAUDE_CODE_SESSION_ID`. One session holds at most one open ask, so a second
+take a required `sessionId`. A session reads it from the first set variable of
+`$LOUPE_SESSION_ID`, `$CLAUDE_CODE_SESSION_ID` and `$CODEX_THREAD_ID`. The
+bridge sets `$LOUPE_SESSION_ID` for each session it starts. One session holds at most one open ask, so a second
 `inbox_ask` from the same session adds its items to that ask. A question blocks
 by default; a to-do or review requires `blocking: true` to block. An ask with no blocking item closes at once,
 and its items stay open in the inbox.

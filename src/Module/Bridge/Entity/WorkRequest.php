@@ -36,9 +36,6 @@ class WorkRequest
 
     public const int MAX_KIND_LENGTH = 40;
 
-    /** A kind of work, such as design, implement, fix or merge. */
-    public const string KIND_PATTERN = '/^[a-z][a-z0-9-]{0,39}$/D';
-
     public const int MAX_RULE_ID_LENGTH = 100;
 
     /** The id of the template rule that opened the request. */
@@ -48,6 +45,14 @@ class WorkRequest
 
     /** A reason code, never text a person wrote. */
     public const string REASON_PATTERN = '/^[a-z][a-z0-9-]{0,63}$/D';
+
+    public const int MAX_MODEL_LENGTH = 64;
+
+    /** One word for claude --model, as the bridge takes it. A leading hyphen would read as an option. */
+    public const string MODEL_PATTERN = '/^[^\s\p{Z}\p{Cc}-][^\s\p{Z}\p{Cc}]{0,63}$/uD';
+
+    /** The levels claude --effort takes. */
+    public const array EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
 
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
@@ -86,6 +91,14 @@ class WorkRequest
 
     #[ORM\Column(name: 'reason', length: self::MAX_REASON_LENGTH, nullable: true)]
     public ?string $reason = null;
+
+    /** The model the run asks for over the model of the bridge's work entry. */
+    #[ORM\Column(name: 'model', length: self::MAX_MODEL_LENGTH, nullable: true)]
+    public ?string $model = null;
+
+    /** The effort level the run asks for. */
+    #[ORM\Column(name: 'effort', length: 16, nullable: true)]
+    public ?string $effort = null;
 
     /** The text of the app prompt the bridge gives the worker, or null when the rule names none. */
     #[ORM\Column(name: 'prompt', type: Types::TEXT, nullable: true)]

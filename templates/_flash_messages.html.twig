@@ -1,10 +1,5 @@
 {% for label, messages in flashes %}
     {% for message in messages %}
-    <div class="lp-flash lp-flash--{{ label }}" role="status" data-controller="flash">
-        <span class="lp-flash__dot"></span>
-        <span class="lp-flash__message">{{ message }}</span>
-        <button type="button" class="lp-flash__dismiss"
-                data-action="click->flash#dismiss">{{ 'flash.dismiss'|trans }}</button>
-    </div>
+    <twig:Ds:Flash :severity="label" :dismissLabel="'flash.dismiss'|trans">{{ message }}</twig:Ds:Flash>
     {% endfor %}
 {% endfor %}

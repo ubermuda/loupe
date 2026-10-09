@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\ExperimentPin;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Entity\WorkerRunFact;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
@@ -153,6 +154,26 @@ class WorkerRunRepository extends ServiceEntityRepository
     }
 
     /**
+     * The run of the project with this key, from any bridge, locked until the
+     * transaction ends. A key that two bridges share names no run.
+     */
+    public function findOneOfProjectByRunKey(Project $project, Uuid $runKey): ?WorkerRun
+    {
+        /** @var list<WorkerRun> $runs */
+        $runs = $this->createQueryBuilder('r')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.runKey = :runKey')
+            ->setParameter('project', $project)
+            ->setParameter('runKey', $runKey, UuidType::NAME)
+            ->setMaxResults(2)
+            ->getQuery()
+            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->getResult();
+
+        return 1 === \count($runs) ? $runs[0] : null;
+    }
+
+    /**
      * The runs one bridge of the owner still holds as far as the server knows:
      * open or timed-out, with a run key, locked until the transaction ends. The
      * owner filter is a subquery, so the lock covers the runs and not the
@@ -223,6 +244,27 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->setMaxResults($limit)
             ->getQuery()
             ->getSingleColumnResult();
+
+        return array_map(static fn (Uuid|string $id): Uuid => $id instanceof Uuid ? $id : Uuid::fromString($id), $ids);
+    }
+
+    /**
+     * The ids of the runs after the id given, in id order. Null starts at the first run.
+     *
+     * @return list<Uuid>
+     */
+    public function findIdsAfter(?Uuid $after, int $limit): array
+    {
+        $query = $this->createQueryBuilder('r')
+            ->select('r.id')
+            ->orderBy('r.id', 'ASC')
+            ->setMaxResults($limit);
+        if (null !== $after) {
+            $query->andWhere('r.id > :after')->setParameter('after', $after, UuidType::NAME);
+        }
+
+        /** @var list<Uuid|string> $ids */
+        $ids = $query->getQuery()->getSingleColumnResult();
 
         return array_map(static fn (Uuid|string $id): Uuid => $id instanceof Uuid ? $id : Uuid::fromString($id), $ids);
     }
@@ -348,6 +390,17 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->andWhere('r.state = :running')
             ->setParameter('runId', $runId, UuidType::NAME)
             ->setParameter('running', WorkerRunState::Running->value))
+            ->getOneOrNullResult();
+    }
+
+    /** Locked until the transaction ends. */
+    public function findInteractiveOfSessionForUpdate(Project $project, Uuid $runId, Uuid $sessionId): ?WorkerRun
+    {
+        return self::forUpdate($this->interactive($project)
+            ->andWhere('r.id = :runId')
+            ->andWhere('r.sessionId = :sessionId')
+            ->setParameter('runId', $runId, UuidType::NAME)
+            ->setParameter('sessionId', $sessionId, UuidType::NAME))
             ->getOneOrNullResult();
     }
 
@@ -540,6 +593,19 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->setParameter('running', WorkerRunState::Running->value);
     }
 
+    private function continuationsOfCard(Uuid $cardId): QueryBuilder
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.subjectType = :cardSubject AND r.subjectId = :cardId')
+            ->andWhere('r.kind = :kind')
+            ->andWhere('r.continuesRun IS NOT NULL')
+            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('cardSubject', WorkSubject::CARD)
+            ->setParameter('kind', WorkerRunKind::Worker->value)
+            ->orderBy('r.receivedAt', 'DESC')
+            ->addOrderBy('r.id', 'DESC');
+    }
+
     private function interactive(Project $project): QueryBuilder
     {
         return $this->createQueryBuilder('r')
@@ -609,6 +675,29 @@ class WorkerRunRepository extends ServiceEntityRepository
             ))
             ->orderBy('onCardFirst', 'ASC')
             ->addOrderBy('openFirst', 'ASC')
+            ->addOrderBy('r.receivedAt', 'DESC')
+            ->addOrderBy('r.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /** The worker run of a claude session: an open run first, then the newest. An interactive run does not count. */
+    public function findWorkerOfSession(Project $project, Uuid $sessionId): ?WorkerRun
+    {
+        return $this->createQueryBuilder('r')
+            ->addSelect('CASE WHEN r.state IN (:openStates) THEN 0 ELSE 1 END AS HIDDEN openFirst')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.sessionId = :sessionId')
+            ->andWhere('r.kind = :kind')
+            ->setParameter('project', $project)
+            ->setParameter('sessionId', $sessionId, UuidType::NAME)
+            ->setParameter('kind', WorkerRunKind::Worker->value)
+            ->setParameter('openStates', array_map(
+                static fn (WorkerRunState $state): string => $state->value,
+                WorkerRunState::openStates(),
+            ))
+            ->orderBy('openFirst', 'ASC')
             ->addOrderBy('r.receivedAt', 'DESC')
             ->addOrderBy('r.id', 'DESC')
             ->setMaxResults(1)
@@ -735,6 +824,20 @@ class WorkerRunRepository extends ServiceEntityRepository
                 ->setParameter('bridgeId', $query->bridgeId, UuidType::NAME);
         }
 
+        if (null !== $query->harness) {
+            $qb->andWhere('r.harness = :harness')->setParameter('harness', $query->harness);
+        }
+
+        if (null !== $query->account) {
+            $qb->andWhere('r.account = :account')->setParameter('account', $query->account);
+        }
+
+        if (null !== $query->model) {
+            // A run with no reported model shows the model of its fact, so the filter reads it too.
+            $qb->andWhere('r.model = :model OR (r.model IS NULL AND EXISTS (SELECT 1 FROM '.WorkerRunFact::class.' f WHERE f.runId = r.id AND f.model = :model))')
+                ->setParameter('model', $query->model);
+        }
+
         // Nothing is fetch-joined, so the page LIMIT already counts runs.
         return new Paginator($qb->getQuery(), fetchJoinCollection: false);
     }
@@ -762,6 +865,28 @@ class WorkerRunRepository extends ServiceEntityRepository
     }
 
     /**
+     * The newest worker run of the card that resumes or reruns an earlier run, and that a worker ran or runs. It leaves out a run a person stops.
+     * A run that reported before the time does not count, and neither does a run that belongs to another rule.
+     */
+    public function findLatestContinuationOfCard(Uuid $cardId, ?\DateTimeImmutable $since = null, ?string $ruleId = null): ?WorkerRun
+    {
+        $open = array_filter(WorkerRunState::openStates(), static fn (WorkerRunState $state): bool => WorkerRunState::Stopping !== $state);
+        $states = [...$open, ...array_filter(WorkerRunState::cases(), static fn (WorkerRunState $state): bool => $state->isOutcome())];
+        $qb = $this->continuationsOfCard($cardId)
+            ->andWhere('r.state IN (:states)')
+            ->setParameter('states', array_map(static fn (WorkerRunState $state): string => $state->value, $states))
+            ->setMaxResults(1);
+        if (null !== $since) {
+            $qb->andWhere('r.receivedAt >= :since')->setParameter('since', $since);
+        }
+        if (null !== $ruleId) {
+            $qb->andWhere('r.ruleId IS NULL OR r.ruleId = :ruleId')->setParameter('ruleId', $ruleId);
+        }
+
+        return $qb->getQuery()->getOneOrNullResult();
+    }
+
+    /**
      * The bridges that have reported a run for this project, for the page filter.
      *
      * @return list<Uuid>
@@ -782,6 +907,51 @@ class WorkerRunRepository extends ServiceEntityRepository
             static fn (Uuid|string $row): Uuid => $row instanceof Uuid ? $row : Uuid::fromString($row),
             $rows,
         );
+    }
+
+    /**
+     * The values the project's runs hold in one of these columns, sorted, for a page filter.
+     *
+     * @param 'harness'|'account'|'model' $field
+     *
+     * @return list<string>
+     */
+    public function distinctValuesOf(Project $project, string $field): array
+    {
+        if (!\in_array($field, ['harness', 'account', 'model'], true)) {
+            throw new \InvalidArgumentException(\sprintf('No page filter reads the field "%s".', $field));
+        }
+
+        /** @var list<string> $values */
+        $values = $this->createQueryBuilder('r')
+            ->select('DISTINCT r.'.$field)
+            ->andWhere('r.project = :project')
+            ->andWhere('r.'.$field.' IS NOT NULL')
+            ->setParameter('project', $project)
+            ->orderBy('r.'.$field, 'ASC')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        if ('model' !== $field) {
+            return $values;
+        }
+
+        // The model filter also matches the fact model of a run with no reported model.
+        /** @var list<string> $factModels */
+        $factModels = $this->getEntityManager()->createQueryBuilder()
+            ->select('DISTINCT f.model')
+            ->from(WorkerRunFact::class, 'f')
+            ->innerJoin(WorkerRun::class, 'r', Join::WITH, 'r.id = f.runId')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.model IS NULL')
+            ->andWhere('f.model IS NOT NULL')
+            ->setParameter('project', $project)
+            ->getQuery()
+            ->getSingleColumnResult();
+        $values = array_values(array_unique([...$values, ...$factModels]));
+        sort($values);
+
+        return $values;
     }
 
     /**
@@ -913,7 +1083,8 @@ class WorkerRunRepository extends ServiceEntityRepository
 
     /**
      * How many closed worker runs of a card started and reported no usage, and
-     * whether any run of the card reported usage. An interactive run never reports it.
+     * whether any run of the card reported usage. An interactive run with no usage
+     * never counts as partial, because its bridge reports the usage only on request.
      *
      * @return array{partial: int, reported: bool}
      */
@@ -946,50 +1117,6 @@ class WorkerRunRepository extends ServiceEntityRepository
     }
 
     /**
-     * Per card, the closed worker runs that started and reported no usage, by
-     * the same rule as {@see findUsageStateOfCard()}. A card with none has no key.
-     *
-     * @param list<Uuid> $cardIds
-     *
-     * @return array<string, int> card id => partial runs
-     */
-    public function countPartialRunsByCard(Project $project, array $cardIds, ?string $rule): array
-    {
-        if ([] === $cardIds) {
-            return [];
-        }
-
-        $sql = <<<'SQL'
-            SELECT subject_id, COUNT(*) AS partial
-            FROM bridge_worker_runs
-            WHERE project_id = :project AND subject_type = 'card' AND subject_id IN (:cards)
-                AND started_at IS NOT NULL AND usage_source IS NULL AND kind = :worker AND state NOT IN (:unfinished)
-            SQL;
-        $parameters = [
-            'project' => (string) ($project->id ?? throw new \LogicException('Project has no id.')),
-            'cards' => array_map(static fn (Uuid $id): string => (string) $id, $cardIds),
-            'worker' => WorkerRunKind::Worker->value,
-            'unfinished' => [
-                ...array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::openStates()),
-                WorkerRunState::NotStarted->value,
-            ],
-        ];
-        if (null !== $rule) {
-            $sql .= ' AND work_kind = :rule';
-            $parameters['rule'] = $rule;
-        }
-
-        /** @var array<string, int|string> $counts */
-        $counts = $this->getEntityManager()->getConnection()->executeQuery(
-            $sql.' GROUP BY subject_id',
-            $parameters,
-            ['cards' => ArrayParameterType::STRING, 'unfinished' => ArrayParameterType::STRING],
-        )->fetchAllKeyValue();
-
-        return array_map(intval(...), $counts);
-    }
-
-    /**
      * Deletes every run the server received before the given moment, and answers
      * how many rows went.
      *
@@ -1005,5 +1132,33 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->setParameter('cutoff', $cutoff, Types::DATETIME_IMMUTABLE)
             ->getQuery()
             ->execute();
+    }
+
+    /**
+     * The ended runs of one bridge, in projects of its owner, whose window
+     * overlaps $from to $to.
+     *
+     * @return list<Uuid>
+     */
+    public function findEndedIdsOnBridgeBetween(Uuid $ownerId, Uuid $bridgeId, \DateTimeImmutable $from, \DateTimeImmutable $to): array
+    {
+        $ids = $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            <<<'SQL'
+                SELECT r.id
+                FROM bridge_worker_runs r
+                JOIN projects p ON p.id = r.project_id
+                WHERE r.bridge_id = :bridge AND p.owner_id = :owner
+                    AND r.started_at <= :to AND r.ended_at >= :from
+                SQL,
+            [
+                'bridge' => $bridgeId->toRfc4122(),
+                'owner' => $ownerId->toRfc4122(),
+                'from' => $from->setTimezone(new \DateTimeZone('UTC')),
+                'to' => $to->setTimezone(new \DateTimeZone('UTC')),
+            ],
+            ['from' => Types::DATETIME_IMMUTABLE, 'to' => Types::DATETIME_IMMUTABLE],
+        );
+
+        return array_map(static fn (mixed $id): Uuid => Uuid::fromString((string) $id), $ids);
     }
 }

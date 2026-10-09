@@ -4,12 +4,20 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Template;
 
-use App\Module\Bridge\Entity\WorkRequest;
-use App\Module\Review\Entity\DocumentStatus;
-use App\Module\Workflow\Action\ActionOutcome;
-use App\Module\Workflow\Action\ActionParams;
+use App\Module\Workflow\Action\Actions;
+use App\Module\Workflow\Action\EvaluateChildren;
 use App\Module\Workflow\Condition\Conditions;
+use App\Module\Workflow\Contract\ActionOutcome;
+use App\Module\Workflow\Contract\ChecksParameters;
+use App\Module\Workflow\Contract\ChildFacts;
+use App\Module\Workflow\Contract\DocumentStatuses;
+use App\Module\Workflow\Contract\EngineFact;
+use App\Module\Workflow\Contract\LabelTone;
+use App\Module\Workflow\Contract\Parameter;
+use App\Module\Workflow\Contract\ParameterNames;
 use App\Module\Workflow\Contract\ParameterType;
+use App\Module\Workflow\Contract\ReadsCardType;
+use App\Module\Workflow\Contract\WorkKind;
 use App\Module\Workflow\Expression\AllOf;
 use App\Module\Workflow\Expression\AnyOf;
 use App\Module\Workflow\Expression\ConditionLeaf;
@@ -26,20 +34,24 @@ final readonly class TemplateParser
     private const array COLUMN_FLAGS = ['@backlog', '@terminal'];
     private const string ANY_COLUMN = '*';
     private const array RULE_KEYS = ['id', 'slot', 'when', 'then'];
-    private const array WRITES_WITHOUT_FALLBACK = ['draft', 'ready', 'close', 'open-epic'];
-    private const array ON_TIMEOUT = ['pause', 'expire'];
-    private const array EVALUATED_CARDS = ['children'];
+    private const array TYPE_KEYS = ['key', 'label', 'tone', 'capabilities'];
+    private const int TYPE_KEY_MAX_LENGTH = 20;
+    private const array TYPE_CAPABILITIES = ['children', 'lane'];
+
+    /** The names an action call keeps for the parameter types that have a field of their own. */
+    private const array KEPT_PARAMETERS = ['expression' => ['until', 'refill'], 'list' => ['checks'], 'options' => ['options']];
 
     /** The parameters that hold the tag and the status of a request's `document` map. A template cannot write them. */
-    public const string DOCUMENT_TAG = 'document.tag';
-    public const string DOCUMENT_STATUS = 'document.status';
+    public const string DOCUMENT_TAG = ParameterNames::DOCUMENT_TAG;
+    public const string DOCUMENT_STATUS = ParameterNames::DOCUMENT_STATUS;
 
     /** The parameter of an app request that names a prompt file. A template cannot write it. */
-    public const string PROMPT = 'prompt';
-    private const string PROMPT_PATTERN = '/^[a-z][a-z0-9-]{0,39}$/D';
+    public const string PROMPT = ParameterNames::PROMPT;
+    public const string PROMPT_PATTERN = ParameterNames::PROMPT_PATTERN;
 
     public function __construct(
         private Conditions $conditions,
+        private Actions $actions,
     ) {
     }
 
@@ -78,17 +90,81 @@ final readonly class TemplateParser
     {
         $errors = [];
         foreach (array_keys($source) as $key) {
-            if ('rules' !== $key) {
-                $errors[] = \sprintf('%s: unknown key, app rules hold only "rules"', $key);
+            if (!\in_array($key, ['rules', 'requests'], true)) {
+                $errors[] = \sprintf('%s: unknown key, app rules hold only "rules" and "requests"', $key);
             }
         }
-        $rules = $this->rules(self::topLevelList($source, 'rules', $errors), [], $errors, lenient: false, app: true);
+        $rules = $this->rules(self::topLevelList($source, 'rules', $errors), [], null, $errors, lenient: false, app: true);
 
         if ([] !== $errors) {
             throw new InvalidTemplate($errors);
         }
 
         return $rules;
+    }
+
+    /**
+     * Parses the work the app asks a bridge for outside the engine. The key is optional.
+     *
+     * @param array<mixed> $source
+     *
+     * @return list<AppRequest>
+     *
+     * @throws InvalidTemplate
+     */
+    public function parseAppRequests(array $source): array
+    {
+        $given = $source['requests'] ?? [];
+        if (!\is_array($given) || !array_is_list($given)) {
+            throw new InvalidTemplate(['requests: must be a list']);
+        }
+
+        $errors = [];
+        $requests = [];
+        $seen = [];
+        foreach ($given as $index => $entry) {
+            $where = \sprintf('requests[%d]', $index);
+            if (!self::isMap($entry)) {
+                $errors[] = $where.': must be a map';
+                continue;
+            }
+            $errorCount = \count($errors);
+
+            $id = $entry['id'] ?? null;
+            if (!\is_string($id) || '' === $id) {
+                $errors[] = $where.' id: must be a non-empty string';
+            } else {
+                $where .= \sprintf(' (%s)', $id);
+                if (isset($seen[$id])) {
+                    $errors[] = \sprintf('%s: duplicate request id "%s"', $where, $id);
+                }
+                $seen[$id] = true;
+            }
+            $kind = $entry['kind'] ?? null;
+            if (!\is_string($kind) || '' === $kind) {
+                $errors[] = $where.': parameter "kind" must be a non-empty string';
+            }
+            $prompt = $entry['prompt'] ?? null;
+            if (!\is_string($prompt) || 1 !== preg_match(self::PROMPT_PATTERN, $prompt)) {
+                $errors[] = $where.': parameter "prompt" must match [a-z][a-z0-9-], at most 40 characters';
+            }
+            $checks = self::checks($entry['checks'] ?? null, $where, $errors);
+            foreach (array_keys($entry) as $name) {
+                if (!\in_array($name, ['id', 'kind', 'prompt', 'checks'], true)) {
+                    $errors[] = \sprintf('%s: unknown key "%s"', $where, $name);
+                }
+            }
+
+            if (\count($errors) === $errorCount && \is_string($id) && \is_string($kind) && \is_string($prompt)) {
+                $requests[] = new AppRequest($id, $kind, $prompt, $checks);
+            }
+        }
+
+        if ([] !== $errors) {
+            throw new InvalidTemplate($errors);
+        }
+
+        return $requests;
     }
 
     /** @param array<mixed> $source */
@@ -108,6 +184,18 @@ final readonly class TemplateParser
             $version = 0;
         }
 
+        $types = self::types($source, $errors);
+        $defaultType = $source['defaultType'] ?? null;
+        if (!\is_string($defaultType) || '' === $defaultType) {
+            $errors[] = self::topLevelError($source, 'defaultType', 'must be a non-empty string');
+            $defaultType = '';
+        } elseif (null !== $types && !isset($types[$defaultType])) {
+            $errors[] = \sprintf('defaultType: unknown type "%s"', $defaultType);
+        } elseif (null !== $types && $types[$defaultType]->children) {
+            // A widget note under a parent creates a card of the default type, and a parent-capable card cannot have a parent.
+            $errors[] = \sprintf('defaultType: type "%s" may have children', $defaultType);
+        }
+
         $workTimeoutMinutes = $source['workTimeoutMinutes'] ?? null;
         if (!\is_int($workTimeoutMinutes) || $workTimeoutMinutes < 1) {
             $errors[] = self::topLevelError($source, 'workTimeoutMinutes', 'must be a positive integer');
@@ -125,14 +213,10 @@ final readonly class TemplateParser
         $slots = $this->slots(self::topLevelList($source, 'slots', $errors), $errors);
         $slotKeys = array_map(static fn (Slot $slot): string => $slot->key, $slots);
         $manualMoves = $this->manualMoves(self::topLevelList($source, 'manualMoves', $errors), $slotKeys, $errors);
-        $rules = $this->rules(self::topLevelList($source, 'rules', $errors), $slotKeys, $errors, $lenient, app: false);
+        $rules = $this->rules(self::topLevelList($source, 'rules', $errors), $slotKeys, $types, $errors, $lenient, app: false);
         // The engine tells a repair request apart by its kind, so no rule may ask for that kind.
         foreach ($rules as $rule) {
-            $kind = match ($rule->then->type) {
-                ActionType::Request => ActionParams::optionalString($rule, 'kind'),
-                ActionType::ForgeWrite => ActionParams::optionalString($rule, 'fallback'),
-                default => null,
-            };
+            $kind = $this->actions->get($rule->then->key)->workKind($rule->then->params);
             if (null !== $onWorkFailed?->repairKind && $onWorkFailed->repairKind === $kind) {
                 $errors[] = \sprintf('onWorkFailed.repair.kind: the rule "%s" already asks for the kind "%s"', $rule->id, $onWorkFailed->repairKind);
             }
@@ -142,7 +226,126 @@ final readonly class TemplateParser
             throw new InvalidTemplate($errors);
         }
 
-        return new Template($key, $version, $slots, $rules, $manualMoves, $backoffMinutes, $workTimeoutMinutes, $onWorkFailed);
+        return new Template($key, $version, $slots, $rules, $manualMoves, $backoffMinutes, $workTimeoutMinutes, array_values($types ?? []), $defaultType, $onWorkFailed);
+    }
+
+    /**
+     * @param array<mixed> $source
+     * @param list<string> $errors
+     *
+     * @return ?array<string, TemplateCardType> each type by its key, or null when the block holds an error
+     */
+    private static function types(array $source, array &$errors): ?array
+    {
+        $value = $source['types'] ?? null;
+        if (!\is_array($value) || [] === $value || !array_is_list($value)) {
+            $errors[] = self::topLevelError($source, 'types', 'must be a non-empty list');
+
+            return null;
+        }
+        $errorCount = \count($errors);
+        $types = [];
+        foreach ($value as $index => $entry) {
+            $where = \sprintf('types[%d]', $index);
+            $key = self::isMap($entry) ? ($entry['key'] ?? null) : null;
+            $label = self::isMap($entry) ? ($entry['label'] ?? null) : null;
+            if (!self::isMap($entry) || !\is_string($key) || '' === $key || !\is_string($label) || '' === $label) {
+                $errors[] = $where.': must be a map with a string "key" and a string "label"';
+                continue;
+            }
+            $where .= \sprintf(' (%s)', $key);
+            $entryErrorCount = \count($errors);
+            if (mb_strlen($key) > self::TYPE_KEY_MAX_LENGTH) {
+                $errors[] = \sprintf('%s: "key" must have at most %d characters', $where, self::TYPE_KEY_MAX_LENGTH);
+            }
+            foreach (array_keys($entry) as $name) {
+                if (!\in_array($name, self::TYPE_KEYS, true)) {
+                    $errors[] = \sprintf('%s: unknown key "%s"', $where, $name);
+                }
+            }
+            $tone = $entry['tone'] ?? null;
+            $tone = \is_string($tone) ? LabelTone::tryFrom($tone) : null;
+            if (null === $tone) {
+                $errors[] = \sprintf('%s: "tone" must be one of %s', $where, implode(', ', array_column(LabelTone::cases(), 'value')));
+            }
+            $capabilities = $entry['capabilities'] ?? [];
+            if (!\is_array($capabilities) || !array_is_list($capabilities)
+                || array_any($capabilities, static fn (mixed $capability): bool => !\in_array($capability, self::TYPE_CAPABILITIES, true))) {
+                $errors[] = \sprintf('%s: "capabilities" must be a list of %s', $where, implode(', ', self::TYPE_CAPABILITIES));
+                $capabilities = [];
+            }
+            if (isset($types[$key])) {
+                $errors[] = \sprintf('%s: duplicate type key "%s"', $where, $key);
+            }
+            if (null !== $tone && \count($errors) === $entryErrorCount) {
+                $types[$key] = new TemplateCardType($key, $label, $tone, \in_array('children', $capabilities, true), \in_array('lane', $capabilities, true));
+            }
+        }
+
+        return \count($errors) === $errorCount ? $types : null;
+    }
+
+    /**
+     * @param array<string, TemplateCardType> $types
+     *
+     * @return list<string> the keys of the types without children that the rule reads the children of
+     */
+    private static function childlessTypesReadingChildren(Rule $rule, array $types): array
+    {
+        $evaluatesChildren = EvaluateChildren::KEY === $rule->then->key && 'children' === ($rule->then->params['cards'] ?? null);
+        // The engine reads a pause `until` and a request `refill` on a card that the `when` matched.
+        $ways = self::typeReads($rule->when);
+        foreach (array_filter([$rule->then->until, $rule->then->refill]) as $expression) {
+            $ways += self::typeReads(new AllOf([$rule->when, $expression]));
+        }
+        $found = [];
+        foreach ($ways as [$key, $readsChildren]) {
+            $type = null === $key ? null : ($types[$key] ?? null);
+            if (null !== $type && !$type->children && ($readsChildren || $evaluatesChildren)) {
+                $found[$type->key] = true;
+            }
+        }
+
+        return array_keys($found);
+    }
+
+    /**
+     * Each way the expression can hold, as the one type it names and whether it reads the children.
+     * The set stays small, because a pair repeats and a way that names two types never holds.
+     * A `not` names no type, because it turns the type leaves under it around.
+     *
+     * @return array<string, array{?string, bool}>
+     */
+    private static function typeReads(Expression $expression): array
+    {
+        if ($expression instanceof AnyOf) {
+            return array_merge(...array_map(self::typeReads(...), $expression->children));
+        }
+        if ($expression instanceof AllOf) {
+            $ways = self::typeRead(null, false);
+            foreach ($expression->children as $child) {
+                $next = [];
+                foreach ($ways as [$type, $reads]) {
+                    foreach (self::typeReads($child) as [$childType, $childReads]) {
+                        if (null === $type || null === $childType || $type === $childType) {
+                            $next += self::typeRead($type ?? $childType, $reads || $childReads);
+                        }
+                    }
+                }
+                $ways = $next;
+            }
+
+            return $ways;
+        }
+        $type = $expression instanceof ConditionLeaf && $expression->condition instanceof ReadsCardType ? $expression->condition->cardType($expression->params) : null;
+
+        return self::typeRead($type, array_any($expression->reads(), static fn (EngineFact|string $read): bool => \is_string($read) && is_a($read, ChildFacts::class, true)));
+    }
+
+    /** @return array<string, array{?string, bool}> */
+    private static function typeRead(?string $type, bool $readsChildren): array
+    {
+        return [json_encode([$type, $readsChildren], \JSON_THROW_ON_ERROR) => [$type, $readsChildren]];
     }
 
     /**
@@ -225,13 +428,14 @@ final readonly class TemplateParser
     }
 
     /**
-     * @param list<mixed>  $source
-     * @param list<string> $slotKeys
-     * @param list<string> $errors
+     * @param list<mixed>                      $source
+     * @param list<string>                     $slotKeys
+     * @param ?array<string, TemplateCardType> $types    null skips the type checks
+     * @param list<string>                     $errors
      *
      * @return list<Rule>
      */
-    private function rules(array $source, array $slotKeys, array &$errors, bool $lenient, bool $app): array
+    private function rules(array $source, array $slotKeys, ?array $types, array &$errors, bool $lenient, bool $app): array
     {
         $rules = [];
         $seen = [];
@@ -272,20 +476,24 @@ final readonly class TemplateParser
 
             $when = null;
             if (\array_key_exists('when', $entry)) {
-                $when = $this->expression($entry['when'], $where.' when', $slotKeys, $errors, $lenient);
+                $when = $this->expression($entry['when'], $where.' when', $slotKeys, $types, $errors, $lenient);
             } else {
                 $errors[] = $where.' when: is missing';
             }
 
             $then = null;
             if (\array_key_exists('then', $entry)) {
-                $then = $this->action($entry['then'], $where.' then', $slotKeys, $errors, $lenient, $app);
+                $then = $this->action($entry['then'], $where.' then', $slotKeys, $types, $errors, $lenient, $app);
             } else {
                 $errors[] = $where.' then: is missing';
             }
 
             if (\count($errors) === $errorCount && null !== $when && null !== $then && (null === $slot || \is_string($slot))) {
-                $rules[] = new Rule($id, $slot, $when, $then, $app ? RuleOrigin::App : RuleOrigin::Template);
+                $rule = new Rule($id, $slot, $when, $then, $app ? RuleOrigin::App : RuleOrigin::Template);
+                $rules[] = $rule;
+                foreach (null === $types ? [] : self::childlessTypesReadingChildren($rule, $types) as $type) {
+                    $errors[] = \sprintf('%s: the type "%s" may not have children, but the rule reads them', $where, $type);
+                }
             }
         }
 
@@ -293,10 +501,11 @@ final readonly class TemplateParser
     }
 
     /**
-     * @param list<string> $slotKeys
-     * @param list<string> $errors
+     * @param list<string>                     $slotKeys
+     * @param ?array<string, TemplateCardType> $types
+     * @param list<string>                     $errors
      */
-    private function expression(mixed $node, string $where, array $slotKeys, array &$errors, bool $lenient): ?Expression
+    private function expression(mixed $node, string $where, array $slotKeys, ?array $types, array &$errors, bool $lenient): ?Expression
     {
         if (!\is_array($node) || 1 !== \count($node) || !\is_string(array_key_first($node))) {
             $errors[] = $where.': a node must have exactly one key';
@@ -307,7 +516,7 @@ final readonly class TemplateParser
         $value = $node[$key];
 
         if ('not' === $key) {
-            $inner = $this->expression($value, $where.'.not', $slotKeys, $errors, $lenient);
+            $inner = $this->expression($value, $where.'.not', $slotKeys, $types, $errors, $lenient);
 
             return null === $inner ? null : new Not($inner);
         }
@@ -320,7 +529,7 @@ final readonly class TemplateParser
             }
             $children = [];
             foreach ($value as $index => $child) {
-                $children[] = $this->expression($child, \sprintf('%s.%s[%d]', $where, $key, $index), $slotKeys, $errors, $lenient);
+                $children[] = $this->expression($child, \sprintf('%s.%s[%d]', $where, $key, $index), $slotKeys, $types, $errors, $lenient);
             }
             $children = array_values(array_filter($children));
             if (\count($children) !== \count($value)) {
@@ -338,14 +547,15 @@ final readonly class TemplateParser
             return new MissingConditionLeaf($key, $value);
         }
 
-        return $this->conditionLeaf($key, $value, $where, $slotKeys, $errors);
+        return $this->conditionLeaf($key, $value, $where, $slotKeys, $types, $errors);
     }
 
     /**
-     * @param list<string> $slotKeys
-     * @param list<string> $errors
+     * @param list<string>                     $slotKeys
+     * @param ?array<string, TemplateCardType> $types
+     * @param list<string>                     $errors
      */
-    private function conditionLeaf(string $key, mixed $value, string $where, array $slotKeys, array &$errors): ?ConditionLeaf
+    private function conditionLeaf(string $key, mixed $value, string $where, array $slotKeys, ?array $types, array &$errors): ?ConditionLeaf
     {
         if (!$this->conditions->has($key)) {
             $errors[] = \sprintf('%s: unknown condition "%s"', $where, $key);
@@ -384,6 +594,7 @@ final readonly class TemplateParser
                     !self::isColumn($param, $slotKeys, false) => \sprintf('unknown slot "%s"', $param),
                     default => null,
                 },
+                default => throw new \LogicException(\sprintf('The condition "%s" declares the parameter "%s" with a type that only an action takes.', $key, $parameter->name)),
             };
             if (null !== $error) {
                 $errors[] = $where.': '.$error;
@@ -395,15 +606,19 @@ final readonly class TemplateParser
                 $errors[] = \sprintf('%s: unknown parameter "%s"', $where, $name);
             }
         }
+        if (\count($errors) === $errorCount && null !== $types && $condition instanceof ReadsCardType && !isset($types[$condition->cardType($params)])) {
+            $errors[] = \sprintf('%s: unknown type "%s"', $where, $condition->cardType($params));
+        }
 
         return \count($errors) === $errorCount ? new ConditionLeaf($condition, $params) : null;
     }
 
     /**
-     * @param list<string> $slotKeys
-     * @param list<string> $errors
+     * @param list<string>                     $slotKeys
+     * @param ?array<string, TemplateCardType> $types
+     * @param list<string>                     $errors
      */
-    private function action(mixed $node, string $where, array $slotKeys, array &$errors, bool $lenient, bool $app): ?ActionCall
+    private function action(mixed $node, string $where, array $slotKeys, ?array $types, array &$errors, bool $lenient, bool $app): ?ActionCall
     {
         if (!\is_array($node) || 1 !== \count($node) || !\is_string(array_key_first($node))) {
             $errors[] = $where.': an action must have exactly one key';
@@ -412,12 +627,12 @@ final readonly class TemplateParser
         }
         $name = array_key_first($node);
         $value = $node[$name];
-        $type = ActionType::tryFrom($name);
-        if (null === $type) {
+        if (!$this->actions->has($name)) {
             $errors[] = \sprintf('%s: unknown action "%s"', $where, $name);
 
             return null;
         }
+        $action = $this->actions->get($name);
         $where .= '.'.$name;
         if (!self::isMap($value)) {
             $errors[] = $where.': parameters must be a map';
@@ -427,82 +642,132 @@ final readonly class TemplateParser
 
         $errorCount = \count($errors);
         $params = [];
-        $until = null;
+        $expressions = [];
         $checks = [];
-        $refill = null;
-        $declared = self::actionParameters($type);
-        if ($app && ActionType::Request === $type) {
-            $declared[self::PROMPT] = false;
-        }
-        foreach ($declared as $param => $required) {
+        $options = [];
+        $declared = array_values(array_filter($action::parameters(), static fn (Parameter $parameter): bool => $app || !$parameter->appOnly));
+        foreach ($declared as $parameter) {
+            $param = $parameter->name;
+            $kept = self::KEPT_PARAMETERS[$parameter->type->value] ?? null;
+            if (null !== $kept && !\in_array($param, $kept, true)) {
+                throw new \LogicException(\sprintf('The action "%s" declares the %s parameter "%s", and an action call keeps only %s.', $name, $parameter->type->value, $param, implode(', ', $kept)));
+            }
             if (!\array_key_exists($param, $value)) {
-                if (ActionType::Pause === $type && 'until' === $param) {
-                    $errors[] = $where.': a pause must carry an "until" expression';
-                } elseif ($required && !('fallback' === $param && \in_array($value['write'] ?? null, self::WRITES_WITHOUT_FALLBACK, true))) {
-                    $errors[] = \sprintf('%s: missing parameter "%s"', $where, $param);
+                if ($parameter->required) {
+                    $errors[] = ParameterType::Expression === $parameter->type
+                        ? \sprintf('%s: a %s must carry an "%s" expression', $where, $name, $param)
+                        : \sprintf('%s: missing parameter "%s"', $where, $param);
                 }
                 continue;
             }
             $given = $value[$param];
-            if ('until' === $param) {
-                $until = $this->expression($given, $where.'.until', $slotKeys, $errors, $lenient);
-                continue;
+            switch ($parameter->type) {
+                case ParameterType::Expression:
+                    if (null !== $parameter->needs && !\array_key_exists($parameter->needs, $value)) {
+                        $errors[] = \sprintf('%s: parameter "%s" needs a "%s"', $where, $param, $parameter->needs);
+                    } else {
+                        $expressions[$param] = $this->expression($given, $where.'.'.$param, $slotKeys, $types, $errors, $lenient);
+                    }
+                    continue 2;
+                case ParameterType::Options:
+                    $options = $this->askOptions($given, $where, $slotKeys, $types, $errors, $lenient);
+                    continue 2;
+                case ParameterType::Document:
+                    $params += self::document($given, $where, $errors);
+                    continue 2;
+                case ParameterType::List:
+                    $checks = self::checks($given, $where, $errors);
+                    continue 2;
+                default:
+                    break;
             }
-            if ('refill' === $param) {
-                if (!\array_key_exists('limit', $value)) {
-                    $errors[] = $where.': parameter "refill" needs a "limit"';
-                } else {
-                    $refill = $this->expression($given, $where.'.refill', $slotKeys, $errors, $lenient);
-                }
-                continue;
-            }
-            if ('document' === $param) {
-                $params += self::document($given, $where, $errors);
-                continue;
-            }
-            if ('checks' === $param) {
-                $checks = self::checks($given, $where, $errors);
-                continue;
-            }
-            $error = match ($param) {
-                'limit' => \is_int($given) && $given >= 1 ? null : 'parameter "limit" must be a positive integer',
-                'write' => \is_string($given) && null !== ForgeWriteKind::tryFrom($given) ? null : \sprintf(
-                    'parameter "write" must be one of %s',
-                    implode(', ', array_map(static fn (ForgeWriteKind $kind): string => $kind->value, ForgeWriteKind::cases())),
-                ),
-                'onTimeout' => \in_array($given, self::ON_TIMEOUT, true) ? null : \sprintf('parameter "onTimeout" must be one of %s', implode(', ', self::ON_TIMEOUT)),
-                self::PROMPT => \is_string($given) && 1 === preg_match(self::PROMPT_PATTERN, $given) ? null : 'parameter "prompt" must match [a-z][a-z0-9-], at most 40 characters',
-                'cards' => \in_array($given, self::EVALUATED_CARDS, true) ? null : \sprintf('parameter "cards" must be one of %s', implode(', ', self::EVALUATED_CARDS)),
-                default => \is_string($given) && '' !== $given ? null : \sprintf('parameter "%s" must be a non-empty string', $param),
-            };
+            $error = self::parameterError($parameter, $given);
             if (null !== $error) {
                 $errors[] = $where.': '.$error;
-            } elseif (\in_array($param, ['to', 'from'], true) && \is_string($given) && !self::isColumn($given, $slotKeys, false)) {
+            } elseif (ParameterType::Slot === $parameter->type && \is_string($given) && !self::isColumn($given, $slotKeys, false)) {
                 $errors[] = \sprintf('%s.%s: unknown slot "%s"', $where, $param, $given);
             } elseif (\is_int($given) || \is_string($given)) {
                 $params[$param] = $given;
             }
         }
+        if ($action instanceof ChecksParameters) {
+            foreach ($action::check($params) as $message) {
+                $errors[] = $where.': '.$message;
+            }
+        }
+        $names = array_map(static fn (Parameter $parameter): string => $parameter->name, $declared);
         foreach (array_keys($value) as $param) {
-            if (!\array_key_exists($param, $declared)) {
+            if (!\in_array($param, $names, true)) {
                 $errors[] = \sprintf('%s: unknown parameter "%s"', $where, $param);
             }
         }
 
-        return \count($errors) === $errorCount ? new ActionCall($type, $params, $until, checks: $checks, refill: $refill) : null;
+        return \count($errors) === $errorCount ? $this->actions->call($name, $params, $expressions['until'] ?? null, $checks, $expressions['refill'] ?? null, $options) : null;
     }
 
-    /** @return array<string, bool> each parameter name, mapped to whether it is required. A state write and the epic opening need no fallback. */
-    private static function actionParameters(ActionType $type): array
+    /** @return ?string what is wrong with the value of a string, int or slot parameter, or null when nothing is */
+    private static function parameterError(Parameter $parameter, mixed $given): ?string
     {
-        return match ($type) {
-            ActionType::Move => ['to' => true, 'from' => false],
-            ActionType::Request => ['kind' => true, 'capability' => false, 'limit' => false, 'refill' => false, 'onTimeout' => false, 'document' => false, 'checks' => false],
-            ActionType::ForgeWrite => ['write' => true, 'fallback' => true],
-            ActionType::Pause => ['reason' => true, 'until' => true],
-            ActionType::Release => ['reason' => true],
-            ActionType::Evaluate => ['cards' => true],
+        $name = $parameter->name;
+
+        return match (true) {
+            ParameterType::Int === $parameter->type => \is_int($given) && $given >= ($parameter->min ?? \PHP_INT_MIN) ? null : (1 === $parameter->min
+                ? \sprintf('parameter "%s" must be a positive integer', $name)
+                : \sprintf('parameter "%s" must be an integer of at least %d', $name, $parameter->min ?? 0)),
+            null !== $parameter->fixed => $given === $parameter->fixed ? null : \sprintf('parameter "%s" must be %s', $name, $parameter->fixed),
+            null !== $parameter->choices => \in_array($given, $parameter->choices, true) ? null : \sprintf('parameter "%s" must be one of %s', $name, implode(', ', $parameter->choices)),
+            null !== $parameter->pattern => \is_string($given) && 1 === preg_match($parameter->pattern, $given) ? null : \sprintf('parameter "%s" must match %s', $name, $parameter->patternHint ?? $parameter->pattern),
+            default => \is_string($given) && '' !== $given ? null : \sprintf('parameter "%s" must be a non-empty string', $name),
         };
+    }
+
+    /**
+     * @param list<string>                     $slotKeys
+     * @param ?array<string, TemplateCardType> $types
+     * @param list<string>                     $errors
+     *
+     * @return list<AskOption>
+     */
+    private function askOptions(mixed $given, string $where, array $slotKeys, ?array $types, array &$errors, bool $lenient): array
+    {
+        if (!\is_array($given) || [] === $given || !array_is_list($given)) {
+            $errors[] = $where.': parameter "options" must be a non-empty list of maps with a "label" and a "then" list';
+
+            return [];
+        }
+        $options = [];
+        foreach ($given as $index => $entry) {
+            $optionWhere = \sprintf('%s.options[%d]', $where, $index);
+            $label = self::isMap($entry) ? ($entry['label'] ?? null) : null;
+            $then = self::isMap($entry) ? ($entry['then'] ?? null) : null;
+            if (!\is_string($label) || '' === $label || !\is_array($then) || [] === $then || !array_is_list($then)) {
+                $errors[] = $optionWhere.': must be a map with a non-empty string "label" and a non-empty "then" list';
+                continue;
+            }
+            $unknownKeys = array_diff(array_keys($entry), ['label', 'then']);
+            foreach ($unknownKeys as $name) {
+                $errors[] = \sprintf('%s: unknown key "%s"', $optionWhere, $name);
+            }
+            $actions = [];
+            foreach ($then as $position => $node) {
+                $actionWhere = \sprintf('%s.then[%d]', $optionWhere, $position);
+                $name = \is_array($node) && 1 === \count($node) ? array_key_first($node) : null;
+                if (\is_string($name) && $this->actions->has($name) && !$this->actions->get($name)::traits()->option) {
+                    $errors[] = \sprintf('%s: the action "%s" is not allowed inside an ask option', $actionWhere, $name);
+                    continue;
+                }
+                $action = $this->action($node, $actionWhere, $slotKeys, $types, $errors, $lenient, app: false);
+                if (null !== $action) {
+                    $actions[] = $action;
+                }
+            }
+            if ([] !== $unknownKeys || \count($actions) !== \count($then)) {
+                continue;
+            }
+            $options[] = new AskOption($label, $actions);
+        }
+
+        return $options;
     }
 
     /**
@@ -525,14 +790,14 @@ final readonly class TemplateParser
         if (!\array_key_exists('status', $given)) {
             return [self::DOCUMENT_TAG => $given['tag']];
         }
-        $status = \is_string($given['status']) ? DocumentStatus::tryFrom($given['status']) : null;
-        if (null === $status) {
-            $errors[] = \sprintf('%s.document: parameter "status" must be one of %s', $where, implode(', ', array_map(static fn (DocumentStatus $s): string => $s->value, DocumentStatus::cases())));
+        $status = $given['status'];
+        if (!\in_array($status, DocumentStatuses::ALL, true)) {
+            $errors[] = \sprintf('%s.document: parameter "status" must be one of %s', $where, implode(', ', DocumentStatuses::ALL));
 
             return [];
         }
 
-        return [self::DOCUMENT_TAG => $given['tag'], self::DOCUMENT_STATUS => $status->value];
+        return [self::DOCUMENT_TAG => $given['tag'], self::DOCUMENT_STATUS => $status];
     }
 
     /**
@@ -636,7 +901,7 @@ final readonly class TemplateParser
 
             return null;
         }
-        if (1 !== preg_match(WorkRequest::KIND_PATTERN, $repairKind)) {
+        if (1 !== preg_match(WorkKind::PATTERN, $repairKind)) {
             $errors[] = 'onWorkFailed.repair.kind: must be a work request kind';
 
             return null;

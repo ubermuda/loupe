@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Module\Board\Form;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\CollectionType;
-use Symfony\Component\Form\Extension\Core\Type\EnumType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\SubmitType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
@@ -20,11 +20,19 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
 /** @extends AbstractType<CreateCardRequest> */
 class CreateCardFormType extends AbstractType
 {
+    public function __construct(
+        private readonly CardTypeCatalog $catalog,
+    ) {
+    }
+
     #[\Override]
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $project = $options['project'] instanceof Project ? $options['project'] : throw new \LogicException('The resolver requires a project.');
         $card = $options['card'] instanceof Card ? $options['card'] : null;
+        $types = $this->catalog->forProject($project->requireId());
+        // A card keeps a type its template no longer declares, so the edit form still offers it.
+        $typeKeys = null === $card || $types->has($card->type) ? $types->keys() : [...$types->keys(), $card->type];
 
         $builder
             ->add('title', TextType::class, [
@@ -38,10 +46,10 @@ class CreateCardFormType extends AbstractType
                 'help_attr' => ['class' => 'lp-form-hint'],
                 'attr' => ['rows' => 10],
             ])
-            ->add('type', EnumType::class, [
-                'class' => CardType::class,
+            ->add('type', ChoiceType::class, [
+                'choices' => $typeKeys,
                 'label' => 'board.form.create_card_form.type.label',
-                'choice_label' => static fn (CardType $type): string => 'board.form.create_card_form.type.choice.'.$type->value,
+                'choice_label' => static fn (string $key): string => $types->get($key)->label,
             ])
             ->add('column', BoardColumnChoiceType::class, [
                 'label' => 'board.form.create_card_form.column.label',

@@ -18,6 +18,9 @@ const (
 	CommandStopRun      = "stop-run"
 	CommandResumeRun    = "resume-run"
 	CommandRerunCommand = "rerun-command"
+	// CommandCollectSessionUsage asks for the usage of one interactive run,
+	// from the transcript of its session on this machine.
+	CommandCollectSessionUsage = "collect-session-usage"
 )
 
 // The causes of a command. A resume after an ask close says that the owner
@@ -33,11 +36,11 @@ const (
 	CommandRefused = "refused"
 )
 
-// Command asks this bridge to stop or resume one run, or to run the command
-// of a failed command run again. It arrives as a bridge.command event and
-// again in each heartbeat reply, with the same keys. A null runKey, sessionId,
-// workRequestId, workKind or ruleId decodes as "". A run of a rules: entry
-// names no work request.
+// Command asks this bridge to stop or resume one run, to run the command of a
+// failed command run again, or to send the usage of an interactive run. It
+// arrives as a bridge.command event and again in each heartbeat reply, with
+// the same keys. A null runKey, sessionId, workRequestId, workKind, ruleId or
+// runId decodes as "". A run of a rules: entry names no work request.
 type Command struct {
 	Type          string         `json:"type"`
 	ProjectID     string         `json:"projectId"`
@@ -55,9 +58,23 @@ type Command struct {
 	RuleID        string         `json:"ruleId"`
 	ExpiresAt     time.Time      `json:"expiresAt"`
 	Cause         string         `json:"cause,omitempty"`
+	// RunID names the worker run, and StartedAt and EndedAt its window. An
+	// older server sends none, and a null time decodes as nil.
+	RunID     string     `json:"runId"`
+	StartedAt *time.Time `json:"startedAt"`
+	EndedAt   *time.Time `json:"endedAt"`
 	// Context is the context of the work request of the run, so a rerun or a
 	// resume fills the values the run had. An older server sends none.
 	Context WorkRequestContext `json:"context"`
+	// Model and Effort are what the work request of the run asked claude for,
+	// so a resume runs as the first run did. A null decodes as "".
+	Model  string `json:"model,omitempty"`
+	Effort string `json:"effort,omitempty"`
+	// Harness, Account and RunModel name what the run started on, so a
+	// resume runs there. An older server or bridge sends none.
+	Harness  string `json:"harness,omitempty"`
+	Account  string `json:"account,omitempty"`
+	RunModel string `json:"runModel,omitempty"`
 }
 
 // CommandSubject names the command itself.

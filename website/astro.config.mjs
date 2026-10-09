@@ -86,6 +86,12 @@ export default defineConfig({
               items: [
                 { label: 'Runs', slug: 'using/worker-runs' },
                 { label: 'Events', slug: 'using/activity' },
+              ],
+            },
+            {
+              label: 'Analytics',
+              items: [
+                { label: 'Metrics and reports', slug: 'using/analytics' },
                 { label: 'Experiments', slug: 'using/experiments' },
               ],
             },
@@ -150,6 +156,7 @@ export default defineConfig({
             { label: 'Overview', slug: 'contributing' },
             { slug: 'contributing/development' },
             { slug: 'contributing/architectural-priorities' },
+            { slug: 'contributing/design-system' },
             { slug: 'contributing/worktrees' },
             { slug: 'contributing/lifecycle' },
           ],

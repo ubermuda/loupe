@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Controller\Api;
 
 use App\Module\Bridge\Entity\Bridge;
+use App\Module\Bridge\ValueObject\BridgeHostSampleReport;
 use App\Utils\GitHubLogin;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -14,6 +15,7 @@ use Symfony\Component\Validator\Constraints as Assert;
  *
  * @phpstan-import-type HookRow from Bridge
  * @phpstan-import-type WorkerPoolRow from Bridge
+ * @phpstan-import-type AccountRow from Bridge
  */
 final class RecordBridgeHeartbeatRequest
 {
@@ -26,11 +28,17 @@ final class RecordBridgeHeartbeatRequest
     /** Far above the pools one bridge runs, and small enough to bound the JSON column. */
     public const int MAX_WORKER_POOLS = 50;
 
+    /** Far above the accounts one bridge runs, and small enough to bound the JSON column. */
+    public const int MAX_ACCOUNTS = 50;
+
     /** Far above the features one bridge reports, and small enough to bound the JSON column. */
     public const int MAX_CAPABILITIES = 20;
 
     /** Far above the work one bridge runs at a time, and small enough to bound the renewal statement. */
     public const int MAX_WORK_CLAIMS = 200;
+
+    /** Twelve hours of one sample a minute, which a bridge holds while the server is away. */
+    public const int MAX_HOST_SAMPLES = 720;
 
     /**
      * @param list<string>|null                $projects
@@ -40,7 +48,9 @@ final class RecordBridgeHeartbeatRequest
      * @param list<string>|null                $capabilities null from a bridge that predates capabilities
      * @param list<BridgeWorkClaimInput>|null  $workClaims   null from a bridge that predates work requests
      * @param string|null                      $name         null from a bridge that predates names; blank clears the name
+     * @param list<BridgeHostSampleInput>|null $hostSamples  null from a bridge that predates host samples
      * @param string|null                      $pushLogin    null from a bridge that predates push logins; empty clears the login
+     * @param list<BridgeAccountInput>|null    $accounts     null from a bridge that predates account checks
      */
     public function __construct(
         #[Assert\All([new Assert\NotBlank(), new Assert\Uuid()])]
@@ -84,9 +94,21 @@ final class RecordBridgeHeartbeatRequest
         #[Assert\Regex(pattern: Bridge::NAME_PATTERN, normalizer: 'trim')]
         public ?string $name = null,
 
+        #[Assert\All([new Assert\Type(BridgeHostSampleInput::class)])]
+        #[Assert\Count(max: self::MAX_HOST_SAMPLES)]
+        #[Assert\Type('list')]
+        #[Assert\Valid]
+        public ?array $hostSamples = null,
+
         #[Assert\Length(max: GitHubLogin::MAX_LENGTH)]
         #[Assert\Regex(pattern: GitHubLogin::PATTERN)]
         public ?string $pushLogin = null,
+
+        #[Assert\All([new Assert\Type(BridgeAccountInput::class)])]
+        #[Assert\Count(max: self::MAX_ACCOUNTS)]
+        #[Assert\Type('list')]
+        #[Assert\Valid]
+        public ?array $accounts = null,
     ) {
     }
 
@@ -110,6 +132,12 @@ final class RecordBridgeHeartbeatRequest
         }
 
         return array_values($claims);
+    }
+
+    /** @return list<BridgeHostSampleReport> */
+    public function hostSamples(): array
+    {
+        return array_map(static fn (BridgeHostSampleInput $sample): BridgeHostSampleReport => $sample->report(), array_values($this->hostSamples ?? []));
     }
 
     /**
@@ -166,6 +194,32 @@ final class RecordBridgeHeartbeatRequest
             'inUse' => $pool->inUse ?? 0,
             'queued' => $pool->queued ?? 0,
         ], array_values($this->workerPools));
+    }
+
+    /**
+     * The account rows as the bridge row stores them. A reason is kept for a
+     * failing account alone. Null when the bridge sent no report.
+     *
+     * @return list<AccountRow>|null
+     */
+    public function accounts(): ?array
+    {
+        if (null === $this->accounts) {
+            return null;
+        }
+
+        return array_map(static function (BridgeAccountInput $account): array {
+            $failing = BridgeAccountInput::STATE_FAILING === $account->state;
+            $reason = trim($account->reason ?? '');
+
+            return [
+                'name' => $account->name ?? '',
+                'harness' => $account->harness ?? '',
+                'state' => $failing ? BridgeAccountInput::STATE_FAILING : BridgeAccountInput::STATE_READY,
+                'reason' => $failing && '' !== $reason ? $reason : null,
+                'used' => $account->used ?? true,
+            ];
+        }, array_values($this->accounts));
     }
 
     /**

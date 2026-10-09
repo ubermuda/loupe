@@ -40,6 +40,10 @@ branch behind `main` asks for an update. With the merge and sync writes on,
 Loupe does both itself, and no worker runs.
 [Workflows](../using/workflows.md#the-lifecycle-template) lists every rule.
 
+The implementation worker reads the saved decision answers of the tech design.
+An answer wins over the text of the design. The worker lists those decisions at
+the top of its plan.
+
 The owner can run `/loupe:product-design` by hand in Claude Code, from a card or
 from a one-line idea. The session creates the card in Product design, or moves
 an existing card there from an earlier column, such as Backlog or Next. Then it
@@ -103,30 +107,33 @@ design:
    body. The worker builds only that entry, from the tech design of the epic.
    A Breakdown child skips product design and tech design. A standalone child
    has no entry line, for example a card moved under an epic by hand. The
-   worker builds its own approved tech design as a normal card. With no such
-   design, it stops with
+   worker builds its own approved tech design as a normal card. A standalone
+   child that links only the approved tech design of its epic builds its card
+   body against that design, and the plan covers only the work that the card
+   body describes. With no approved design linked, the worker stops with
    `STAGE RESULT: blocked: needs its own tech design: move the card to Tech design`.
 2. Breakdown: the card is an epic, or its tech design has a `Breakdown`
    section. The worker writes no code and changes no file. It sets the type
-   `epic`, adds the entry line to each matched child, creates each missing
-   child in Backlog, and sets the blocked-by links. Then it moves each child
-   with no open blocker to Implementation. The result line is
-   `STAGE RESULT: breakdown <n> children, <m> started`, and the lines after it
-   list each match with its reason.
+   `epic`, adds the entry line and the entry to each matched child, links the tech
+   design of the epic to each child, creates each missing child in Backlog,
+   and sets the blocked-by links. It moves no child. The workflow moves each
+   new child to Next, and starts a child that links an approved tech design,
+   has no open blocker, and whose epic sits in Implementation. The
+   result line is `STAGE RESULT: breakdown <n> children`, and the lines after
+   it list each match with its reason.
 3. Normal: every other card. The worker builds the whole design into one pull
    request.
 
 An epic never gets a coding worker. An epic that already has children still
 gets the breakdown when it enters Implementation. When an epic moves back to
 Implementation, its worker runs the breakdown again, finds no missing child,
-and stops. That
-rerun also starts a child that a person put back in Backlog on purpose, when
-the child has no open blocker. A parked child stays in Backlog.
+and stops.
 
 The workflow makes three moves on its own:
 
-1. When the last open blocker of a child in Backlog finishes, the child moves to
-   Implementation, which asks for its implementation.
+1. When the last open blocker of a child in Next finishes, and its epic sits in
+   Implementation, the child moves to Implementation, which asks for its
+   implementation.
 2. When every child of an epic is done, the epic moves to In review when it has
    a pull request, and to Done when it has none. An epic with a child merged
    into its epic branch never moves straight to Done. While a breakdown request is
@@ -156,6 +163,13 @@ loads.
 ```yaml
 maxWorkers: 1
 
+accounts:
+  claude:
+    harness: claude-code
+
+defaults:
+  account: claude
+
 projects:
   loupe:
     dir: ~/Code/loupe
@@ -169,14 +183,14 @@ work:
     prompt: /loupe:product-design {cardNumber}
 
   product-design-revise:
-    permissionMode: acceptEdits
+    permissions: workspace
     prompt: |
       Use the loupe-stage-fix-round skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}), column product-design.
       Loupe instance https://loupe.ac.
 
   tech-design:
-    permissionMode: acceptEdits
+    permissions: workspace
     prompt: |
       Use the loupe-stage-tech-design skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}) entered tech-design.
@@ -184,14 +198,14 @@ work:
       If the card is no longer in tech-design, stop.
 
   tech-design-revise:
-    permissionMode: acceptEdits
+    permissions: workspace
     prompt: |
       Use the loupe-stage-fix-round skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}), column tech-design.
       Loupe instance https://loupe.ac.
 
   implement:
-    permissionMode: bypassPermissions
+    permissions: full
     before:
       run: [bin/worktrees/bridge-before.sh, "{cardNumber}", "{cardId}"]
       timeout: 15m
@@ -202,7 +216,7 @@ work:
       If the card is no longer in implementation, stop.
 
   breakdown:
-    permissionMode: bypassPermissions
+    permissions: full
     prompt: |
       Use the loupe-stage-implementation skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}) entered implementation.
@@ -210,7 +224,7 @@ work:
       If the card is no longer in implementation, stop.
 
   fix:
-    permissionMode: bypassPermissions
+    permissions: full
     before:
       run: [bin/worktrees/bridge-before.sh, "{cardNumber}", "{cardId}"]
       timeout: 15m
@@ -221,7 +235,7 @@ work:
       Loupe instance https://loupe.ac.
 
   merge:
-    permissionMode: bypassPermissions
+    permissions: full
     prompt: |
       Use the loupe-stage-merge skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
@@ -229,7 +243,7 @@ work:
       Loupe instance https://loupe.ac.
 
   sync:
-    permissionMode: bypassPermissions
+    permissions: full
     prompt: |
       Use the loupe-stage-merge skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
@@ -237,7 +251,7 @@ work:
       Loupe instance https://loupe.ac.
 
   epic-preview:
-    permissionMode: bypassPermissions
+    permissions: full
     prompt: |
       Use the loupe-stage-merge skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
@@ -245,7 +259,7 @@ work:
       Loupe instance https://loupe.ac.
 
   repair:
-    permissionMode: bypassPermissions
+    permissions: full
     before:
       run: [bin/worktrees/bridge-before.sh, "--git-only", "{cardNumber}", "{cardId}"]
       timeout: 15m
@@ -310,15 +324,14 @@ describes every field and placeholder.
 
 ## Permissions
 
-The design entries use `acceptEdits`. On one machine, a
-probe showed that this mode reaches the Loupe write tools in `claude -p` with
-no allow rule. When a worker run reports a denied tool, add an
-`mcp__loupe__*` allow rule to `.claude/settings.local.json`.
+The design entries use the `workspace` level, which runs Claude Code in `auto`
+mode. When a worker run reports a denied tool, add an `mcp__loupe__*` allow
+rule to `.claude/settings.local.json`.
 
 The `implement`, `breakdown`, `fix`, `merge`, `sync` and `repair` entries use
-`bypassPermissions`. The gate and the `gh` calls run arbitrary
-commands, and a worker in `acceptEdits` cannot approve them, because nobody
-answers a permission prompt. This choice has a cost. The worker can run any
+the `full` level, which runs Claude Code in `bypassPermissions` mode. The gate
+and the `gh` calls run arbitrary commands, and nobody answers a permission
+prompt in a worker. This choice has a cost. The worker can run any
 command as the owner from the moment it starts. The worker folder is a separate
 tree, but a command can still reach any path on the machine.
 
@@ -339,6 +352,8 @@ that change from one setup to the next.
    `.agents/skills/loupe-stage-implementation/references/harnesses/generic.md`.
    The compatibility adapter for Claude Code is
    `.agents/skills/loupe-stage-implementation/references/harnesses/claude-code.md`.
+   The adapter for Codex is
+   `.agents/skills/loupe-stage-implementation/references/harnesses/codex.md`.
 3. A forge adapter maps the pull request operations to the commands of one
    forge. The adapter for GitHub is
    `.agents/skills/loupe-stage-implementation/references/forges/github.md`.

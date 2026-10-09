@@ -4,17 +4,18 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Service;
 
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Context\ContextLabel;
 use App\Module\SiteReview\Context\ContextLabelResolverInterface;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Uid\Uuid;
 
 /**
  * Names the card a `card:<uuid>` marker points at, or the epic an
- * `epic:<uuid>` marker points at. The widget stores one of these for its
+ * `epic:<uuid>` marker points at. The epic marker names a card of a type with
+ * the children capability. The widget stores one of these for its
  * per-review and epic modes, and a preview page carries a `card:` one.
  *
  * Board implements a SiteReview interface rather than SiteReview reading a
@@ -33,6 +34,7 @@ final readonly class CardContextLabelResolver implements ContextLabelResolverInt
 
     public function __construct(
         private CardRepository $cards,
+        private CardTypeCatalog $catalog,
         private UrlGeneratorInterface $urls,
     ) {
     }
@@ -56,7 +58,7 @@ final readonly class CardContextLabelResolver implements ContextLabelResolverInt
         if (null === $card || $card->project->id != $project->id || $card->column->terminal) {
             return null;
         }
-        if ($epic && CardType::Epic !== $card->type) {
+        if ($epic && !$this->catalog->forProject($project->requireId())->get($card->type)->children) {
             return null;
         }
 

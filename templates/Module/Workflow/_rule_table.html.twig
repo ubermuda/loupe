@@ -28,7 +28,7 @@
             </div>
             {% endif %}
             {% for key in rule.missingConditions %}
-            <span class="lp-tag lp-tag--amber">{{ 'workflow.settings.rules.missing_condition'|trans({'%condition%': key}) }}</span>
+            <twig:Ds:Tag tone="amber">{{ 'workflow.settings.rules.missing_condition'|trans({'%condition%': key}) }}</twig:Ds:Tag>
             {% endfor %}
         </div>
     </div>

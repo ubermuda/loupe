@@ -1,22 +1,23 @@
 ---
 title: "Activity: Runs"
-description: "The Runs tab of the Activity page, which shows what a command-line bridge told a project about the Claude Code workers it ran."
+description: "The Runs tab of the Activity page, which shows what a command-line bridge told a project about the workers it ran, on Claude Code or Codex."
 ---
 
-A [command-line bridge](../extending/cli-bridge.md) runs a Claude Code worker
-for each board event one of its rules matches. Every worker the bridge reports
-becomes one row on the **Runs** tab of the project's **Activity** page. An
-interactive Claude Code session on a card gets a row too, as
+A [command-line bridge](../extending/cli-bridge.md) runs a worker for each
+board event one of its rules matches. The worker runs on Claude Code or on
+Codex, as its account says. Every worker the bridge reports becomes one row on
+the **Runs** tab of the project's **Activity** page. An interactive session on
+a card gets a row too, as
 [Interactive sessions](#interactive-sessions) says.
 
 Open **Activity** in the project sidebar, or go to
 `/projects/{project}/worker-runs`. Anyone who can view the project can read it.
 The open runs also show on the [Workshop](workshop.md), under In motion.
 
-The Activity page has three tabs. **Runs** lists the runs, and the rest of this
+The Activity page has two tabs. **Runs** lists the runs, and the rest of this
 page describes it. **Events** lists the [project events](activity.md).
-**Cost** charts what a finished card costs on average, as
-[The cost of finished cards](#the-cost-of-finished-cards) says.
+The [Analytics](analytics.md) page charts the metrics of the runs and compares
+the variants of each [experiment](experiments.md).
 
 ## What a row shows
 
@@ -24,13 +25,19 @@ page describes it. **Events** lists the [project events](activity.md).
 |---|---|
 | Work | the number of the card the worker was started for, then its title. A card that is gone, or a board that is off, shows the number alone. An interactive run adds the tag **Interactive session**, and a command run adds the tag **Command** |
 | Outcome | the state of the run, from the list below. A run with a failure reason shows a help icon, and the reason shows when you hover over or focus the outcome |
-| Work kind | the kind of the work request the run ran, such as `implement` or `fix`, or the name of an interactive session. A run from before the work map shows **None**. A long name is cut short, and the drawer shows it in full. A run that names a worker pool adds a tag with the pool, such as **quick pool** |
+| Work kind | the kind of the work request the run ran, such as `implement` or `fix`, or the name of an interactive session. A run from before the work map shows **None**. A long name is cut short, and the drawer shows it in full. A run that names a worker pool adds a tag with the pool, such as **quick pool**. The harness, the account and the model each add a tag when the bridge reported them, such as `codex`, `work` and `gpt-5` |
 | Duration | how long the worker ran. A run that is still open shows how long it has run so far, and an open interactive run shows "running for" in front. A run with no start, or a run that closed with no reported end, shows nothing |
 | Started | how long ago the worker started, on the bridge clock. Hover over it to see the exact time. A run that has not started shows when its first report arrived |
 
 Select a row to open its drawer. The drawer holds the detail the row
 leaves out: the bridge, the exit code, the run a resume continues, the
 failure reason and the output.
+
+The drawer also shows a **Metrics** block from the metrics row of the run. The
+block gives the cost, the input, output, cache read and cache write tokens, the
+model and the duration. A run with no price shows the cost as **unknown**. A
+token count or a model that the run did not report has no line. A command run
+shows no **Metrics** block, and a run with no metrics row shows none either.
 
 A bridge runs its workers in named worker pools, and each report of a run names
 its pool. The row and the drawer show the pool that the last report named. A
@@ -43,6 +50,13 @@ a run shows an **Experiment** line after the work kind, such as `impl-model / so
 the variant asked for. When the entry no longer offers the variant of the card,
 the card moves to a new variant. The line then adds a note, such as `, switched
 from opus`. A run with no experiment shows no line.
+
+A bridge can run its workers on more than one harness, such as Claude Code
+(`claude-code`) or Codex (`codex`), and on named accounts. Each report of a run
+can name the harness, the account, the model and the id the harness gave the
+session. A value can arrive in a later report, so the row and the drawer show
+it from that report on. A run from before this release shows the harness
+`claude-code`. A command run runs no harness and shows none of these.
 
 A run that never started carries the reason instead of an exit code, such as a
 missing `claude` binary, or a terminal launcher that failed.
@@ -103,6 +117,14 @@ request on the same session. When an [inbox](inbox.md) ask of a session closes,
 Loupe asks the bridge to resume that session. A person can also resume a run, as
 the next section says. Each resume is a new row, and its drawer links to the
 run it continues. A run from before the workflow engine can show **Gave up**.
+
+A resumed run also ends a workflow pause on its card. The pause ends when the
+resumed run first reports, and the inbox item of the pause closes with it.
+
+A resume that a person or a closed ask sends runs on the agent account that the
+run started on. The bridge refuses it when that account is gone from its rule
+file, or names another agent tool. A retry of an **Unfinished** run uses the
+account that the rule names now.
 
 ## Stop, resume and cancel
 
@@ -171,12 +193,54 @@ withdraw requests. `card_hold` makes a card unmanaged, as **Make unmanaged**
 does, and `card_release` makes it managed again. The connection acts as the project
 owner, on its own project only.
 
+Each run row also carries `usage`, `model`, `experiment`, `variant` and
+`metrics`. The server keeps a metrics row for each run, with its cost, its
+tokens, its model, its duration and its outcome. The metrics row stays after the
+[retention](../reference/worker-runs.md#retention) sweep deletes the run.
+The metrics rows start with the oldest run that the server held when it was
+upgraded to this release. A run that the sweep deleted before then has no
+metrics row, and the card cost total on the board still counts its usage.
+`metric_query` reads the metrics rows over time, by run or by finished card, and
+`metric_list` lists the metrics it takes.
+
+The metrics row also holds the timing of the run, from the tool calls the
+bridge reads from the stream of the worker. `toolTimeMs` is the time the main
+session spent in tool calls, and `modelTimeMs` is the rest of the duration.
+`idleGapMs` sums the pauses of more than five minutes. `subagentMs` is the time
+of the subagents of the main session. `toolCalls`, `failedCalls` and
+`longestCallMs` count the calls. A run whose bridge sent no tool calls holds
+`null` in each of them. `worker_run_tool_calls` reads the calls of one run.
+`peakContextTokens` is the largest context the main session held during the
+run, in tokens. It shows how close a worker came to its context limit. A run
+whose bridge sent no value holds `null`.
+
+The metrics row also holds the host of the run, from the samples a bridge takes
+of its machine. `meanCpuPct` is the mean CPU use during the run, in percent.
+`peakMemBytes` and `peakSwapBytes` are the largest memory and swap use, in
+bytes. `onBattery` says whether the machine ran on battery during the run.
+`concurrentRuns` counts the runs of the same bridge that overlapped the run,
+the run itself included. The samples are off by default, so the CPU, memory,
+swap and battery values are `null` until an admin turns them on.
+[Host samples](../extending/cli-bridge.md#host-samples) says how.
+`bridge_host_samples` reads the samples of one run.
+[Run metrics](../reference/worker-runs.md#run-metrics) defines each value.
+
+A tool call holds its tool, its start, its duration, its error flag, and
+signatures that name what it ran. For a shell command, a signature keeps only
+the program name, such as `grep`. A program on the subcommand list, such as
+`git`, also keeps its subcommand, such as `git status`. No other argument
+reaches Loupe. A call holds its full input text only when its project collects
+full text, and no setting turns that on yet.
+[Tool calls](../extending/cli-bridge.md#tool-calls) gives the rules. Set
+`collect: false` in the `rules.yaml` of a bridge, and that bridge sends no tool
+call, no timing and no host sample.
+
 The tools apply the same checks as the controls on this page. A resume needs a
 session and an ended run in a state that can resume. A run with a request that still waits refuses a second
 one, and so does a bridge that does not take commands. A refused run gives a
 code and a message, and `worker_run_resume` takes up to 50 runs in one call.
 There is no tool that pauses a bridge, and no tool that runs a command again.
-Each run row carries its `kind`: `worker`, `interactive` or `command`.
+Each run row carries its `kind`: `worker`, `interactive` or `command`. `worker_run_list` also filters by `harness`, `account` and `model`, and each row carries them with `harnessSessionId`.
 
 ## A warning on the card
 
@@ -216,59 +280,17 @@ spent nothing, so a card with only such runs shows $0.00. See
 
 ## The cost of finished cards
 
-The **Cost** tab, at `/projects/{project}/worker-runs/cost`, shows one bar for
-each day, week or month in which a finished card with usage finished. A card is
-finished when it sits in a terminal column, such as **Done**. The cost of a
-card is the dollar total of every usage row of the card. The date of a run does
-not matter, so a card that finished this week keeps the runs of earlier weeks.
+The [Metrics](analytics.md) tab of the **Analytics** page charts the cost of
+finished cards over time. It replaces the **Cost** tab of this page, and the old
+address `/projects/{project}/worker-runs/cost` opens it.
 
-The height of a bar is the average cost per card of its period: the total of
-its cards divided by the number of cards. A period with no finished card has no
-bar, and keeps its place on the time axis. A week starts on Monday.
-
-A dashed line crosses the chart at the median cost per card, the same amount as
-the first figure above the chart.
-
-The dollars are the API list price that claude reports. On a subscription, you
-do not pay this amount.
-
-The controls above the chart change what it shows:
-
-| Control | Effect |
-|---|---|
-| Range | **30 days**, **90 days** or **All time**, by the date the card finished. The default is 90 days |
-| Split | **No split**, **By rule** or **By model**. A split stacks each bar in one colour for each rule or model, and adds a legend. Each part is the average of that rule or model over the cards of the period |
-| Group | **Per day**, **Per week** or **Per month**. The default follows the range: per day for 30 days, per week for 90 days and per month for all time. A new range goes back to its default |
-| Rule and model | keep only the matching part of each bar. A card with no matching part leaves the chart |
-
-A rule or a model keeps its colour when a filter hides other rules or models.
-With more than eight rules or models, the first seven in name order keep their
-colours, and the rest share one grey, labelled **Other**.
-
-Three figures above the chart follow the controls: the median cost per card,
-the total cost, and the number of finished cards with usage.
-
-A wide bar shows its number of cards and its average above it. A narrow bar
-shows **×N** when it holds N cards. A bar carries the marks of the
-[usage total](#the-usage-total-of-a-card). The whole bar is hatched when a card
-of the period includes an estimate or a model with no price. A **+** after the
-average, or above a narrow bar, means that some runs of a card have no usage.
-The model filter does not apply to the **+**, because a run with no usage has no
-model.
-
-Point at a bar, or move to it with the Tab key, to see its period, its number of
-cards, its average and its parts. The hover card then lists each card of the
-period with its cost. A bar of one card opens that card when you click it or
-press Enter. **Show the data as a table** lists each card as text, with the
-exact date it finished.
-
-When no finished card with usage falls in the range, the tab shows **No
-finished card with usage in this range.**
+The **Estimated** and **n runs have no usage** marks show only on the
+[usage total](#the-usage-total-of-a-card) of a card.
 
 ## Interactive sessions
 
-A Claude Code session that a person runs on a card, such as
-`/loupe:product-design`, calls the MCP tool `card_run_open`. Loupe then records
+An interactive session that a person runs on a card calls the MCP tool
+`card_run_open`. An example is `/loupe:product-design` in Claude Code. Loupe then records
 an interactive run on the card, with the state **Running** and the skill name
 as its rule. No bridge holds this run, so it has no exit code and no output.
 The heartbeat timeout never touches it.
@@ -289,6 +311,14 @@ These actions close an open interactive run, and it then shows **Closed**:
 - The card moves to another column. A move inside the same column closes
   nothing. The delete of a column moves its cards, so it closes their runs.
 - A person deletes the card.
+
+Each of these closes makes Loupe ask the bridges that follow the project for
+the usage of the run. The bridge that holds the session transcript sums the
+tokens between the start and the end of the run, subagents included, and
+reports them. The run then shows its usage, marked **Estimated**, and the card
+total counts it. A bridge older than this feature never gets the request. While
+the run has no usage, each later `card_run_close` call from the session asks
+again. A run with no bridge that holds its transcript keeps no usage.
 
 No timeout closes the run. A session that stops with no call leaves its run open
 until the owner closes it or the card moves. While the run is open, a bridge
@@ -332,6 +362,15 @@ counts and their time. The counts cover every project that the bridge follows, n
 current project. A bridge that sends no pool report, such as an older bridge,
 shows no pools.
 
+A bridge that checks its accounts reports the result with each heartbeat. The
+card of the bridge then lists each account: the account name, its harness, and
+**Ready** or **Failing**. A failing account shows in red, with the reason the
+check failed and a note. The rules that use a failing account stay off until
+the account passes its check and the bridge reloads. The heading gives the time
+of the heartbeat that carried the accounts. A later heartbeat with no account
+report keeps the rows and their time. A bridge that sends no account report,
+such as an older bridge, shows no accounts.
+
 The page also has a **Hooks** section. It shows one block for each of your
 bridges whose heartbeat names the project, the latest heartbeat first. Each
 block shows the last 12 characters of the bridge id, with the full id in the
@@ -360,7 +399,7 @@ pause, and the menu says to update it to 1.5.0 or later.
 ## The output
 
 Select a row to open a read-only drawer without leaving the list.
-It shows the attempt ID, card, work kind, experiment, worker pool, bridge, session and duration. A run with no worker pool shows no pool row. An interactive run shows a bridge only when a bridge launched it.
+It shows the attempt ID, card, work kind, experiment, worker pool, bridge, session, harness, account, model, harness session and duration. A run with no worker pool shows no pool row, and the harness, account and model rows show only when the bridge reported a value. The **Harness session** row shows the id the harness gave the session, such as a Codex thread id. It shows only when that id differs from the session, so a Claude Code run shows none. An interactive run shows a bridge only when a bridge launched it.
 A resume also shows a link to the run it resumes.
 The drawer shows the result status, the reason the bridge skipped a resume, and each extra result field the worker gave.
 It lists each state the run reached, oldest first, with the time of each state, and then the time the first report arrived.
@@ -397,12 +436,13 @@ An open drawer holds the reload. The list reloads when you close the drawer.
 The search box covers the card number, the work kind and the output text.
 It matches whole words and accepts quoted phrases and a leading `-` to exclude a word.
 Paste a complete run ID to find that attempt in the current project.
-Run IDs match without regard to letter case, and the outcome and bridge filters still apply.
+Run IDs match without regard to letter case, and the other filters still apply.
 
-Two filters narrow the list further:
+These filters narrow the list further:
 
 - **Outcome** keeps one state. A link saved with `outcome=succeeded`, `outcome=no-result`, `outcome=failed` or `outcome=not-started` still works. `outcome=closed` keeps the closed interactive runs. **Open runs** (`outcome=open`) keeps every queued, resumed, running and stopping run, of both kinds.
 - **Bridge** keeps one bridge, and lists each bridge by its name. It appears once a second bridge has reported.
+- **Harness**, **Account** and **Model** each keep the runs with one value, such as `harness=codex`. Each one appears once the runs of the project hold a second value. A filter that is set stays visible, so you can clear it.
 
 Every control lands in the URL, so a filtered view is a link you can share.
 Select **Clear** to go back to the whole list.

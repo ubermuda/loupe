@@ -7,7 +7,6 @@ namespace App\Tests\Module\Board\Mcp;
 use App\Module\Board\Command\PauseCardCommand;
 use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardGetTool;
@@ -17,6 +16,7 @@ use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
@@ -78,7 +78,7 @@ final class CardGetToolTest extends KernelTestCase
         self::assertInstanceOf(Card::class, $card);
         $handler = self::getContainer()->get(PauseCardHandler::class);
         self::assertInstanceOf(PauseCardHandler::class, $handler);
-        $pause = $handler(new PauseCardCommand($card, 'review-failed', 'fix-on-review', CardPauseKind::Retries));
+        $pause = $handler(new PauseCardCommand($card, 'review-failed', 'fix-on-review', PauseKind::Retries));
         self::assertNotNull($pause);
 
         self::assertSame([
@@ -239,7 +239,7 @@ final class CardGetToolTest extends KernelTestCase
     {
         $project = $this->makeProject('card-get-feedback');
         $this->actAsMcpTokenBoundTo($project);
-        $created = ($this->createTool)('Fix the header', 'Body', 'site-review');
+        $created = ($this->createTool)('Fix the header', 'Body', 'feature');
         $card = $this->em->find(Card::class, $created['cardId']);
         self::assertInstanceOf(Card::class, $card);
 

@@ -1,5 +1,9 @@
-import { test as base, expect, type Page } from '@playwright/test';
-import { suppressToolbar, suppressWidget } from '../fixtures';
+import { expect, type Page } from '@playwright/test';
+import {
+    hubStubbedTest as base,
+    suppressToolbar,
+    suppressWidget,
+} from '../fixtures';
 import { coverageScaled } from '../timeouts';
 
 const RUN = Date.now();
@@ -76,6 +80,9 @@ test.use({
     storageState: { cookies: [], origins: [] },
     viewport: { width: 1440, height: 900 },
 });
+// Sign-in, seeding and three posted threads alone were measured at 30 seconds
+// on a loaded CI runner, which overruns the default.
+test.describe.configure({ timeout: 90000 });
 
 /** Select a phrase in the prose the way a drag would, then post a comment on it. */
 async function commentOn(

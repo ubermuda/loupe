@@ -6,8 +6,8 @@ namespace App\Tests\Module\Board\Command;
 
 use App\Module\Board\Command\PauseCardCommand;
 use App\Module\Board\Entity\CardPause;
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Event\CardChanged;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Tests\Module\Board\CardPauseScenario;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use App\Tests\Support\DispatchedEvents;
@@ -38,7 +38,7 @@ final class PauseCardHandlerTest extends KernelTestCase
         $changes = DispatchedEvents::of(self::getContainer(), CardChanged::class);
         $depth = $this->em->getConnection()->getTransactionNestingLevel();
 
-        $pause = $this->pauseHandler($audit->auditor)(new PauseCardCommand($card, 'review-failed', 'fix-on-review', CardPauseKind::Retries));
+        $pause = $this->pauseHandler($audit->auditor)(new PauseCardCommand($card, 'review-failed', 'fix-on-review', PauseKind::Retries));
 
         self::assertInstanceOf(CardPause::class, $pause);
         $this->em->clear();
@@ -48,7 +48,7 @@ final class PauseCardHandlerTest extends KernelTestCase
         self::assertSame((string) $card->project->id, (string) $stored->project->id);
         self::assertSame('review-failed', $stored->reason);
         self::assertSame('fix-on-review', $stored->ruleId);
-        self::assertSame(CardPauseKind::Retries, $stored->kind);
+        self::assertSame(PauseKind::Retries, $stored->kind);
         self::assertSame('2026-10-02 10:00:00', $stored->createdAt->format('Y-m-d H:i:s'));
         self::assertNull($stored->releasedAt);
         self::assertNull($stored->releaseReason);
@@ -72,7 +72,7 @@ final class PauseCardHandlerTest extends KernelTestCase
     {
         $card = $this->cardIn($this->makeProject('pause-history'));
 
-        $this->pauseHandler($this->silentAuditor())(new PauseCardCommand($card, 'review-failed', 'fix-on-review', CardPauseKind::Retries));
+        $this->pauseHandler($this->silentAuditor())(new PauseCardCommand($card, 'review-failed', 'fix-on-review', PauseKind::Retries));
 
         $rows = $this->pausedRows((string) $card->id);
         self::assertCount(1, $rows);
@@ -89,7 +89,7 @@ final class PauseCardHandlerTest extends KernelTestCase
         $audit = $this->recordingAuditor();
         $changes = DispatchedEvents::of(self::getContainer(), CardChanged::class);
 
-        $second = $this->pauseHandler($audit->auditor)(new PauseCardCommand($card, 'work-timed-out', 'implement-on-entry', CardPauseKind::WorkTimeout));
+        $second = $this->pauseHandler($audit->auditor)(new PauseCardCommand($card, 'work-timed-out', 'implement-on-entry', PauseKind::WorkTimeout));
 
         self::assertNull($second);
         self::assertTrue($this->em->isOpen());

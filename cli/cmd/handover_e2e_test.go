@@ -36,14 +36,19 @@ const (
 	e2eWait = 30 * time.Second
 )
 
-// e2eClaude records the pid of its worker shell, which leads the worker's
-// process group, and waits for the test to release it.
+// e2eClaude passes the account check at once. As a worker, it records the
+// pid of its shell, which leads the worker's process group, and waits for the
+// test to release it.
 const e2eClaude = `#!/bin/sh
+case "$1" in
+auth) exit 0 ;;
+plugin) echo '[{"id":"loupe@loupe","enabled":true,"mcpServers":{"loupe":{}}}]'; exit 0 ;;
+esac
 eval "card=\${$#}"; card=${card%%[!0-9]*}
 echo $PPID > "$LOUPE_E2E_DIR/started-$card.tmp" && mv "$LOUPE_E2E_DIR/started-$card.tmp" "$LOUPE_E2E_DIR/started-$card"
 n=0
 while [ ! -e "$LOUPE_E2E_DIR/release" ] && [ $n -lt 600 ]; do sleep 0.1; n=$((n+1)); done
-echo "{\"structured_output\":{\"status\":\"finished\",\"summary\":\"done $card\"}}"
+echo "{\"type\":\"result\",\"structured_output\":{\"status\":\"finished\",\"summary\":\"done $card\"}}"
 exit "$(cat "$LOUPE_E2E_DIR/exit-$card" 2>/dev/null || echo 0)"
 `
 
@@ -187,6 +192,8 @@ func (f *e2eLoupe) serve(w http.ResponseWriter, r *http.Request) {
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			_ = json.NewEncoder(w).Encode(map[string]string{"state": body.State})
 		}
+	case r.Method == http.MethodPut && strings.HasSuffix(path, "/tool-calls"):
+		fmt.Fprint(w, `{"stored":0}`)
 	case r.Method == http.MethodPut && strings.Contains(path, "/worker-runs/"):
 		var report api.RunStateReport
 		_ = json.NewDecoder(r.Body).Decode(&report)
@@ -329,7 +336,7 @@ func startE2EBridge(t *testing.T, fake *e2eLoupe, old string, env ...string) *e2
 	raw, _ := json.Marshal(cfg)
 	rulesPath := filepath.Join(home, "rules.yaml")
 	// No resume, so a failed run reports at once rather than after the delay.
-	rulesBody := "autoUpdate: true\nprojects:\n  loupe:\n    dir: " + filepath.Join(home, "work") + "\nwork:\n" +
+	rulesBody := "autoUpdate: true\naccounts:\n  claude:\n    harness: claude-code\ndefaults:\n  account: claude\nprojects:\n  loupe:\n    dir: " + filepath.Join(home, "work") + "\nwork:\n" +
 		"  plan:\n    prompt: \"{cardNumber}\"\n"
 	b.installed = filepath.Join(home, "bin", "loupe")
 	oldBytes, err := os.ReadFile(old)

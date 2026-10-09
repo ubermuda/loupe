@@ -10,7 +10,6 @@ use App\Module\Board\Command\ReleaseCardPauseCommand;
 use App\Module\Board\Command\ReleaseCardPauseHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Inbox\Entity\InboxCardWait;
 use App\Module\Inbox\Entity\InboxCardWaitEndReason;
 use App\Module\Inbox\Entity\InboxCardWaitTrigger;
@@ -23,6 +22,7 @@ use App\Module\Inbox\Messenger\ReconcileCardWaitsHandler;
 use App\Module\Inbox\Repository\InboxCardWatchRepository;
 use App\Module\Inbox\Service\CardWaitReconciler;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Event\CardPaused;
 use App\Tests\Module\Inbox\InboxFixtures;
 use Doctrine\ORM\EntityManagerInterface;
@@ -96,7 +96,7 @@ final class CardPauseWaitTest extends KernelTestCase
 
     public function test_the_project_sweep_finds_a_card_that_only_has_a_pause(): void
     {
-        $this->pauseHandler()(new PauseCardCommand($this->card, 'owner-review', 'review-rule', CardPauseKind::Rule));
+        $this->pauseHandler()(new PauseCardCommand($this->card, 'owner-review', 'review-rule', PauseKind::Rule));
         self::assertSame([], $this->watches());
 
         $reconciler = self::getContainer()->get(CardWaitReconciler::class);
@@ -110,7 +110,7 @@ final class CardPauseWaitTest extends KernelTestCase
     private function pause(string $reason): CardPause
     {
         $card = $this->em->find(Card::class, $this->cardId()) ?? throw new \LogicException('The card is stored.');
-        $pause = $this->pauseHandler()(new PauseCardCommand($card, $reason, 'review-rule', CardPauseKind::Rule));
+        $pause = $this->pauseHandler()(new PauseCardCommand($card, $reason, 'review-rule', PauseKind::Rule));
         self::assertNotNull($pause);
         $this->transport()->reset();
         $events = self::getContainer()->get(EventDispatcherInterface::class);

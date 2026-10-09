@@ -1,0 +1,136 @@
+{% extends 'base.html.twig' %}
+
+{% macro amount(value, format) %}
+    {%- if format == 'percent' -%}
+        {{ value|format_percent_number }}
+    {%- elseif format == 'currency' -%}
+        {{ value|format_currency('USD') }}
+    {%- elseif format == 'integer' -%}
+        {{ value|number_format(0) }}
+    {%- elseif format == 'minutes' -%}
+        {{ (value / 60000)|number_format(1) }}
+    {%- else -%}
+        {{ value|number_format(1) }}
+    {%- endif -%}
+{% endmacro %}
+
+{% macro metric_row(metric, label, format, variants, part) %}
+    <tr {% if part %}class="lp-experiment-table__part" data-metric-part="{{ metric.key }}"{% else %}data-metric="{{ metric.key }}"{% endif %}>
+        <th scope="row">
+            {{ label }}
+            {% if not metric.clear %}<span data-metric-unclear><twig:Ds:StatusChip modifier="neutral" :label="'bridge.experiments.too_few_cards'|trans" /></span>{% endif %}
+        </th>
+        {% for variant in variants %}
+            {% set interval = metric.for(variant.name) %}
+            {% if interval is null %}
+                <td class="lp-experiment-table__number">–</td>
+                <td class="lp-experiment-table__number">–</td>
+            {% else %}
+                <td class="lp-experiment-table__number">{{ _self.amount(interval.point, format) }}</td>
+                <td class="lp-experiment-table__number lp-experiment-table__range">{{ 'bridge.experiments.range'|trans({'%low%': _self.amount(interval.low, format), '%high%': _self.amount(interval.high, format)}) }}</td>
+            {% endif %}
+        {% endfor %}
+    </tr>
+{% endmacro %}
+
+{% block title %}{{ report.experiment }} — {{ 'bridge.experiments.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    {% include '@Insights/_crumbs.html.twig' with {project: project} only %}
+{% endblock %}
+
+{% block body %}
+{% set knownReasons = ['conflict', 'checks-failed', 'changes-requested'] %}
+{% set headline = report.headline %}
+<div class="lp-workspace lp-redesign-secondary lp-redesign-runs">
+    {% include '@Insights/_header.html.twig' with {} only %}
+
+    {% include '@Insights/_tabs.html.twig' with {project: project, active: 'experiments'} only %}
+
+    {% include '@Insights/_experiment_tabs.html.twig' with {project: project, experiment: report.experiment, active: 'comparison'} only %}
+
+    <p class="lp-experiment-headline" data-experiment-headline>
+        {% if headline.cheaperVariant is null %}
+            {{ 'bridge.experiments.headline.no_cost'|trans }}
+        {% elseif headline.saving is null or headline.saving == 0 %}
+            {{ 'bridge.experiments.headline.same_cost'|trans }}
+        {% else %}
+            {% set dearer = report.variants[0].name == headline.cheaperVariant ? report.variants[1].name : report.variants[0].name %}
+            {{ 'bridge.experiments.headline.cheaper'|trans({'%cheaper%': headline.cheaperVariant, '%dearer%': dearer, '%saving%': headline.saving|format_percent_number}) }}
+            {% if not headline.costClear %}{{ 'bridge.experiments.headline.cost_unclear'|trans }}{% endif %}
+        {% endif %}
+        {{ (headline.qualitySettled ? 'bridge.experiments.headline.quality_settled' : 'bridge.experiments.headline.quality_unsettled')|trans }}
+    </p>
+
+    <h3 class="lp-experiment-section">{{ 'bridge.experiments.variants.heading'|trans }}</h3>
+    <div class="lp-experiment-table">
+        <table class="lp-experiment-table__table" data-experiment-variants>
+            <thead>
+                <tr>
+                    <th scope="col">{{ 'bridge.experiments.variants.variant'|trans }}</th>
+                    <th scope="col">{{ 'bridge.experiments.variants.model'|trans }}</th>
+                    <th scope="col" class="lp-experiment-table__number">{{ 'bridge.experiments.variants.weight'|trans }}</th>
+                    <th scope="col" class="lp-experiment-table__number">{{ 'bridge.experiments.variants.cards'|trans }}</th>
+                    <th scope="col" class="lp-experiment-table__number">{{ 'bridge.experiments.variants.finished'|trans }}</th>
+                    <th scope="col" class="lp-experiment-table__number">{{ 'bridge.experiments.variants.runs'|trans }}</th>
+                    <th scope="col" class="lp-experiment-table__number">{{ 'bridge.experiments.variants.cost'|trans }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for variant in report.variants %}
+                    <tr data-experiment-variant="{{ variant.name }}">
+                        <th scope="row">{{ variant.name }}</th>
+                        <td>{{ variant.model ?? '–' }}</td>
+                        <td class="lp-experiment-table__number">{{ variant.weight ?? '–' }}</td>
+                        <td class="lp-experiment-table__number">{{ variant.cards }}</td>
+                        <td class="lp-experiment-table__number">{{ variant.finishedCards }}</td>
+                        <td class="lp-experiment-table__number">{{ variant.runs }}</td>
+                        <td class="lp-experiment-table__number">{{ variant.costMicros is null ? '–' : (variant.costMicros / 1000000)|format_currency('USD') }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <h3 class="lp-experiment-section">{{ 'bridge.experiments.metrics.heading'|trans }}</h3>
+    <div class="lp-experiment-table">
+        <table class="lp-experiment-table__table" data-experiment-metrics>
+            <thead>
+                <tr>
+                    <th scope="col">{{ 'bridge.experiments.metrics.metric'|trans }}</th>
+                    {% for variant in report.variants %}
+                        <th scope="col" class="lp-experiment-table__number">{{ variant.name }}</th>
+                        <th scope="col" class="lp-experiment-table__number">{{ 'bridge.experiments.metrics.likely_range'|trans }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for metric in report.metrics %}
+                    {% set format = metric.format %}
+                    {{ _self.metric_row(metric, ('bridge.experiments.metric.' ~ metric.key)|trans, format, report.variants, false) }}
+                    {% for part in metric.parts %}
+                        {{ _self.metric_row(part, part.key in knownReasons ? ('bridge.experiments.fix_reason.' ~ part.key)|trans : 'bridge.experiments.fix_reason.other'|trans({'%reason%': part.key}), format, report.variants, true) }}
+                    {% endfor %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if report.unknownMetrics is not empty %}
+        <p class="lp-experiment-note" data-experiment-unknown-metrics>{{ 'bridge.experiments.metrics.unknown'|trans({'%metrics%': report.unknownMetrics|join(', ')}) }}</p>
+    {% endif %}
+    <p class="lp-experiment-note">{{ 'bridge.experiments.metrics.note'|trans({'%count%': constant('App\\Module\\Bridge\\Experiment\\Stats::MIN_FINISHED_CARDS')}) }}</p>
+
+    <p class="lp-experiment-note" data-experiment-left-out>
+        {{ 'bridge.experiments.left_out'|trans({'%count%': report.leftOutCards}) }}
+        {% if report.leftOutCards > 0 %}
+            <a href="{{ path('app_project_analytics_experiment_cards', {id: project.id, experiment: report.experiment, 'left-out': 1}) }}">{{ 'bridge.experiments.left_out_link'|trans }}</a>
+        {% endif %}
+    </p>
+
+    {% if is_granted(constant('App\\Module\\Project\\Security\\ProjectVoter::MANAGE'), project) %}
+        <p class="lp-experiment-note">
+            <twig:Ds:Button variant="outline" size="sm" href="{{ path('app_project_analytics_reports', {id: project.id, topic: 'experiment', experiment: report.experiment}) }}" data-experiment-analyse>{{ 'bridge.experiments.analyse'|trans }}</twig:Ds:Button>
+        </p>
+    {% endif %}
+</div>
+{% endblock %}

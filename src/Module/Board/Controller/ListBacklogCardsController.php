@@ -8,10 +8,10 @@ use App\Controller\AppController;
 use App\Module\Board\Command\ListBacklogCardsCommand;
 use App\Module\Board\Command\ListBacklogCardsHandler;
 use App\Module\Board\Entity\BoardColumn;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\View\BacklogListQuery;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -31,6 +31,7 @@ final class ListBacklogCardsController extends AppController
 {
     public function __construct(
         private readonly ListBacklogCardsHandler $listBacklogCards,
+        private readonly CardTypeCatalog $catalog,
     ) {
     }
 
@@ -39,7 +40,11 @@ final class ListBacklogCardsController extends AppController
         #[MapEntity(id: 'projectId')] Project $project,
         #[MapEntity(expr: 'repository.findBacklogForProjectId(projectId)')] BoardColumn $backlog,
     ): Response {
+        $types = $this->catalog->forProject($project->requireId());
         $listQuery = BacklogListQuery::fromQuery($request->query);
+        if (null !== $listQuery->type && !$types->has($listQuery->type)) {
+            $listQuery = $listQuery->withoutType();
+        }
         $view = ($this->listBacklogCards)(new ListBacklogCardsCommand($backlog, $listQuery));
 
         if (null !== $view->clampedPage) {
@@ -55,7 +60,7 @@ final class ListBacklogCardsController extends AppController
             'backlog' => $backlog,
             'view' => $view,
             'listQuery' => $listQuery,
-            'types' => CardType::cases(),
+            'types' => $types->all,
         ]);
     }
 }

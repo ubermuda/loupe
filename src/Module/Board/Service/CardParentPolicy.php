@@ -6,12 +6,13 @@ namespace App\Module\Board\Service;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 
 /**
- * The rules of a parent: only an epic is a parent, an epic has no parent, and
- * an epic with children stays an epic.
+ * The rules of a parent: only a type with the children capability is a parent,
+ * such a card has no parent, and it keeps its type while it has children.
  *
  * It returns the refusal rather than throwing it, because the caller runs it
  * inside a transaction, and a throw there closes the EntityManager.
@@ -26,6 +27,7 @@ final readonly class CardParentPolicy
 
     public function __construct(
         private CardRepository $cards,
+        private CardTypeCatalog $catalog,
     ) {
     }
 
@@ -34,12 +36,13 @@ final readonly class CardParentPolicy
      * read again under that lock.
      *
      * @param Card|null $card      the card as it is now; null while it is being created
-     * @param CardType  $type      the type the card has after the write
+     * @param string    $type      the type key the card has after the write
      * @param Card|null $parent    the parent the card has after the write
      * @param bool      $parentSet whether the write gives the card this parent, rather than keeping it
      */
-    public function refusal(?Card $card, CardType $type, ?Card $parent, bool $parentSet): ?DomainErrors
+    public function refusal(Project $project, ?Card $card, string $type, ?Card $parent, bool $parentSet): ?DomainErrors
     {
+        $types = $this->catalog->forProject($project->requireId());
         if (null !== $parent) {
             // The resolver read the parent before the lock. Another write may
             // have deleted it or changed its type since.
@@ -47,18 +50,18 @@ final readonly class CardParentPolicy
             if (null === $parentType) {
                 return new DomainErrors(['parent' => CardParentResolver::UNKNOWN]);
             }
-            if (CardType::Epic === $type) {
+            if ($types->get($type)->children) {
                 return $parentSet
                     ? new DomainErrors(['parent' => self::EPIC_WITH_PARENT])
                     : new DomainErrors(['type' => self::CHILD_TO_EPIC]);
             }
-            // The parent's type is read before this write, so a card that stops being an epic could still name itself.
-            if (CardType::Epic !== $parentType || $parent->id?->toRfc4122() === $card?->id?->toRfc4122()) {
+            // The parent's type is read before this write, so a card that stops being a parent type could still name itself.
+            if (!$types->get($parentType)->children || $parent->id?->toRfc4122() === $card?->id?->toRfc4122()) {
                 return new DomainErrors(['parent' => self::NOT_EPIC]);
             }
         }
 
-        if (null !== $card && CardType::Epic === $card->type && CardType::Epic !== $type && 0 < $this->cards->countChildren($card)) {
+        if (null !== $card && $types->get($card->type)->children && !$types->get($type)->children && 0 < $this->cards->countChildren($card)) {
             return new DomainErrors(['type' => self::TYPE_LOCKED]);
         }
 

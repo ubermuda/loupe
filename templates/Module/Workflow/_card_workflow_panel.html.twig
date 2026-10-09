@@ -1,4 +1,4 @@
-{# The Workflow panel of a card page and its drawer. Props: panel (CardWorkflowPanel), card (Card). #}
+{# The Workflow panel of a card page and its drawer. Props: panel (CardWorkflowPanel), card (CardSnapshot), project (Project). #}
 <section class="lp-card-overview__section" data-workflow-panel>
     <h2 class="lp-card-panel__title">{{ 'workflow.panel.title'|trans }}</h2>
     {% if panel.pause %}
@@ -6,10 +6,10 @@
         <p class="lp-workflow-panel__pause-title"><twig:ux:icon name="lucide:circle-pause" class="lp-card-held__icon" />{{ 'workflow.panel.paused'|trans({'%kind%': panel.pause.kind}) }} <time datetime="{{ panel.pause.since|date('c') }}">{{ panel.pause.since|relative_time }}</time></p>
         <p class="lp-workflow-panel__line">{{ panel.pause.reason }}</p>
         <p class="lp-workflow-panel__line" data-workflow-release>{{ panel.pause.release }}</p>
-        {% if panel.pause.releasable and is_granted(constant('App\\Module\\Project\\Security\\ProjectVoter::MANAGE'), card.project) %}
-        <form method="post" action="{{ path('app_workflow_card_pause_release', {projectId: card.project.id, cardId: card.id, pauseId: panel.pause.id}) }}" data-turbo-frame="_top">
+        {% if panel.pause.releasable and is_granted(constant('App\\Module\\Project\\Security\\ProjectVoter::MANAGE'), project) %}
+        <form method="post" action="{{ path('app_workflow_card_pause_release', {projectId: project.id, cardId: card.id, pauseId: panel.pause.id}) }}" data-turbo-frame="_top">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('workflow-pause-release') }}">
-            <button type="submit" class="lp-btn lp-btn--outline lp-btn--sm" data-workflow-retry><twig:ux:icon name="lucide:circle-play" class="size-4" />{{ 'workflow.panel.retry'|trans }}</button>
+            <twig:Ds:Button variant="outline" size="sm" type="submit" data-workflow-retry><twig:ux:icon name="lucide:circle-play" class="size-4" />{{ 'workflow.panel.retry'|trans }}</twig:Ds:Button>
         </form>
         {% endif %}
     </div>

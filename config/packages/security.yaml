@@ -90,6 +90,7 @@ security:
         - { path: '^/api/card-holds$', roles: ROLE_API_AGENT }
         - { path: '^/api/projects/[^/]+/worker-runs/[^/]+$', roles: ROLE_API_AGENT }
         - { path: '^/api/projects/[^/]+/worker-runs/sessions/[^/]+/usage$', roles: ROLE_API_AGENT }
+        - { path: '^/api/projects/[^/]+/worker-runs/[^/]+/tool-calls$', roles: ROLE_API_AGENT }
         - { path: '^/api/projects/[^/]+/interactive-runs/[^/]+$', roles: ROLE_API_AGENT }
         - { path: '^/api/projects/[^/]+/experiments/[^/]+/pins/[^/]+$', roles: ROLE_API_AGENT }
         - { path: '^/api/projects/[^/]+/inbox/asks/[^/]+$', roles: ROLE_API_AGENT }
@@ -120,6 +121,7 @@ security:
         - { path: ^/dev/preview-login$, roles: PUBLIC_ACCESS }
         - { path: ^/dev/site-review-harness$, roles: PUBLIC_ACCESS }
         - { path: ^/dev/e2e/, roles: PUBLIC_ACCESS }
+        - { path: ^/styleguide$, roles: PUBLIC_ACCESS }
         # The OAuth start and callback URLs must be reachable unauthenticated.
         # Each route is additionally gated by its provider's feature flag.
         # Liveness probe for load balancers, which cannot authenticate. It

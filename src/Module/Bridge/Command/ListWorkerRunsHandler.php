@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Command;
 
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Repository\WorkerRunFactRepository;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\Service\BridgeLabels;
@@ -13,6 +14,7 @@ use App\Module\Bridge\View\WorkerRunControls;
 use App\Module\Bridge\View\WorkerRunListItem;
 use App\Utils\PageList;
 use Psr\Clock\ClockInterface;
+use Symfony\Component\Uid\Uuid;
 
 final readonly class ListWorkerRunsHandler
 {
@@ -27,6 +29,7 @@ final readonly class ListWorkerRunsHandler
         private WorkerRunControls $controls,
         private ClockInterface $clock,
         private BridgeLabels $bridgeLabels,
+        private WorkerRunFactRepository $workerRunFacts,
     ) {
     }
 
@@ -59,10 +62,11 @@ final readonly class ListWorkerRunsHandler
         $titles = $this->cardTitles->titlesFor($command->project, array_values($cardIds));
         $controls = $this->controls->forRuns($command->project, $runs);
         $bridgeIds = $this->workerRuns->bridgeIdsOf($command->project);
+        $facts = $this->workerRunFacts->findByRunIds($command->project, array_values(array_filter(array_map(static fn (WorkerRun $run): ?Uuid => $run->id, $runs))));
 
         return new ListWorkerRunsView(
             items: array_map(
-                static fn (WorkerRun $run): WorkerRunListItem => new WorkerRunListItem($run, $now, $histories[(string) $run->id] ?? [], $titles[(string) $run->cardId()] ?? null, $controls[(string) $run->id] ?? null),
+                static fn (WorkerRun $run): WorkerRunListItem => new WorkerRunListItem($run, $now, $histories[(string) $run->id] ?? [], $titles[(string) $run->cardId()] ?? null, $controls[(string) $run->id] ?? null, $facts[(string) $run->id] ?? null),
                 $runs,
             ),
             filteredTotal: $total,
@@ -73,6 +77,9 @@ final readonly class ListWorkerRunsHandler
             page: $page,
             perPage: $perPage,
             bridgeLabels: $this->bridgeLabels->forOwner($command->project->owner, $bridgeIds),
+            harnesses: $this->workerRuns->distinctValuesOf($command->project, 'harness'),
+            accounts: $this->workerRuns->distinctValuesOf($command->project, 'account'),
+            models: $this->workerRuns->distinctValuesOf($command->project, 'model'),
         );
     }
 }

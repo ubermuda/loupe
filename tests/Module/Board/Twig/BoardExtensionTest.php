@@ -8,7 +8,6 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Command\CardProgress;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\LabelTone;
 use App\Module\Board\Form\AddBoardColumnRequest;
 use App\Module\Board\Form\MoveCardFormType;
 use App\Module\Board\Repository\BoardColumnRepository;
@@ -21,7 +20,9 @@ use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\View\CardRunWarning;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Service\MarkdownRenderer;
+use App\Module\Workflow\Contract\LabelTone;
 use App\Tests\Module\Board\Controller\BoardScenario;
+use App\Tests\Support\ShippedCardTypes;
 use Doctrine\ORM\EntityManagerInterface;
 use Random\Engine;
 use Random\Randomizer;
@@ -150,6 +151,7 @@ final class BoardExtensionTest extends KernelTestCase
             $container->get(BoardColumnRepository::class),
             new BoardColumnTonePicker($firstFree),
             new CardDigest(),
+            new ShippedCardTypes(),
         );
 
         // Neutral is the Backlog's tone and the first case, so it comes first when the Backlog is left out.

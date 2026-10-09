@@ -20,6 +20,7 @@ A skill's name prefix says which side of the product you stand on. A `loupe-*` s
 | `project-worktrees` | Git worktrees: provisioning, URLs, per-worktree databases, worktree tooling |
 | `project-deploy` | Deploying to production, `terraform apply`, verifying the live version |
 | `project-translations` | UI strings, translation keys, or adding a new locale |
+| `loupe-design-rebuild` | Rebuilding the Claude Design project from the export: `app:design-system:export`, the pending-rebuild to-do |
 | `project-site-review` | The site-review widget (`public/site-review/widget.js`), `src/Module/SiteReview/`, its API routes, dev harness or e2e specs |
 | `loupe-documents` | Writing or revising any document submitted to the Loupe app through the `loupe` MCP |
 | `project-tech-design` | A technical design that settles an architecture, an entity model, a module boundary, or a subsystem |
@@ -27,6 +28,7 @@ A skill's name prefix says which side of the product you stand on. A `loupe-*` s
 | `loupe-board` | Working a project board through the `loupe` MCP: `card_create`, `card_list`, `card_get`, `card_update`, writing a card, linking a pull request |
 | `loupe-inbox` | Asking the project owner through the `loupe` MCP: `inbox_search`, `inbox_join`, `inbox_ask`, `inbox_list`, `inbox_get`, `inbox_withdraw`, ending a turn after a blocking ask |
 | `loupe-workers` | Reading worker runs and bridges, or stopping, resuming and cancelling workers through the `loupe` MCP: `worker_run_list`, `worker_run_get`, `bridge_list`, `worker_run_resume`, `worker_run_stop`, `card_hold`, `card_release`, `card_pause_release`, `bridge_command_cancel`, recovering workers after an outage |
+| `loupe-analysis` | Running an analysis of a project's worker runs through the `loupe` MCP: `analysis_get`, `metric_query`, `analysis_report`, the cost report and its proposals |
 | `product-design` | An interactive product design session with the owner through the `loupe` MCP, from a card or a one-line idea: `/loupe:product-design` |
 | `loupe-stage-product-design` | One review round on a card's product document, or a prompt that names the skill |
 | `loupe-stage-tech-design` | A card entering the Tech design column, or a prompt that names the skill: write or revise the tech design |
@@ -52,6 +54,8 @@ This applies only to a document meant for considered review. Keep ordinary conve
 
 The project board in the Loupe app holds open work that has an addressee. Add a card when someone must do something later: a follow-up, a known issue, or a design decision to revisit. An observation asks nothing of anyone. Put an observation in the relevant skill or in `docs/` instead.
 
+A problem in the code your branch touches is not open work. Fix it in that branch, even when the fix adds new content after an approval. Never add a follow-up card under an epic for it. A failing check is fixed in the branch wherever its cause lies. Any other problem outside your branch gets one Backlog card with no parent.
+
 Invoke the `loupe-board` skill before you write a card. It says how to read a board's columns with `board_columns`. It also carries the card types, the priorities, and the rule that `reporter` records who raised the card rather than who typed it. Never leave such a note in a code comment.
 
 A card whose body opens with `**Parked.**` is paused. Do not start it, and do not move it out of its column, until the owner unparks it. The board has no parked state, so that line is the whole signal. A real parked state is worth having, and the board card 'Give the board a parked state' asks for one.
@@ -59,6 +63,18 @@ A card whose body opens with `**Parked.**` is paused. Do not start it, and do no
 The board is as public as the instance that holds it. Write every card as public text, with no secrets, no customer names, and no complaints about people.
 
 Finish a card by moving it to a terminal column, which is `done` on a board with the seeded columns. There is no delete tool, and only a person deletes a card from its own page.
+
+## The bridge
+
+The bridge is the `loupe bridge` process from `cli/`. It runs on the owner's machine, watches the board, and starts a Claude Code worker for each work request. The workflow rules in the app decide which work a card needs. The bridge decides how to run it.
+
+The bridge rule file is local and not in git. On macOS it is `~/Library/Application Support/loupe/rules.yaml`, next to `config.json` and the `runs/` directory of each worker run. Its `work:` map has one entry per kind of work, such as `tech-design`, `implement`, `fix` or `merge`. Each entry sets the prompt, and optionally the `model`, `workerPool`, `before` command and `variants`. An entry with no `model` uses `defaults.model`.
+
+Run `loupe bridge reload` after you edit the file. It applies the change without a restart and lists the entries that changed.
+
+Run `loupe update` to install a new CLI release. It asks each running bridge to check for a release and hand over to it, and replaces the binary in place when no bridge runs. Automatic updates are off unless the rule file sets `autoUpdate: true`. A binary from Homebrew updates through `brew upgrade` instead.
+
+`docs/extending/cli-bridge.md` describes the full format, and the `loupe-workers` skill covers the runs.
 
 ## Git worktrees
 

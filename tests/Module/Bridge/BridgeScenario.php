@@ -10,11 +10,16 @@ use App\Module\Bridge\Entity\BridgeCommand;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunUsage;
 use App\Module\Bridge\Entity\WorkRequest;
+use App\Module\Bridge\Repository\BridgeHostSampleRepository;
+use App\Module\Bridge\Repository\WorkerRunToolCallRepository;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
+use App\Module\Bridge\ValueObject\BridgeHostSampleReport;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunToolCallKind;
+use App\Module\Bridge\ValueObject\WorkerRunToolCallReport;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Bridge\ValueObject\WorkSubject;
@@ -81,6 +86,10 @@ trait BridgeScenario
         ?Uuid $workRequestId = null,
         \DateTimeImmutable $endedAt = new \DateTimeImmutable('2026-01-01 10:05:00'),
         string $subjectType = WorkSubject::CARD,
+        ?string $harness = null,
+        ?string $account = null,
+        ?string $model = null,
+        ?string $harnessSessionId = null,
     ): WorkerRun {
         $run = new WorkerRun(
             project: AgentCredential::managed($em, $project, $project->id),
@@ -103,6 +112,7 @@ trait BridgeScenario
             workRequestId: $workRequestId,
         );
         $run->workerPool = $workerPool;
+        $run->recordHarness($harness, $account, $model, $harnessSessionId);
         $em->persist($run);
         $em->flush();
         // What the report endpoint does after it writes the row. A run seeded
@@ -128,14 +138,59 @@ trait BridgeScenario
         return $usage;
     }
 
+    /** With no kind given, Bash is shell and any other tool is tool. */
+    private function seedToolCall(WorkerRun $run, int $seq = 1, string $tool = 'Bash', ?WorkerRunToolCallKind $kind = null): void
+    {
+        $repository = static::getContainer()->get(WorkerRunToolCallRepository::class);
+        self::assertInstanceOf(WorkerRunToolCallRepository::class, $repository);
+        $repository->insertNew($run, [new WorkerRunToolCallReport(
+            seq: $seq,
+            tool: $tool,
+            kind: $kind ?? ('Bash' === $tool ? WorkerRunToolCallKind::Shell : WorkerRunToolCallKind::Tool),
+            startedAt: new \DateTimeImmutable('2026-01-01 10:00:01'),
+            durationMs: 1500,
+            isError: false,
+            inSubagent: false,
+            backgroundId: null,
+            waitsOn: null,
+            signatures: [$tool],
+            fullText: null,
+        )]);
+    }
+
+    /** @param list<float> $cpuPct */
+    private function seedHostSample(
+        Bridge $bridge,
+        string $sampledAt,
+        array $cpuPct = [10.0, 30.0],
+        int $memUsed = 1000,
+        int $swapUsed = 0,
+        ?float $batteryPct = null,
+        ?bool $onAc = null,
+    ): void {
+        $repository = static::getContainer()->get(BridgeHostSampleRepository::class);
+        self::assertInstanceOf(BridgeHostSampleRepository::class, $repository);
+        $repository->insertNew(
+            $bridge->owner->id ?? throw new \LogicException('The owner has no id.'),
+            $bridge->id,
+            [new BridgeHostSampleReport(new \DateTimeImmutable($sampledAt, new \DateTimeZone('UTC')), $cpuPct, $memUsed, 4000, $swapUsed, $batteryPct, $onAc)],
+        );
+    }
+
+    private function countToolCalls(EntityManagerInterface $em): int
+    {
+        return (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM bridge_worker_run_tool_calls');
+    }
+
     private function countUsage(EntityManagerInterface $em): int
     {
         return (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM bridge_worker_run_usage');
     }
 
     /**
-     * @param list<string>                                                       $projects
-     * @param list<array{name: string, size: int, inUse: int, queued: int}>|null $workerPools
+     * @param list<string>                                                                                            $projects
+     * @param list<array{name: string, size: int, inUse: int, queued: int}>|null                                      $workerPools
+     * @param list<array{name: string, harness: string, state: 'ready'|'failing', reason: ?string, used?: bool}>|null $accounts
      */
     private function seedBridge(
         EntityManagerInterface $em,
@@ -146,10 +201,14 @@ trait BridgeScenario
         \DateTimeImmutable $lastSeenAt = new \DateTimeImmutable(),
         ?array $workerPools = null,
         ?\DateTimeImmutable $workerPoolsReportedAt = null,
+        ?array $accounts = null,
+        ?\DateTimeImmutable $accountsReportedAt = null,
     ): Bridge {
         $bridge = new Bridge(AgentCredential::managed($em, $owner, $owner->id), $id ?? Uuid::v4(), $projects, $cliVersion, $lastSeenAt);
         $bridge->workerPools = $workerPools;
         $bridge->workerPoolsReportedAt = $workerPoolsReportedAt;
+        $bridge->accounts = $accounts;
+        $bridge->accountsReportedAt = $accountsReportedAt;
         $em->persist($bridge);
         $em->flush();
 
@@ -201,6 +260,7 @@ trait BridgeScenario
         string $ruleId = 'implement-on-entry',
         ?WorkSubject $subject = null,
         ?\DateTimeImmutable $reopenedAt = null,
+        ?string $prompt = null,
     ): WorkRequest {
         $subject ??= WorkSubject::card($cardId ?? Uuid::v7());
         $request = new WorkRequest(
@@ -218,6 +278,7 @@ trait BridgeScenario
         $request->claimToken = $claimToken;
         $request->leaseUntil = $leaseUntil;
         $request->reopenedAt = $reopenedAt;
+        $request->prompt = $prompt;
         $em->persist($request);
         $em->flush();
 

@@ -8,10 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Mcp\CardPayload;
 use App\Module\Board\Repository\CardLinkRepository;
@@ -26,6 +23,9 @@ use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\PauseKind;
+use App\Tests\Support\ShippedCardTypes;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Uid\Uuid;
 
@@ -44,7 +44,7 @@ final class CardPayloadTest extends TestCase
         $pauses = $this->createMock(CardPauseRepository::class);
         $pauses->expects($this->never())->method('findActiveForCardIds');
 
-        $rows = new CardPayload($comments, $links, $cards, $states, $pauses)->forCardList([$this->card()]);
+        $rows = new CardPayload($comments, $links, $cards, $states, $pauses, new ShippedCardTypes())->forCardList([$this->card()]);
 
         self::assertCount(1, $rows);
         self::assertSame(
@@ -63,15 +63,15 @@ final class CardPayloadTest extends TestCase
         $links = $this->createMock(CardLinkRepository::class);
         $links->expects($this->once())->method('findForCards')->willReturn([]);
         $feature = $this->card();
-        $epic = $this->card(CardType::Epic);
-        $otherEpic = $this->card(CardType::Epic);
+        $epic = $this->card('epic');
+        $otherEpic = $this->card('epic');
         $cards = $this->createMock(CardRepository::class);
         // One call for the whole page, with the epics alone.
         $cards->expects($this->once())->method('findChildrenOfCards')->with([$epic, $otherEpic])->willReturn([]);
         $pauses = $this->createMock(CardPauseRepository::class);
         $pauses->expects($this->once())->method('findActiveForCardIds')->willReturn([]);
 
-        $rows = new CardPayload($comments, $links, $cards, $this->states(), $pauses)->forCards([$feature, $epic, $otherEpic]);
+        $rows = new CardPayload($comments, $links, $cards, $this->states(), $pauses, new ShippedCardTypes())->forCards([$feature, $epic, $otherEpic]);
 
         self::assertArrayHasKey('body', $rows[0]);
         self::assertSame([], $rows[0]['siteReviewComments']);
@@ -85,7 +85,7 @@ final class CardPayloadTest extends TestCase
         $cards = $this->createMock(CardRepository::class);
         $cards->expects($this->never())->method('findChildrenOfCards');
 
-        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $cards, $this->states(), $this->createStub(CardPauseRepository::class))->forCards([$this->card()]);
+        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $cards, $this->states(), $this->createStub(CardPauseRepository::class), new ShippedCardTypes())->forCards([$this->card()]);
 
         self::assertSame([], $rows[0]['children']);
     }
@@ -115,7 +115,7 @@ final class CardPayloadTest extends TestCase
             )],
         ));
 
-        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $states, $this->createStub(CardPauseRepository::class))->forCards([$card]);
+        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $states, $this->createStub(CardPauseRepository::class), new ShippedCardTypes())->forCards([$card]);
 
         self::assertSame([
             'state' => 'open',
@@ -149,7 +149,7 @@ final class CardPayloadTest extends TestCase
             null,
         )]));
 
-        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $states, $this->createStub(CardPauseRepository::class))->forCards([$card]);
+        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $states, $this->createStub(CardPauseRepository::class), new ShippedCardTypes())->forCards([$card]);
 
         self::assertNull($rows[0]['pullRequests'][0]['state']);
     }
@@ -160,13 +160,13 @@ final class CardPayloadTest extends TestCase
         $this->setId($paused, Uuid::v7());
         $free = $this->card();
         $this->setId($free, Uuid::v7());
-        $pause = new CardPause($paused, $paused->project, 'review-failed', 'fix-on-review', CardPauseKind::Retries, new \DateTimeImmutable('2026-10-02T10:00:00+00:00'));
+        $pause = new CardPause($paused, $paused->project, 'review-failed', 'fix-on-review', PauseKind::Retries, new \DateTimeImmutable('2026-10-02T10:00:00+00:00'));
         $this->setId($pause, Uuid::v7());
         $pauses = $this->createMock(CardPauseRepository::class);
         // One read for the whole page, never one per card.
         $pauses->expects($this->once())->method('findActiveForCardIds')->with([$paused->id, $free->id])->willReturn([(string) $paused->id => $pause]);
 
-        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $this->states(), $pauses)->forCards([$paused, $free]);
+        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $this->states(), $pauses, new ShippedCardTypes())->forCards([$paused, $free]);
 
         self::assertSame([
             'pauseId' => (string) $pause->id,
@@ -192,11 +192,12 @@ final class CardPayloadTest extends TestCase
         new \ReflectionProperty($entity, 'id')->setValue($entity, $id);
     }
 
-    private function card(CardType $type = CardType::Feature): Card
+    private function card(string $type = 'feature'): Card
     {
         $owner = new User(fullName: 'Riley', email: 'riley@example.com', password: 'hashed');
 
         $project = new Project($owner, 'board');
+        $this->setId($project, Uuid::v7());
 
         return new Card(
             project: $project,
@@ -205,7 +206,7 @@ final class CardPayloadTest extends TestCase
             body: 'Body',
             number: 7,
             type: $type,
-            origin: CardReporter::Agent,
+            origin: Actor::Agent,
         );
     }
 }

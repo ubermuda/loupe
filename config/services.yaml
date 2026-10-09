@@ -104,6 +104,11 @@ parameters:
     # `bridge.stop_sigkill_after_ms` feature flags start from.
     app.bridge.default_stop_sigterm_after_ms: 7500
     app.bridge.default_stop_sigkill_after_ms: 2500
+    # Whether CLI bridges sample their host, and how often in seconds, as the
+    # defaults the `bridge.host_sampling_enabled` and
+    # `bridge.host_sample_interval_seconds` feature flags start from.
+    app.bridge.default_host_sampling_enabled: false
+    app.bridge.default_host_sample_interval_seconds: 60
     # Every minute, so an expired command leaves the pending list soon after its time.
     app.bridge.command_expiry_schedule: '* * * * *'
     # How long a claim of a work request holds, in seconds. A heartbeat renews it.

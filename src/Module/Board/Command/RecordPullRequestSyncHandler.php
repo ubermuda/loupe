@@ -6,11 +6,11 @@ namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEventKind;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
+use App\Module\Workflow\Contract\Actor;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -63,7 +63,7 @@ final readonly class RecordPullRequestSyncHandler
         $now = $this->clock->now();
         $this->em->wrapInTransaction(function () use ($cards, $pullRequest, $now): void {
             foreach ($cards as $card) {
-                $this->cardEvents->record($card, CardEventKind::Synced, CardReporter::System, null, ['pullRequest' => $pullRequest->number], $now);
+                $this->cardEvents->record($card, CardEventKind::Synced, Actor::System, null, ['pullRequest' => $pullRequest->number], $now);
                 $this->em->flush();
             }
         });

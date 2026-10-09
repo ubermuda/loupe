@@ -8,8 +8,9 @@
  * The status badge is asserted on the project dashboard (/projects/{projectId}/documents).
  */
 
-import { test as base, expect, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import {
+    hubStubbedTest as base,
     skipUnreachableHub,
     suppressToolbar,
     suppressWidget,
@@ -215,6 +216,8 @@ test('A revised draft stays a draft until Publish sends it to review', async ({
     page,
     review,
 }) => {
+    // A create, a revise and a publish, each a server round trip on top of the login.
+    test.slow();
     await page.goto(review.dashboardUrl);
     await page
         .getByRole('button', { name: 'New document', exact: true })
@@ -738,6 +741,9 @@ test('a completed review leaves another tabs unsent review recoverable', async (
     context,
     review,
 }) => {
+    // Two tabs, a submit with its redirect and two page loads, after a login
+    // that took 15 s of the 30 s budget on a loaded runner.
+    test.slow();
     await page
         .getByRole('button', { name: 'Finish review', exact: true })
         .click();
@@ -1022,6 +1028,8 @@ test('requesting changes shows the verdict on the project dashboard', async ({
     page,
     review,
 }) => {
+    // A comment, a resolve, a verdict and three page loads, each a server round trip.
+    test.slow();
     // A verdict is reached on a document that has been commented on, so the
     // thread is part of the state under test, not incidental setup.
     await postComment(page);
@@ -1071,6 +1079,9 @@ for (const width of [1440, 390]) {
         page,
         review,
     }) => {
+        // Four page loads and two delete round trips, after a login that took
+        // 8 s of the 30 s budget on a loaded runner.
+        test.slow();
         await page.setViewportSize({ width, height: 900 });
         await postComment(page);
         await expectThreadVisible(page);

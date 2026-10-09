@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Action;
 
-use App\Module\Board\Entity\CardPauseKind;
-use App\Module\Workflow\Action\ActionOutcome;
-use App\Module\Workflow\Action\ActionOutcomeKind;
+use App\Module\Workflow\Contract\ActionOutcome;
+use App\Module\Workflow\Contract\ActionOutcomeKind;
+use App\Module\Workflow\Contract\PauseKind;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -32,11 +32,11 @@ final class ActionOutcomeTest extends TestCase
 
     public function test_a_pause_carries_its_kind_and_reason(): void
     {
-        $outcome = ActionOutcome::pause(CardPauseKind::WorkLimit, 'Work_Limit reached');
+        $outcome = ActionOutcome::pause(PauseKind::WorkLimit, 'Work_Limit reached');
 
         self::assertSame(ActionOutcomeKind::Pause, $outcome->kind);
         self::assertSame('work-limit-reached', $outcome->code);
-        self::assertSame(CardPauseKind::WorkLimit, $outcome->pauseKind);
+        self::assertSame(PauseKind::WorkLimit, $outcome->pauseKind);
     }
 
     #[DataProvider('causes')]

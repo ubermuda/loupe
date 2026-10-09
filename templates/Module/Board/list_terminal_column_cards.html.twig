@@ -22,7 +22,7 @@
         {% for card in items %}
         <div class="lp-done-row" data-card-id="{{ card.id }}">
             <a class="lp-done-row__title" href="{{ path('app_board_card', {projectId: project.id, cardId: card.id}) }}">{{ card.title }}</a>
-            {% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}
+            {% include '@Board/_card_type_tag.html.twig' with {card: card} only %}
             {% if card.pullRequests|length > 0 %}
             <span class="lp-board-card__pulls">
                 <twig:ux:icon name="lucide:git-pull-request" class="w-3.5 h-3.5 shrink-0" />
@@ -36,14 +36,11 @@
         {% endfor %}
     </div>
 
-    <twig:Pagination route="app_project_board_terminal_column" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="routeParams" />
+    <twig:Ds:Pagination route="app_project_board_terminal_column" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="routeParams" />
     {% else %}
-    <div class="lp-empty-state">
-        <twig:ux:icon name="lucide:square-check-big" class="lp-empty-state__icon w-12 h-12" />
-        <h2 class="lp-empty-state__title">{{ 'board.terminal.empty.title'|trans }}</h2>
-        <p class="lp-empty-state__body">{{ 'board.terminal.empty.body'|trans }}</p>
-        <a class="lp-btn" href="{{ path('app_project_board', {id: project.id}) }}">{{ 'board.terminal.empty.action'|trans }}</a>
-    </div>
+    <twig:Ds:EmptyState icon="lucide:square-check-big" :title="'board.terminal.empty.title'|trans" :body="'board.terminal.empty.body'|trans">
+        <twig:Ds:Button href="{{ path('app_project_board', {id: project.id}) }}">{{ 'board.terminal.empty.action'|trans }}</twig:Ds:Button>
+    </twig:Ds:EmptyState>
     {% endif %}
 </div>
 {% endblock %}

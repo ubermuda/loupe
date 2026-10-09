@@ -381,6 +381,43 @@ final class WorkerRunStatesApiTest extends WebTestCase
         ));
     }
 
+    public function test_an_outcome_stores_its_peak_context(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-peak@example.com');
+        $project = $this->project($em, $owner, 'Run States Peak');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload(array_merge(self::outcome(), [
+            'peakContextTokens' => 187_654,
+        ])));
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(187_654, $this->onlyRun()->peakContextTokens);
+    }
+
+    public function test_an_outcome_with_no_peak_context_leaves_it_unknown(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-peak-absent@example.com');
+        $project = $this->project($em, $owner, 'Run States Peak Absent');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload(array_merge(self::outcome(), [
+            'peakContextTokens' => null,
+        ])));
+        self::assertResponseStatusCodeSame(201);
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload(self::outcome()));
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame([null, null], array_map(
+            static fn (WorkerRun $run): ?int => $run->peakContextTokens,
+            $this->allRuns(),
+        ));
+    }
+
     /** The bridge sends usage with an outcome alone, so the server checks it on any state and stores it from an outcome. */
     public function test_an_open_state_ignores_its_usage(): void
     {
@@ -410,6 +447,36 @@ final class WorkerRunStatesApiTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(201);
         self::assertSame('quick-2', $this->onlyRun()->workerPool);
+    }
+
+    public function test_the_harness_fields_are_stored_kept_and_filled_late(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-harness@example.com');
+        $project = $this->project($em, $owner, 'Run States Harness');
+        $raw = $this->agentToken($client, $owner);
+        $path = $this->path($project->id, (string) Uuid::v4());
+        $running = [
+            'state' => 'running',
+            'sessionId' => (string) Uuid::v4(),
+            'startedAt' => '2026-09-23T10:00:05+00:00',
+        ];
+
+        $this->put($client, $path, $raw, $this->payload(['harness' => 'codex', 'account' => 'work.main']));
+        self::assertResponseStatusCodeSame(201);
+        $this->put($client, $path, $raw, $this->payload([...$running, 'model' => 'gpt-5']));
+        self::assertResponseStatusCodeSame(201);
+        $run = $this->onlyRun();
+        self::assertSame(['codex', 'work.main', 'gpt-5', null], [$run->harness, $run->account, $run->model, $run->harnessSessionId]);
+
+        $this->put($client, $path, $raw, $this->payload([...$running, 'harnessSessionId' => 'thread_01:abc-9']));
+        self::assertResponseStatusCodeSame(200);
+        $this->put($client, $path, $raw, $this->payload($running));
+        self::assertResponseStatusCodeSame(200);
+
+        $run = $this->onlyRun();
+        self::assertSame(['codex', 'work.main', 'gpt-5', 'thread_01:abc-9'], [$run->harness, $run->account, $run->model, $run->harnessSessionId]);
     }
 
     public function test_the_experiment_of_the_run_is_stored(): void
@@ -459,6 +526,7 @@ final class WorkerRunStatesApiTest extends WebTestCase
             'endedAt' => '2026-09-23T10:02:30+00:00',
             'output' => 'stopped halfway',
             'usage' => ['source' => 'reported', 'models' => []],
+            'peakContextTokens' => 42_000,
             ...$start,
         ]));
         self::assertResponseStatusCodeSame(201);
@@ -469,6 +537,7 @@ final class WorkerRunStatesApiTest extends WebTestCase
         self::assertSame('stopped halfway', $run->output);
         self::assertNull($run->exitCode);
         self::assertSame(WorkerRunUsageSource::Reported, $run->usageSource);
+        self::assertSame(42_000, $run->peakContextTokens);
         self::assertSame(['running', 'stopping', 'stopped'], array_map(
             static fn (WorkerRunStateChange $change): string => $change->state->value,
             $this->historyOf($run),
@@ -873,6 +942,18 @@ final class WorkerRunStatesApiTest extends WebTestCase
         yield 'a worker pool above the limit' => [['workerPool' => 'a'.str_repeat('b', 40)]];
         yield 'a worker pool with a trailing newline' => [['workerPool' => "default\n"]];
         yield 'a blank worker pool' => [['workerPool' => '']];
+        yield 'a harness with a space and capitals' => [['harness' => 'Claude Code']];
+        yield 'a blank harness' => [['harness' => '']];
+        yield 'a harness above the limit' => [['harness' => 'a'.str_repeat('b', WorkerRun::MAX_HARNESS_LENGTH)]];
+        yield 'an account with a slash' => [['account' => 'home/geoffrey']];
+        yield 'a blank account' => [['account' => '']];
+        yield 'an account above the limit' => [['account' => 'a'.str_repeat('b', WorkerRun::MAX_ACCOUNT_LENGTH)]];
+        yield 'a blank model' => [['model' => '']];
+        yield 'a model with a newline' => [['model' => "gpt\n5"]];
+        yield 'a model above the limit' => [['model' => str_repeat('m', WorkerRun::MAX_MODEL_LENGTH + 1)]];
+        yield 'a harness session id with a space' => [['harnessSessionId' => 'thread 1']];
+        yield 'a blank harness session id' => [['harnessSessionId' => '']];
+        yield 'a harness session id above the limit' => [['harnessSessionId' => 'a'.str_repeat('b', WorkerRun::MAX_HARNESS_SESSION_ID_LENGTH)]];
         $experiment = ['experiment' => 'plan-model', 'variant' => 'opus'];
         yield 'an experiment with capitals and punctuation' => [['experiment' => 'Opus!', 'variant' => 'opus']];
         yield 'a blank experiment' => [['experiment' => '', 'variant' => 'opus']];
@@ -951,6 +1032,8 @@ final class WorkerRunStatesApiTest extends WebTestCase
         yield 'a drop reason the bridge does not send' => [['state' => 'dropped', 'reason' => 'bored']];
         yield 'a replacement that is not a uuid' => [['state' => 'replaced', 'replacedBy' => 'nope']];
         yield 'a chain cap of zero' => [['state' => 'waiting-for-person', 'maxChain' => 0]];
+        yield 'a negative peak context' => [array_merge($result, ['state' => 'succeeded', 'peakContextTokens' => -1])];
+        yield 'a peak context as text' => [array_merge($result, ['state' => 'succeeded', 'peakContextTokens' => 'many'])];
         foreach (self::invalidUsage() as $name => $usage) {
             yield $name => [array_merge($result, ['state' => 'succeeded', 'usage' => $usage])];
         }

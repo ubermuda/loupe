@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/mcpjson"
 	"github.com/ubermuda/loupe/cli/internal/mcpproxy"
 	"github.com/ubermuda/loupe/cli/internal/projectfile"
+	"github.com/ubermuda/loupe/cli/internal/rules"
 )
 
 // The last line of `loupe status` on stdout. The error follows it on stderr.
@@ -31,11 +33,11 @@ const (
 const statusTimeout = 30 * time.Second
 
 func newStatusCmd() *cobra.Command {
-	var projectID string
+	var projectID, rulesPath string
 
 	cmd := &cobra.Command{
 		Use:   "status",
-		Short: "Check the login, the project and the MCP connection to Loupe",
+		Short: "Check the login, the project, the MCP connection and the bridge accounts",
 		Long: "Checks the setup that `loupe mcp` depends on, with one real call. It reads your " +
 			"login, resolves the project the same way `loupe mcp` does, opens one MCP session " +
 			"with your Loupe instance, and calls project_current.\n\n" +
@@ -46,6 +48,12 @@ func newStatusCmd() *cobra.Command {
 			"other than Claude Code keeps its own configuration. A pass proves the login and the " +
 			"project that `loupe mcp` uses in this directory. It does not read the command an " +
 			"agent is configured to start.\n\n" +
+			"Then it checks each account that the rule file of the bridge declares, as the bridge " +
+			"does at start: the agent program is on PATH, the account is logged in, and each project sees " +
+			"the `" + mcpjson.ServerKey + "` MCP server and, for Claude Code, the Loupe skills. " +
+			"An account that no rule runs on is labelled `unused`. A failing account that a rule runs on " +
+			"fails the check. A failing unused account is printed and does not fail it. " +
+			"With no rule file, it checks no account.\n\n" +
 			"The last line on stdout is `" + statusPass + "` or `" + statusFail + "`. A failure " +
 			"exits non-zero, and the error on stderr says what to run next. Read the exit " +
 			"status, because the error comes after the verdict when the two streams merge.",
@@ -53,6 +61,7 @@ func newStatusCmd() *cobra.Command {
 			out := cmd.OutOrStdout()
 			err := checkStatus(cmd.Context(), out, projectID, cmd.ErrOrStderr())
 			noteClaudeCode(out)
+			err = errors.Join(err, checkStatusAccounts(cmd.Context(), out, rulesPath))
 			if err != nil {
 				fmt.Fprintln(out, statusFail)
 
@@ -64,6 +73,7 @@ func newStatusCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&projectID, "project", "", "project id to check (else "+projectfile.Name+" in this directory)")
+	cmd.Flags().StringVar(&rulesPath, "rules", "", "check the accounts of this `path`; empty uses rules.yaml in your config directory")
 
 	return cmd
 }
@@ -109,6 +119,56 @@ func checkStatus(ctx context.Context, out io.Writer, projectID string, notes io.
 		return err
 	}
 	fmt.Fprintf(out, "Project:     %s\n", describe(current))
+
+	return nil
+}
+
+// checkStatusAccounts checks each account that the rule file uses, and prints
+// one line for each. A missing default rule file checks nothing, and a
+// missing --rules file fails.
+func checkStatusAccounts(ctx context.Context, out io.Writer, rulesPath string) error {
+	path, err := rulesPathOr(rulesPath)
+	if err != nil {
+		return err
+	}
+	set, err := rules.Load(path, rules.Defaults{})
+	if errors.Is(err, rules.ErrMissing) && rulesPath != "" {
+		return fmt.Errorf("--rules %s: %w", path, rules.ErrMissing)
+	}
+	if errors.Is(err, rules.ErrMissing) {
+		fmt.Fprintf(out, "Accounts:    no rule file at %s, so no account to check\n", path)
+
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("rule file %s: %w", path, err)
+	}
+	results := checkAccounts(ctx, set)
+	if !slices.ContainsFunc(results, func(a accountResult) bool { return a.used }) {
+		fmt.Fprintf(out, "Accounts:    %s runs no agent, so no account is in use\n", path)
+	}
+	var failing []string
+	for _, a := range results {
+		label := a.harness
+		if !a.used {
+			label += ", unused"
+		}
+		if len(a.problems) == 0 {
+			fmt.Fprintf(out, "Account:     %s (%s): ready\n", a.name, label)
+
+			continue
+		}
+		if a.used {
+			failing = append(failing, a.name)
+		}
+		fmt.Fprintf(out, "Account:     %s (%s): failing: %s\n", a.name, label, a.reason())
+		for _, p := range a.problems {
+			fmt.Fprintf(out, "             %s\n", p.Detail)
+		}
+	}
+	if len(failing) > 0 {
+		return fmt.Errorf("the bridge runs no work on the failing accounts %s: fix them, then run `loupe bridge reload`", strings.Join(failing, ", "))
+	}
 
 	return nil
 }
@@ -163,7 +223,7 @@ func noteClaudeCode(out io.Writer) {
 
 		return
 	}
-	got, err := claudecode.Effective(dir, mcpjson.ServerKey)
+	got, err := claudecode.Effective(dir, mcpjson.ServerKey, "")
 	switch {
 	case err != nil:
 		fmt.Fprintf(out, "Claude Code: could not check how it starts %q: %v\n", mcpjson.ServerKey, err)

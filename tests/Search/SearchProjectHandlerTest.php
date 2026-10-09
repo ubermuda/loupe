@@ -7,7 +7,6 @@ namespace App\Tests\Search;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
-use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
@@ -38,12 +37,12 @@ final class SearchProjectHandlerTest extends KernelTestCase
         $cards = self::getContainer()->get(CreateCardHandler::class);
         $documents = self::getContainer()->get(CreateDocumentHandler::class);
         for ($index = 0; $index < 11; ++$index) {
-            ($cards)(new CreateCardCommand($project, 'Search card '.$index, 'quartz', CardType::Feature, column: $this->column($project, 'done')));
+            ($cards)(new CreateCardCommand($project, 'Search card '.$index, 'quartz', 'feature', column: $this->column($project, 'done')));
             $document = ($documents)(new CreateDocumentCommand($project, 'Search document '.$index, 'quartz'));
             $document->archivedAt = new \DateTimeImmutable();
         }
         $em->flush();
-        ($cards)(new CreateCardCommand($foreign, 'Foreign card', 'quartz', CardType::Feature));
+        ($cards)(new CreateCardCommand($foreign, 'Foreign card', 'quartz', 'feature'));
         ($documents)(new CreateDocumentCommand($foreign, 'Foreign document', 'quartz'));
         $search = self::getContainer()->get(SearchProjectHandler::class);
         $first = $search(new SearchProjectCommand($project, '  quartz  '));
@@ -72,6 +71,10 @@ final class SearchProjectHandlerTest extends KernelTestCase
         self::assertSame(['page', 'page'], array_map(static fn (SearchResult $result): string => $result->kind, $pages->results->items));
         self::assertStringEndsWith('/worker-runs', $pages->results->items[0]->url);
         self::assertStringEndsWith('/activity', $pages->results->items[1]->url);
+        $analytics = $search(new SearchProjectCommand($project, 'analytics'));
+        self::assertSame(['Analytics · Metrics', 'Analytics · Experiments'], array_map(static fn (SearchResult $result): string => $result->title, $analytics->results->items));
+        self::assertStringEndsWith('/analytics/metrics', $analytics->results->items[0]->url);
+        self::assertStringEndsWith('/analytics/experiments', $analytics->results->items[1]->url);
         self::assertSame([], $search(new SearchProjectCommand($project, 'Run history'))->results->items);
         self::assertSame([], $search(new SearchProjectCommand($project, 'unfindablequartz'))->results->items);
         $board = $search(new SearchProjectCommand($project, 'Board'));

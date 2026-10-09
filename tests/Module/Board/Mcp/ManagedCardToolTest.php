@@ -7,10 +7,9 @@ namespace App\Tests\Module\Board\Mcp;
 use App\Module\Board\Command\CardManaged;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
-use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Mcp\CardRunOpenTool;
 use App\Module\Board\Mcp\CardUpdateTool;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use App\Tests\Support\McpTokenScenario;
 use Mcp\Exception\ToolCallException;
@@ -37,9 +36,9 @@ final class ManagedCardToolTest extends KernelTestCase
             project: $project,
             title: 'Managed',
             body: 'Body',
-            type: CardType::Feature,
+            type: 'feature',
             column: $this->column($project, 'next'),
-            reporter: CardReporter::Human,
+            reporter: Actor::Human,
         ))->number;
     }
 

@@ -7,10 +7,7 @@ namespace App\Tests\Migrations;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
-use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardPauseRepository;
-use App\Module\Board\Service\CardMoveGuard;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
@@ -21,6 +18,8 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardMoveGuard;
 use App\Module\Workflow\Engine\Engine;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
@@ -143,7 +142,7 @@ final class BindEveryProjectMigrationTest extends KernelTestCase
             self::assertSame($columns[$name], $fresh->column->slug, $name);
             self::assertSame([], $this->liveRequests($fresh), $name);
             self::assertNull($this->service(CardPauseRepository::class)->findActiveForCard($fresh), $name);
-            foreach ($states->findForCard($fresh) as $ruleId => $state) {
+            foreach ($states->findForCard($fresh->snapshot()->id) as $ruleId => $state) {
                 self::assertSame([0, 0, null], [$state->fires, $state->attempts, $state->lastRefusal], $name.' '.$ruleId);
                 $truths[$name.' '.$ruleId] = $state->truth;
             }
@@ -153,7 +152,7 @@ final class BindEveryProjectMigrationTest extends KernelTestCase
         foreach ([
             'backlog open pull request pull-request-reopened',
             'backlog epic epic-close',
-            'backlog child child-unblocked',
+            'backlog child child-to-next',
             'product design product-design-session',
             'approved design tech-design-approved',
             'implementation no pull request implement',
@@ -168,7 +167,7 @@ final class BindEveryProjectMigrationTest extends KernelTestCase
         ] as $rule) {
             self::assertTrue($truths[$rule] ?? null, $rule);
         }
-        self::assertSame([], $states->findForCard($held));
+        self::assertSame([], $states->findForCard($held->snapshot()->id));
         self::assertSame([$this->cardId($held)->toRfc4122()], $this->baselinedCardIds($project));
     }
 
@@ -183,8 +182,8 @@ final class BindEveryProjectMigrationTest extends KernelTestCase
 
         $guard = $this->service(CardMoveGuard::class);
         $to = $this->column($project, 'in-review');
-        self::assertFalse($guard->allows($managed, $to, CardReporter::Human, null));
-        self::assertTrue($guard->allows($held, $to, CardReporter::Human, null));
+        self::assertFalse($guard->allows($managed->snapshot(), $to->ref(), Actor::Human, null));
+        self::assertTrue($guard->allows($held->snapshot(), $to->ref(), Actor::Human, null));
     }
 
     /** @return array<string, Card> */
@@ -194,10 +193,11 @@ final class BindEveryProjectMigrationTest extends KernelTestCase
         $cards['backlog'] = $this->card($project, 'backlog');
         $cards['backlog open pull request'] = $this->card($project, 'backlog');
         $this->pullRequest($cards['backlog open pull request']);
-        $cards['backlog epic'] = $this->card($project, 'backlog', CardType::Epic);
+        $cards['backlog epic'] = $this->card($project, 'backlog', 'epic');
         $this->pullRequest($cards['backlog epic']);
-        $cards['backlog parent'] = $this->card($project, 'backlog', CardType::Epic);
+        $cards['backlog parent'] = $this->card($project, 'backlog', 'epic');
         $cards['backlog child'] = $this->card($project, 'backlog', parent: $cards['backlog parent']);
+        $this->approvedDocument($cards['backlog child'], 'tech-design');
         $cards['next'] = $this->card($project, 'next');
         $cards['product design'] = $this->card($project, 'product-design');
         $cards['approved design'] = $this->card($project, 'tech-design');
@@ -207,8 +207,8 @@ final class BindEveryProjectMigrationTest extends KernelTestCase
         $cards['implementation no pull request'] = $this->card($project, 'implementation');
         $cards['failing checks'] = $this->card($project, 'implementation');
         $this->pullRequest($cards['failing checks'])->checks = PullRequestChecks::Failed;
-        $cards['epic with no children'] = $this->card($project, 'implementation', CardType::Epic);
-        $cards['epic with an open child'] = $this->card($project, 'implementation', CardType::Epic);
+        $cards['epic with no children'] = $this->card($project, 'implementation', 'epic');
+        $cards['epic with an open child'] = $this->card($project, 'implementation', 'epic');
         $this->pullRequest($cards['epic with an open child']);
         $cards['open child'] = $this->card($project, 'implementation', parent: $cards['epic with an open child']);
         $this->pullRequest($cards['open child'], base: 'epic', head: 'child');
@@ -239,7 +239,7 @@ final class BindEveryProjectMigrationTest extends KernelTestCase
         return $project;
     }
 
-    private function card(Project $project, string $column, CardType $type = CardType::Feature, ?Card $parent = null): Card
+    private function card(Project $project, string $column, string $type = 'feature', ?Card $parent = null): Card
     {
         $card = new Card($project, $this->column($project, $column), 'Card', '', ++$this->cardNumber, $type);
         $card->parent = $parent;

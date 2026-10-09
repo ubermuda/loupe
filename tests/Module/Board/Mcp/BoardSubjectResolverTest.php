@@ -7,16 +7,16 @@ namespace App\Tests\Module\Board\Mcp;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Mcp\BoardSubjectResolver;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
+use App\Module\Workflow\Contract\Actor;
 use App\Security\McpBoundProjectVoter;
 use App\Tests\Support\McpTokenScenario;
 use App\Tests\Support\RecordingAuditor;
+use App\Tests\Support\ShippedCardTypes;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -60,7 +60,7 @@ final class BoardSubjectResolverTest extends KernelTestCase
         $handler = self::getContainer()->get(CreateCardHandler::class);
         self::assertInstanceOf(CreateCardHandler::class, $handler);
 
-        return $handler(new CreateCardCommand($project, 'Ship it', 'Body', CardType::Feature));
+        return $handler(new CreateCardCommand($project, 'Ship it', 'Body', 'feature'));
     }
 
     /**
@@ -71,8 +71,8 @@ final class BoardSubjectResolverTest extends KernelTestCase
     {
         // Guard: the two an agent may claim still resolve, so the refusal below
         // is about this value rather than about reporters being refused wholesale.
-        self::assertSame(CardReporter::Human, $this->resolver->requireClaimedReporter('human'));
-        self::assertSame(CardReporter::Agent, $this->resolver->requireClaimedReporter('agent'));
+        self::assertSame(Actor::Human, $this->resolver->requireClaimedReporter('human'));
+        self::assertSame(Actor::Agent, $this->resolver->requireClaimedReporter('agent'));
 
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('Unknown reporter "reviewer". Use one of: human, agent.');
@@ -82,9 +82,9 @@ final class BoardSubjectResolverTest extends KernelTestCase
     /** A filter matches a reporter rather than claiming one, so it reads the widget's cards too. */
     public function test_a_filter_reads_every_reporter_including_reviewer(): void
     {
-        self::assertSame(CardReporter::Reviewer, $this->resolver->requireReporter('reviewer'));
-        self::assertSame(CardReporter::Human, $this->resolver->requireReporter('human'));
-        self::assertSame(CardReporter::Agent, $this->resolver->requireReporter('agent'));
+        self::assertSame(Actor::Reviewer, $this->resolver->requireReporter('reviewer'));
+        self::assertSame(Actor::Human, $this->resolver->requireReporter('human'));
+        self::assertSame(Actor::Agent, $this->resolver->requireReporter('agent'));
     }
 
     public function test_a_filter_refuses_a_reporter_that_is_not_a_value(): void
@@ -92,6 +92,24 @@ final class BoardSubjectResolverTest extends KernelTestCase
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('Unknown reporter "robot". Use one of: human, agent, reviewer, system.');
         $this->resolver->requireReporter('robot');
+    }
+
+    public function test_a_declared_type_resolves(): void
+    {
+        $project = $this->makeProject('resolver-type-declared');
+
+        self::assertSame('epic', $this->resolver->requireType($project, 'epic'));
+        self::assertNull($this->resolver->optionalType($project, null));
+        self::assertSame('bug', $this->resolver->optionalType($project, 'bug'));
+    }
+
+    public function test_an_undeclared_type_is_refused_with_the_declared_list(): void
+    {
+        $project = $this->makeProject('resolver-type-refused');
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('Unknown type "site-review". Use one of: feature, bug, security, tooling, docs, idea, epic.');
+        $this->resolver->requireType($project, 'site-review');
     }
 
     public function test_a_card_of_the_bound_project_resolves(): void
@@ -224,7 +242,7 @@ final class BoardSubjectResolverTest extends KernelTestCase
         $columns = self::getContainer()->get(BoardColumnRepository::class);
         self::assertInstanceOf(BoardColumnRepository::class, $columns);
 
-        $resolver = new BoardSubjectResolver($projects, $cards, $columns, $this->refusingAuthorization());
+        $resolver = new BoardSubjectResolver($projects, $cards, $columns, $this->refusingAuthorization(), new ShippedCardTypes());
 
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage(\sprintf('Card %d is not accessible.', $card->number));

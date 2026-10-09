@@ -46,6 +46,25 @@ strokes are the full vector points. The archive has no separate site-review file
 invite. It is empty for a user who redeemed none. The admin's note on the invite
 stays out of the export.
 
+`worker_run_facts.json` holds the metrics row of each worker run of the projects
+the user owns, with its outcome, its duration, its cost, its token sums, its
+timing, its peak context, its harness and its account. It includes the rows whose run the retention sweep deleted.
+`worker_run_tool_calls.json` holds each tool call of those runs, with its tool, its kind,
+its timing and its signatures.
+`worker_run_bucket_times.json` holds the time of each run in each bucket of the project rules.
+The metrics rows also hold the host values of each run: its mean CPU use, its
+peak memory and swap, its concurrent runs and its battery flag.
+`bridge_host_samples.json` holds each host sample of the user's bridges, with
+its bridge, its time, the use of each core, its memory and swap, its battery
+charge and its power source.
+[Retention](../reference/worker-runs.md#retention) lists the other worker run
+files.
+
+`insights_analyses.json` holds the analyses of the projects the user owns, each
+with its proposals. `insights_project_settings.json` holds the analysis settings
+of those projects: the default model, the default effort, and whether the bridge
+collects the full text of each tool call.
+
 The archive holds one file per kind of data. `audit_log.json` is one of them. It
 holds the audit records the user is the actor of, and the records that name the
 user as the subject. What was done to the account is the account's data too.

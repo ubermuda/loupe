@@ -1,0 +1,69 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'analytics.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    {% include '@Insights/_crumbs.html.twig' with {project: project} only %}
+{% endblock %}
+
+{% block body %}
+<div class="lp-workspace lp-redesign-secondary lp-redesign-runs">
+    {% include '@Insights/_header.html.twig' with {} only %}
+
+    {% include '@Insights/_tabs.html.twig' with {project: project, active: 'time-buckets'} only %}
+
+    <section class="lp-reports-panel" data-bucket-rule-form>
+        <h2 class="lp-section-title">{{ 'insights.bucket_rules.add.title'|trans }}</h2>
+        <twig:Ds:Hint>{{ 'insights.bucket_rules.intro'|trans }}</twig:Ds:Hint>
+        {{ form_start(ruleForm, {action: path('app_project_analytics_bucket_rule_create', {id: project.id}), attr: {class: 'lp-form'}}) }}
+            <twig:Ds:FieldErrors :fieldView="ruleForm" />
+            <div class="lp-reports-form__fields">
+                {% for formItem in [ruleForm.pattern, ruleForm.bucket] %}
+                <twig:Ds:FormField>
+                    {{ form_label(formItem, null, {label_attr: {class: ds_label_class()}}) }}
+                    {{ form_widget(formItem, {attr: {class: ds_input_class()}}) }}
+                    {% if formItem.vars.help %}<twig:Ds:Hint as="div" id="{{ formItem.vars.id }}_help">{{ formItem.vars.help|trans(formItem.vars.help_translation_parameters, formItem.vars.translation_domain) }}</twig:Ds:Hint>{% endif %}
+                    <twig:Ds:FieldErrors :fieldView="formItem" data-field-errors="{{ formItem.vars.name }}" />
+                </twig:Ds:FormField>
+                {% endfor %}
+            </div>
+            <div class="lp-settings-form-actions">
+                <twig:Ds:Button variant="primary" type="submit" :disabled="atLimit">{{ 'insights.bucket_rules.add.submit'|trans }}</twig:Ds:Button>
+            </div>
+            {% if atLimit %}
+            <twig:Ds:Hint data-bucket-rule-limit>{{ 'insights.bucket_rules.limit'|trans({'%max%': constant('App\\Module\\Insights\\Entity\\InsightsBucketRule::MAX_PER_PROJECT')}) }}</twig:Ds:Hint>
+            {% endif %}
+        {{ form_end(ruleForm) }}
+    </section>
+
+    {% if rules is not empty %}
+    <ol class="lp-reports-list" data-bucket-rules>
+        {% for rule in rules %}
+        <li class="lp-reports-analysis" data-bucket-rule="{{ rule.id }}">
+            <div class="lp-reports-analysis__head">
+                <h3 class="lp-reports-analysis__title">
+                    <code data-bucket-rule-pattern>{{ rule.pattern }}</code>
+                    <span class="lp-reports-analysis__range">{{ 'insights.bucket_rules.goes_to'|trans }}</span>
+                    <twig:Ds:Tag tone="sky" data-bucket-rule-bucket>{{ rule.bucket }}</twig:Ds:Tag>
+                </h3>
+            </div>
+            <div class="lp-reports-proposal__actions">
+                {% for direction in ['up', 'down'] %}
+                <form method="post" action="{{ path('app_project_analytics_bucket_rule_move', {id: project.id, ruleId: rule.id, direction: direction}) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('insights-bucket-rule-move') }}">
+                    <twig:Ds:Button variant="outline" size="sm" type="submit" :disabled="(direction == 'up' and loop.parent.loop.first) or (direction == 'down' and loop.parent.loop.last)" data-bucket-rule-move="{{ direction }}">{{ ('insights.bucket_rules.move.' ~ direction)|trans }}</twig:Ds:Button>
+                </form>
+                {% endfor %}
+                <form method="post" action="{{ path('app_project_analytics_bucket_rule_delete', {id: project.id, ruleId: rule.id}) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('insights-bucket-rule-delete') }}">
+                    <twig:Ds:Button variant="outline" size="sm" type="submit" data-bucket-rule-delete>{{ 'insights.bucket_rules.delete'|trans }}</twig:Ds:Button>
+                </form>
+            </div>
+        </li>
+        {% endfor %}
+    </ol>
+    {% else %}
+    <twig:Ds:EmptyState icon="lucide:list-filter" :title="'insights.bucket_rules.empty.title'|trans" :body="'insights.bucket_rules.empty.description'|trans({'%fallback%': constant('App\\Module\\Bridge\\Service\\BucketRule::FALLBACK')})" data-bucket-rules-empty />
+    {% endif %}
+</div>
+{% endblock %}

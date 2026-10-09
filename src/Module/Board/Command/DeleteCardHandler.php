@@ -8,6 +8,7 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Event\CardBlockersRemoved;
 use App\Module\Board\Event\CardChanged;
+use App\Module\Board\Event\CardDeleted;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
@@ -16,6 +17,7 @@ use App\Module\Board\Service\CardParentPolicy;
 use App\Module\Board\Service\PullRequestTracking;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\InteractiveRuns;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -34,6 +36,7 @@ final readonly class DeleteCardHandler
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
         private CardGroupOrder $groupOrder,
         private CardParentPolicy $parentPolicy,
+        private CardTypeCatalog $catalog,
         private PullRequestTracking $pullRequestTracking,
         private EntityManagerInterface $em,
         private Auditor $auditor,
@@ -75,7 +78,7 @@ final readonly class DeleteCardHandler
 
             $this->cards->refreshTypeAndParent($card);
             $parent = $card->parent;
-            $drawsLane = $card->drawsLane();
+            $drawsLane = $card->drawsLane($this->catalog->forProject($card->project->requireId()));
 
             // Inside the transaction, so the delete and the renumbering it
             // causes commit together or not at all.
@@ -98,8 +101,11 @@ final readonly class DeleteCardHandler
             // The link rows cascade in the database, so read the cards they block first.
             $unblocked = $this->cards->findBlockedBy($card);
             $trackedBefore = $this->pullRequestTracking->referencesOf($card);
+            $deletedCardId = $card->id ?? throw new \LogicException('A persisted card has an id.');
+            $deletedProjectId = $card->project->id ?? throw new \LogicException('A persisted project has an id.');
             $this->em->remove($card);
             $this->em->flush();
+            $this->events->dispatch(new CardDeleted($deletedProjectId, $deletedCardId));
             $this->pullRequestTracking->apply($card->project, $trackedBefore, []);
 
             // After the flush, so the epic counts its children without this

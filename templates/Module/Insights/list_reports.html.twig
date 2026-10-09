@@ -1,0 +1,173 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'analytics.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    {% include '@Insights/_crumbs.html.twig' with {project: project} only %}
+{% endblock %}
+
+{% block body %}
+<div class="lp-workspace lp-redesign-secondary lp-redesign-runs">
+    {% include '@Insights/_header.html.twig' with {} only %}
+
+    {% include '@Insights/_tabs.html.twig' with {project: project, active: 'reports'} only %}
+
+    <section class="lp-reports-panel" data-start-analysis-form>
+        <h2 class="lp-section-title">{{ 'insights.reports.start.title'|trans }}</h2>
+        {{ form_start(startForm, {action: path('app_project_analytics_analysis_start', {id: project.id}), attr: {class: 'lp-form lp-reports-form'}}) }}
+            <twig:Ds:FieldErrors :fieldView="startForm" />
+            <div class="lp-reports-form__fields">
+                {% for formItem in [startForm.topic, startForm.experiment, startForm.range] %}
+                <twig:Ds:FormField>
+                    {{ form_label(formItem, null, {label_attr: {class: ds_label_class()}}) }}
+                    {{ form_widget(formItem, {attr: {class: ds_input_class('select')}}) }}
+                    <twig:Ds:FieldErrors :fieldView="formItem" data-field-errors="{{ formItem.vars.name }}" />
+                </twig:Ds:FormField>
+                {% endfor %}
+                <twig:Ds:FormField>
+                    {{ form_label(startForm.model, null, {label_attr: {class: ds_label_class()}}) }}
+                    {{ form_widget(startForm.model, {attr: {class: ds_input_class(null), placeholder: settings.model}}) }}
+                    <twig:Ds:FieldErrors :fieldView="startForm.model" data-field-errors="model" />
+                </twig:Ds:FormField>
+                <twig:Ds:FormField>
+                    {{ form_label(startForm.effort, null, {label_attr: {class: ds_label_class()}}) }}
+                    {{ form_widget(startForm.effort, {attr: {class: ds_input_class('select')}}) }}
+                    <twig:Ds:FieldErrors :fieldView="startForm.effort" data-field-errors="effort" />
+                </twig:Ds:FormField>
+            </div>
+            <twig:Ds:Hint>{{ 'insights.reports.start.defaults'|trans({'%model%': settings.model, '%effort%': ('insights.reports.effort.' ~ settings.effort)|trans}) }}</twig:Ds:Hint>
+            <div class="lp-settings-form-actions">
+                <twig:Ds:Button variant="primary" type="submit">{{ 'insights.reports.start.submit'|trans }}</twig:Ds:Button>
+            </div>
+        {{ form_end(startForm) }}
+    </section>
+
+    <details class="lp-reports-panel lp-reports-settings" data-analytics-settings-form{% if settingsForm.vars.submitted %} open{% endif %}>
+        <summary class="lp-reports-settings__summary">{{ 'insights.reports.settings.title'|trans }}</summary>
+        {{ form_start(settingsForm, {action: path('app_project_analytics_settings_update', {id: project.id}), attr: {class: 'lp-form'}}) }}
+            <div class="lp-reports-form__fields">
+                <twig:Ds:FormField>
+                    {{ form_label(settingsForm.model, null, {label_attr: {class: ds_label_class()}}) }}
+                    {{ form_widget(settingsForm.model, {attr: {class: ds_input_class(null), placeholder: 'insights.reports.settings.instance_default'|trans}}) }}
+                    <twig:Ds:FieldErrors :fieldView="settingsForm.model" data-field-errors="model" />
+                </twig:Ds:FormField>
+                <twig:Ds:FormField>
+                    {{ form_label(settingsForm.effort, null, {label_attr: {class: ds_label_class()}}) }}
+                    {{ form_widget(settingsForm.effort, {attr: {class: ds_input_class('select')}}) }}
+                    <twig:Ds:FieldErrors :fieldView="settingsForm.effort" data-field-errors="effort" />
+                </twig:Ds:FormField>
+            </div>
+            <twig:Ds:FormField>
+                {{ form_label(settingsForm.subcommandPrograms, null, {label_attr: {class: ds_label_class()}}) }}
+                {{ form_widget(settingsForm.subcommandPrograms, {attr: {class: ds_input_class(null), placeholder: 'insights.reports.settings.instance_default'|trans}}) }}
+                {% if settingsForm.subcommandPrograms.vars.help %}<twig:Ds:Hint as="div" id="{{ settingsForm.subcommandPrograms.vars.id }}_help">{{ settingsForm.subcommandPrograms.vars.help|trans(settingsForm.subcommandPrograms.vars.help_translation_parameters, settingsForm.subcommandPrograms.vars.translation_domain) }}</twig:Ds:Hint>{% endif %}
+                <twig:Ds:FieldErrors :fieldView="settingsForm.subcommandPrograms" data-field-errors="subcommandPrograms" />
+            </twig:Ds:FormField>
+            <twig:Ds:FormField>
+                <label class="lp-choice">
+                    {{ form_widget(settingsForm.collectFullText) }}
+                    {{ settingsForm.collectFullText.vars.label|trans }}
+                </label>
+                {% if settingsForm.collectFullText.vars.help %}<twig:Ds:Hint as="div" id="{{ settingsForm.collectFullText.vars.id }}_help">{{ settingsForm.collectFullText.vars.help|trans(settingsForm.collectFullText.vars.help_translation_parameters, settingsForm.collectFullText.vars.translation_domain) }}</twig:Ds:Hint>{% endif %}
+                <twig:Ds:FieldErrors :fieldView="settingsForm.collectFullText" data-field-errors="collectFullText" />
+            </twig:Ds:FormField>
+            <div class="lp-settings-form-actions">
+                <twig:Ds:Button variant="primary" type="submit">{{ 'insights.reports.settings.submit'|trans }}</twig:Ds:Button>
+            </div>
+        {{ form_end(settingsForm) }}
+    </details>
+
+    {% if analyses is not empty %}
+    <ol class="lp-reports-list">
+        {% for row in analyses %}
+        {% set analysis = row.analysis %}
+        {% set chip = {waiting: 'pending', running: 'pending', done: 'ok', failed: 'failed', paused: 'neutral'}[analysis.state.value] %}
+        <li class="lp-reports-analysis" data-analysis="{{ analysis.id }}">
+            <div class="lp-reports-analysis__head">
+                <h3 class="lp-reports-analysis__title">
+                    <span data-analysis-topic>{{ ('insights.reports.topic.' ~ analysis.topic.value)|trans }}</span>
+                    <span class="lp-reports-analysis__range" data-analysis-range>{{ ('insights.reports.range.' ~ analysis.scope.range.value)|trans }}</span>
+                    {% if analysis.scope.experiment is not null %}
+                    <span class="lp-reports-analysis__range" data-analysis-experiment>{{ analysis.scope.experiment }}</span>
+                    {% endif %}
+                </h3>
+                <twig:Ds:StatusChip :modifier="chip">
+                    <span data-analysis-state>{{ ('insights.reports.state.' ~ analysis.state.value)|trans }}{% if analysis.reason is not null %}: {{ analysis.reason }}{% endif %}</span>
+                </twig:Ds:StatusChip>
+            </div>
+            <dl class="lp-reports-analysis__facts">
+                <div>
+                    <dt>{{ 'insights.reports.model'|trans }}</dt>
+                    <dd data-analysis-model>{{ analysis.model }}, {{ analysis.effort }}</dd>
+                </div>
+                <div>
+                    <dt>{{ 'insights.reports.cost'|trans }}</dt>
+                    <dd data-analysis-cost>{{ (row.costMicroUsd is null ? null : row.costMicroUsd / 1000000)|metric_value(costMetric) }}</dd>
+                </div>
+                <div>
+                    <dt>{{ 'insights.reports.created'|trans }}</dt>
+                    <dd><time datetime="{{ analysis.createdAt|date('c') }}" title="{{ analysis.createdAt|date('Y-m-d H:i:s T') }}">{{ analysis.createdAt|relative_time }}</time></dd>
+                </div>
+                {% if analysis.documentId is not null %}
+                <div>
+                    <dt>{{ 'insights.reports.report'|trans }}</dt>
+                    <dd><a href="{{ path('app_document_review', {projectId: project.id, documentId: analysis.documentId}) }}" data-analysis-report>{{ 'insights.reports.open_report'|trans }}</a></dd>
+                </div>
+                {% endif %}
+            </dl>
+
+            {% if row.proposals is not empty %}
+            <ul class="lp-reports-proposals">
+                {% for proposal in row.proposals %}
+                {% set proposalChip = {proposed: 'pending', created: 'ok', dismissed: 'resolved'}[proposal.state.value] %}
+                <li class="lp-reports-proposal" data-proposal="{{ proposal.id }}">
+                    <div class="lp-reports-analysis__head">
+                        <h4 class="lp-reports-proposal__title" data-proposal-title>{{ proposal.title }}</h4>
+                        <twig:Ds:StatusChip :modifier="proposalChip">
+                            <span data-proposal-state>{{ ('insights.reports.proposal.state.' ~ (proposal.kind.value == 'bucket-rule' and proposal.state.value == 'created' ? 'rule_created' : proposal.state.value))|trans }}{% if proposal.dismissReason is not null %}: {{ proposal.dismissReason }}{% endif %}</span>
+                        </twig:Ds:StatusChip>
+                    </div>
+                    <div class="prose lp-prose lp-reports-proposal__body" data-proposal-body>{{ proposal.body|proposal_body }}</div>
+                    {% if proposal.kind.value == 'bucket-rule' %}
+                    {% set rulePattern = proposal.payload['pattern'] ?? null %}
+                    {% set ruleBucket = proposal.payload['bucket'] ?? null %}
+                    <twig:Ds:Hint data-proposal-rule>{{ 'insights.reports.proposal.rule'|trans }}
+                        <code data-proposal-pattern>{{ rulePattern is iterable ? '' : rulePattern }}</code>
+                        {{ 'insights.reports.proposal.rule_bucket'|trans }}
+                        <code data-proposal-bucket>{{ ruleBucket is iterable ? '' : ruleBucket }}</code>
+                    </twig:Ds:Hint>
+                    {% endif %}
+                    {% if proposal.estimatedSaving is not null %}
+                    <twig:Ds:Hint>{{ 'insights.reports.proposal.saving'|trans }} <span data-proposal-saving>{{ proposal.estimatedSaving }}</span></twig:Ds:Hint>
+                    {% endif %}
+                    {% if proposal.cardId is not null %}
+                    <a href="{{ path('app_board_card', {projectId: project.id, cardId: proposal.cardId}) }}" data-proposal-card>{{ 'insights.reports.proposal.open_card'|trans }}</a>
+                    {% endif %}
+                    {% if proposal.state.value == 'proposed' %}
+                    {% set dismissForm = insights_dismiss_form(proposal, refusedDismissForm) %}
+                    <div class="lp-reports-proposal__actions">
+                        <form method="post" action="{{ path('app_project_analytics_proposal_accept', {id: project.id, proposalId: proposal.id}|merge(page > 1 ? {page: page} : {})) }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token('insights-proposal-accept') }}">
+                            <twig:Ds:Button variant="primary" size="sm" type="submit">{{ (proposal.kind.value == 'bucket-rule' ? 'insights.reports.proposal.accept_rule' : 'insights.reports.proposal.accept')|trans }}</twig:Ds:Button>
+                        </form>
+                        {{ form_start(dismissForm, {action: path('app_project_analytics_proposal_dismiss', {id: project.id, proposalId: proposal.id}|merge(page > 1 ? {page: page} : {})), attr: {class: 'lp-reports-proposal__dismiss'}}) }}
+                            {{ form_label(dismissForm.reason, null, {label_attr: {class: 'sr-only'}}) }}
+                            {{ form_widget(dismissForm.reason, {attr: {class: ds_input_class(), placeholder: 'insights.reports.proposal.reason_placeholder'|trans}}) }}
+                            <twig:Ds:Button variant="outline" size="sm" type="submit" id="dismiss-{{ proposal.id }}">{{ 'insights.reports.proposal.dismiss'|trans }}</twig:Ds:Button>
+                            <twig:Ds:FieldErrors :fieldView="dismissForm.reason" data-field-errors="reason" />
+                        {{ form_end(dismissForm) }}
+                    </div>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ol>
+    <twig:Ds:Pagination route="app_project_analytics_reports" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}" />
+    {% else %}
+    <twig:Ds:EmptyState icon="lucide:file-chart-column" :title="'insights.reports.empty.title'|trans" :body="'insights.reports.empty.description'|trans" linkHref="{{ app_docs_url }}/extending/cli-bridge/#work-requests" :linkLabel="'insights.reports.empty.docs'|trans" data-reports-empty />
+    {% endif %}
+</div>
+{% endblock %}

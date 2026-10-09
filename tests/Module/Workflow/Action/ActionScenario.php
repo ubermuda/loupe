@@ -10,6 +10,9 @@ use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
+use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\CardPullRequests;
+use App\Module\Board\Workflow\WorkRequestOpener;
 use App\Module\Bridge\Command\OpenWorkRequestHandler;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkRequestRepository;
@@ -18,14 +21,18 @@ use App\Module\Bridge\WorkSubject\WorkSubjectHandlers;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Project\Entity\Project;
-use App\Module\Workflow\Action\ActionOutcome;
-use App\Module\Workflow\Action\ActionOutcomeKind;
-use App\Module\Workflow\Action\WorkRequestOpener;
+use App\Module\Project\Repository\ProjectRepository;
+use App\Module\Workflow\Action\Actions;
+use App\Module\Workflow\Contract\Action;
+use App\Module\Workflow\Contract\ActionOutcome;
+use App\Module\Workflow\Contract\ActionOutcomeKind;
+use App\Module\Workflow\Contract\BoardColumns;
+use App\Module\Workflow\Contract\CardSnapshot;
+use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Expression\AllOf;
-use App\Module\Workflow\Service\CardPullRequests;
-use App\Module\Workflow\Template\ActionCall;
-use App\Module\Workflow\Template\ActionType;
+use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
+use App\Module\Workflow\Service\ActionContexts;
 use App\Module\Workflow\Template\AppRules;
 use App\Module\Workflow\Template\Rule;
 use App\Module\Workflow\Template\RuleOrigin;
@@ -87,8 +94,19 @@ trait ActionScenario
     {
         return new WorkRequestOpener(
             $this->openWorkRequestHandler(),
+            $this->service(CardRepository::class),
             $this->service(CardPullRequests::class),
             $this->service(CardPullRequestRepository::class),
+        );
+    }
+
+    private function contexts(): ActionContexts
+    {
+        return new ActionContexts(
+            $this->service(Actions::class),
+            $this->service(ProjectRepository::class),
+            $this->service(BoardColumns::class),
+            $this->service(WorkflowSlotLinkRepository::class),
             new AppRules($this->service(TemplateParser::class), AppRulesTest::FIXTURE),
         );
     }
@@ -103,14 +121,19 @@ trait ActionScenario
     }
 
     /** @param array<string, int|string> $params */
-    private function rule(ActionType $type, array $params, string $id = 'test-rule', RuleOrigin $origin = RuleOrigin::Template): Rule
+    private function rule(string $key, array $params, string $id = 'test-rule', RuleOrigin $origin = RuleOrigin::Template): Rule
     {
-        return new Rule($id, null, new AllOf([]), new ActionCall($type, $params), $origin);
+        return new Rule($id, null, new AllOf([]), $this->service(Actions::class)->call($key, $params), $origin);
+    }
+
+    private function runAction(Action $action, Rule $rule, CardSnapshot $snapshot, Facts $facts, WorkflowRuleState $state): ActionOutcome
+    {
+        return $action->run($this->contexts()->for($rule, $snapshot, $facts, $state->fires));
     }
 
     private function state(Card $card, string $ruleId = 'test-rule'): WorkflowRuleState
     {
-        return new WorkflowRuleState($card, $card->project, $ruleId);
+        return new WorkflowRuleState($card->id ?? throw new \LogicException('The card is persisted.'), $card->project, $ruleId);
     }
 
     private function pullRequest(

@@ -5,14 +5,15 @@ declare(strict_types=1);
 namespace App\Tests\Module\Readiness\Controller;
 
 use App\Module\Account\Entity\User;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Service\BoardColumnSeeder;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Project\Entity\Project;
 use App\Module\Readiness\Entity\DiscoveryRun;
 use App\Module\Readiness\Entity\DiscoveryRunState;
 use App\Module\Readiness\Repository\DiscoveryRunRepository;
+use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Entity\WorkflowBinding;
+use App\Module\Workflow\Template\ShippedTemplates;
 use App\Tests\Module\Readiness\ReadinessScenario;
 use App\Tests\Support\AgentCredential;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -39,7 +40,7 @@ final class StartDiscoveryControllerTest extends WebTestCase
         $runs = $this->runs($project);
         self::assertCount(1, $runs);
         self::assertSame(DiscoveryRunState::Requested, $runs[0]->state);
-        self::assertSame(CardReporter::Human, $runs[0]->card->reporter);
+        self::assertSame(Actor::Human, $runs[0]->card->reporter);
         $client->followRedirect();
         self::assertSelectorExists('[data-readiness-row="repository"][data-readiness-discovery-state="requested"]');
     }
@@ -147,7 +148,9 @@ final class StartDiscoveryControllerTest extends WebTestCase
         self::assertInstanceOf(BoardColumnSeeder::class, $seeder);
         $seeder->seed($project);
         if ($bound) {
-            $this->em()->persist(new WorkflowBinding($project, 'simple', 1, []));
+            $shipped = static::getContainer()->get(ShippedTemplates::class);
+            self::assertInstanceOf(ShippedTemplates::class, $shipped);
+            $this->em()->persist(new WorkflowBinding($project, 'simple', 1, $shipped->source('simple')));
         }
         $this->em()->flush();
 

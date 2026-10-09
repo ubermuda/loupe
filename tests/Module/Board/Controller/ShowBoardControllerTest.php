@@ -10,9 +10,7 @@ use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
@@ -24,6 +22,7 @@ use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\PullRequestSnapshot;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
+use App\Module\Workflow\Contract\PauseKind;
 use Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -385,7 +384,7 @@ final class ShowBoardControllerTest extends WebTestCase
         $owner = $this->user($em, 'board-title-only@example.com');
         $project = $this->project($em, $owner);
         $plain = $this->card($em, $project, 'Plain column card', 'next', body: 'Plain body marker text');
-        $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next'), 'epic');
         $child = $this->childOf($em, $epic, $this->card($em, $project, 'Lane child card', 'in-progress', body: 'Lane body marker text'));
         $em->clear();
 
@@ -432,7 +431,7 @@ final class ShowBoardControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'board-epic-digest@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'in-progress'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'in-progress'), 'epic');
         $epic->laneEnabled = false;
         $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'next'));
         $this->workerRun($em, $project, $epic, WorkerRunState::GaveUp, 'Gave up.');
@@ -654,7 +653,7 @@ final class ShowBoardControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'board-lane-warning@example.com');
         $project = $this->project($em, $owner, 'laned');
-        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'next'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'next'), 'epic');
         $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'in-progress'));
         $loose = $this->card($em, $project, 'Loose', 'in-progress');
         $childRun = $this->workerRun($em, $project, $child, WorkerRunState::GaveUp, 'Child gave up.');
@@ -799,7 +798,7 @@ final class ShowBoardControllerTest extends WebTestCase
     {
         $pause = static::getContainer()->get(PauseCardHandler::class);
         self::assertInstanceOf(PauseCardHandler::class, $pause);
-        $pause(new PauseCardCommand($card, 'no-bridge-took-work', 'implement', CardPauseKind::WorkTimeout));
+        $pause(new PauseCardCommand($card, 'no-bridge-took-work', 'implement', PauseKind::WorkTimeout));
     }
 
     private function holdCard(Project $project, Card $card): void

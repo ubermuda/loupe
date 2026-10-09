@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Readiness\Service;
 
-use App\Module\Board\Entity\CardType;
 use App\Module\Readiness\Command\ReportFinding;
 use App\Module\Readiness\Entity\DiscoveryProposal;
 use App\Module\Readiness\Entity\DiscoveryRun;
@@ -108,6 +107,6 @@ final class ReadinessReportWriterTest extends KernelTestCase
 
     private function proposal(string $key, string $title, ?int $position, ?int $openCardNumber = null): DiscoveryProposal
     {
-        return new DiscoveryProposal($this->run, $position, $key, $title, CardType::Docs, 'Body of '.$key.'.', $openCardNumber);
+        return new DiscoveryProposal($this->run, $position, $key, $title, 'docs', 'Body of '.$key.'.', $openCardNumber);
     }
 }

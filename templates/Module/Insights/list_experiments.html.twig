@@ -1,0 +1,43 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'analytics.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    {% include '@Insights/_crumbs.html.twig' with {project: project} only %}
+{% endblock %}
+
+{% block body %}
+<div class="lp-workspace lp-redesign-secondary lp-redesign-runs">
+    {% include '@Insights/_header.html.twig' with {} only %}
+
+    {% include '@Insights/_tabs.html.twig' with {project: project, active: 'experiments'} only %}
+
+    {% if experiments is not empty %}
+    <twig:DataTable modifier="experiments" :columns="[
+        {label: 'bridge.experiments.column.experiment'|trans},
+        {label: 'bridge.experiments.column.cards'|trans, align: 'end'},
+        {label: 'bridge.experiments.column.last_run'|trans},
+    ]">
+        {% for experiment in experiments %}
+        <div class="lp-data-table__row" data-experiment="{{ experiment.name }}">
+            <div class="lp-data-table__cell lp-data-table__primary">
+                <a class="lp-data-table__target" href="{{ path('app_project_analytics_experiment', {id: project.id, experiment: experiment.name}) }}">
+                    <span class="lp-data-table__title" data-experiment-name>{{ experiment.name }}</span>
+                </a>
+            </div>
+            <span class="lp-data-table__cell lp-data-table__cell--end" data-experiment-cards>{{ 'bridge.experiments.card_count'|trans({'%count%': experiment.cards}) }}</span>
+            <span class="lp-data-table__cell">
+                {% if experiment.lastRunAt is not null %}
+                    <time datetime="{{ experiment.lastRunAt|date('c') }}" title="{{ experiment.lastRunAt|date('Y-m-d H:i:s T') }}">{{ experiment.lastRunAt|relative_time }}</time>
+                {% else %}
+                    {{ 'bridge.experiments.no_run'|trans }}
+                {% endif %}
+            </span>
+        </div>
+        {% endfor %}
+    </twig:DataTable>
+    {% else %}
+    <twig:Ds:EmptyState icon="lucide:chart-column" :title="'bridge.experiments.empty.title'|trans" :body="'bridge.experiments.empty.description'|trans" linkHref="{{ app_docs_url }}/extending/cli-bridge/#experiments" :linkLabel="'bridge.experiments.empty.docs'|trans" data-experiments-empty />
+    {% endif %}
+</div>
+{% endblock %}

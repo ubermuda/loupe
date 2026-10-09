@@ -12,10 +12,9 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Mcp\BoardToolErrorMessages;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -83,7 +82,7 @@ final class CardPullRequestUrlLengthTest extends KernelTestCase
         $card = $this->create([]);
         $url = $this->url(CardPullRequest::MAX_URL_LENGTH);
 
-        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Agent, pullRequestUrls: [$url]));
+        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: Actor::Agent, pullRequestUrls: [$url]));
 
         self::assertSame([$url], $this->storedUrls($card));
     }
@@ -95,7 +94,7 @@ final class CardPullRequestUrlLengthTest extends KernelTestCase
         try {
             ($this->updateCard)(new UpdateCardCommand(
                 card: $card,
-                actor: CardReporter::Agent,
+                actor: Actor::Agent,
                 pullRequestUrls: [$this->url(CardPullRequest::MAX_URL_LENGTH + 1)],
             ));
             self::fail('expected the over-long URL to be refused');
@@ -144,7 +143,7 @@ final class CardPullRequestUrlLengthTest extends KernelTestCase
             project: $this->project,
             title: 'A card',
             body: 'Body',
-            type: CardType::Feature,
+            type: 'feature',
             pullRequestUrls: $pullRequestUrls,
         ));
     }

@@ -12,8 +12,6 @@ use App\Module\Board\Command\DeleteCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Service\PullRequestTracking;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
@@ -21,6 +19,7 @@ use App\Module\Forge\Service\PullRequestStateReader;
 use App\Module\Forge\Service\PullRequestStateReaders;
 use App\Module\Forge\Service\PullRequestTracker;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -100,7 +99,7 @@ final class CardPullRequestTrackingTest extends KernelTestCase
     {
         $card = $this->create([self::PULL_REQUEST]);
 
-        ($this->handler(UpdateCardHandler::class))(new UpdateCardCommand(card: $card, actor: CardReporter::Agent, title: 'Renamed'));
+        ($this->handler(UpdateCardHandler::class))(new UpdateCardCommand(card: $card, actor: Actor::Agent, title: 'Renamed'));
 
         self::assertSame([['acme/widgets', 42]], $this->tracked());
     }
@@ -121,7 +120,7 @@ final class CardPullRequestTrackingTest extends KernelTestCase
     {
         $card = $this->create([self::PULL_REQUEST]);
 
-        ($this->handler(DeleteCardHandler::class))(new DeleteCardCommand($card, CardReporter::Human));
+        ($this->handler(DeleteCardHandler::class))(new DeleteCardCommand($card, Actor::Human));
 
         self::assertSame([], $this->tracked());
     }
@@ -131,7 +130,7 @@ final class CardPullRequestTrackingTest extends KernelTestCase
         $card = $this->create([self::PULL_REQUEST]);
         $this->create([self::PULL_REQUEST]);
 
-        ($this->handler(DeleteCardHandler::class))(new DeleteCardCommand($card, CardReporter::Human));
+        ($this->handler(DeleteCardHandler::class))(new DeleteCardCommand($card, Actor::Human));
 
         self::assertSame([['acme/widgets', 42]], $this->tracked());
     }
@@ -155,7 +154,7 @@ final class CardPullRequestTrackingTest extends KernelTestCase
             project: $this->project,
             title: 'A card',
             body: 'Body',
-            type: CardType::Feature,
+            type: 'feature',
             pullRequestUrls: $pullRequestUrls,
         ));
     }
@@ -163,7 +162,7 @@ final class CardPullRequestTrackingTest extends KernelTestCase
     /** @param list<string> $pullRequestUrls */
     private function update(Card $card, array $pullRequestUrls): void
     {
-        ($this->handler(UpdateCardHandler::class))(new UpdateCardCommand(card: $card, actor: CardReporter::Agent, pullRequestUrls: $pullRequestUrls));
+        ($this->handler(UpdateCardHandler::class))(new UpdateCardCommand(card: $card, actor: Actor::Agent, pullRequestUrls: $pullRequestUrls));
     }
 
     /**

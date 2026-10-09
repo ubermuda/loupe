@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Service;
 
-use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPause;
-use App\Module\Board\Entity\CardPauseKind;
-use App\Module\Board\Repository\CardPauseRepository;
-use App\Module\Bridge\Service\CardHolds;
-use App\Module\Workflow\Action\ActionParams;
+use App\Module\Project\Repository\ProjectRepository;
+use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
+use App\Module\Workflow\Contract\CardPauses;
+use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\PauseKind;
+use App\Module\Workflow\Contract\PauseView;
 use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
+use App\Module\Workflow\Contract\WorkLedger;
 use App\Module\Workflow\Engine\RuleSubject;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
-use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\Rule;
 use App\Module\Workflow\Template\Template;
 use App\Module\Workflow\Template\TemplateMissing;
@@ -34,8 +34,9 @@ final readonly class CardWorkflowPanelBuilder
 {
     public function __construct(
         private WorkflowAutomation $automation,
-        private CardHolds $cardHolds,
-        private CardPauseRepository $cardPauses,
+        private WorkLedger $ledger,
+        private CardPauses $cardPauses,
+        private ProjectRepository $projects,
         private TemplateSource $templates,
         private FactsBuilder $factsBuilder,
         private WorkflowRuleStateRepository $workflowRuleStates,
@@ -43,22 +44,24 @@ final readonly class CardWorkflowPanelBuilder
         private ClockInterface $clock,
         private LoggerInterface $logger,
         private RuleSubject $ruleSubject,
+        private Actions $actions,
     ) {
     }
 
-    public function build(Card $card): CardWorkflowPanel
+    public function build(CardSnapshot $card): CardWorkflowPanel
     {
-        $cardId = $card->id ?? throw new \LogicException('A stored card has an id.');
-        $projectId = $card->project->id ?? throw new \LogicException('A stored project has an id.');
-        $managed = !$this->cardHolds->isHeld($card->project, $cardId) && $this->automation->runsFor($card->project);
-        $pause = $this->cardPauses->findActiveForCard($card);
+        $cardId = $card->id;
+        $projectId = $card->projectId;
+        $project = $this->projects->find($projectId) ?? throw new \LogicException('A stored card has a project.');
+        $managed = !$this->ledger->isHeld($projectId, $cardId) && $this->automation->runsFor($project);
+        $pause = $this->cardPauses->findActive($cardId);
 
         $template = null;
         $facts = null;
         $progress = null;
         try {
             $template = $this->templates->forProject($projectId);
-            if ($managed || CardPauseKind::Rule === $pause?->kind) {
+            if ($managed || PauseKind::Rule === $pause?->kind) {
                 $facts = $this->factsBuilder->build($card, $this->clock->now());
             }
             if ($managed && null !== $facts) {
@@ -78,12 +81,12 @@ final readonly class CardWorkflowPanelBuilder
         );
     }
 
-    private function pause(CardPause $pause, ?Template $template, ?Facts $facts, bool $managed): CardWorkflowPause
+    private function pause(PauseView $pause, ?Template $template, ?Facts $facts, bool $managed): CardWorkflowPause
     {
         $release = match ($pause->kind) {
-            CardPauseKind::Rule => $this->ruleRelease($pause, $template, $facts),
-            CardPauseKind::WorkLimit => $this->translator->trans('workflow.panel.release.left_slot'),
-            CardPauseKind::Retries, CardPauseKind::WorkTimeout, CardPauseKind::WorkStopped => $this->translator->trans('workflow.panel.release.facts_changed'),
+            PauseKind::Rule => $this->ruleRelease($pause, $template, $facts),
+            PauseKind::WorkLimit => $this->translator->trans('workflow.panel.release.left_slot'),
+            PauseKind::Retries, PauseKind::WorkTimeout, PauseKind::WorkStopped => $this->translator->trans('workflow.panel.release.facts_changed'),
         };
 
         return new CardWorkflowPause(
@@ -97,7 +100,7 @@ final readonly class CardWorkflowPanelBuilder
         );
     }
 
-    private function ruleRelease(CardPause $pause, ?Template $template, ?Facts $facts): string
+    private function ruleRelease(PauseView $pause, ?Template $template, ?Facts $facts): string
     {
         $rule = null === $template ? null : self::rule($template, $pause->ruleId);
         $until = $rule?->then->until;
@@ -105,7 +108,7 @@ final readonly class CardWorkflowPanelBuilder
             return $this->translator->trans('workflow.panel.release.next_evaluation');
         }
 
-        $stored = ($this->workflowRuleStates->findForCard($pause->card)[$rule->id] ?? null)?->subjectPullRequestId;
+        $stored = ($this->workflowRuleStates->findForCard($pause->cardId)[$rule->id] ?? null)?->subjectPullRequestId;
         $leaf = $until->firstFalseLeaf($this->ruleSubject->paused($rule, $facts, $stored));
 
         return null === $leaf
@@ -113,14 +116,14 @@ final readonly class CardWorkflowPanelBuilder
             : $leaf->waitingFor()->trans($this->translator);
     }
 
-    private function progress(Card $card, Template $template, Facts $facts): CardWorkflowProgress
+    private function progress(CardSnapshot $card, Template $template, Facts $facts): CardWorkflowProgress
     {
-        $rules = $template->rulesFor($facts->card->slot);
+        $rules = $template->rulesFor($facts->slot);
         $falseRules = array_values(array_filter(
             $rules,
             fn (Rule $rule): bool => null !== $rule->when->unreadable($facts) || null !== $rule->then->until?->unreadable($facts) || !$this->ruleSubject->bind($rule, $facts)->truth,
         ));
-        $blocking = array_find($falseRules, static fn (Rule $rule): bool => ActionType::Move === $rule->then->type) ?? $falseRules[0] ?? null;
+        $blocking = array_find($falseRules, static fn (Rule $rule): bool => $rule->then->traits->endsPass) ?? $falseRules[0] ?? null;
         $waiting = null;
         if (null !== $blocking) {
             $bound = $this->ruleSubject->bind($blocking, $facts);
@@ -135,7 +138,7 @@ final readonly class CardWorkflowPanelBuilder
         }
 
         return new CardWorkflowProgress(
-            $this->slotLabel($template, $facts->card->slot),
+            $this->slotLabel($template, $facts->slot),
             $waiting,
             null === $blocking ? null : $this->nextAction($template, $blocking),
             $this->lastRefusal($card),
@@ -153,24 +156,19 @@ final readonly class CardWorkflowPanelBuilder
 
     private function nextAction(Template $template, Rule $rule): string
     {
-        return match ($rule->then->type) {
-            ActionType::Move => match ($to = ActionParams::string($rule, 'to')) {
-                FactsBuilder::BACKLOG_SLOT => $this->translator->trans('workflow.panel.action.move_backlog'),
-                FactsBuilder::TERMINAL_SLOT => $this->translator->trans('workflow.panel.action.move_terminal'),
-                default => $this->translator->trans('workflow.panel.action.move', ['%slot%' => $this->slotLabel($template, $to)]),
-            },
-            ActionType::Request => $this->translator->trans('workflow.panel.action.request', ['%kind%' => ActionParams::string($rule, 'kind')]),
-            ActionType::ForgeWrite => $this->translator->trans('workflow.panel.action.forge_write', ['%write%' => ActionParams::string($rule, 'write')]),
-            ActionType::Pause => $this->translator->trans('workflow.panel.action.pause'),
-            ActionType::Release => $this->translator->trans('workflow.panel.action.release'),
-            ActionType::Evaluate => $this->translator->trans('workflow.panel.action.evaluate'),
-        };
+        $description = $this->actions->get($rule->then->key)->describe($rule->then->params);
+        $parameters = $description->panelParams;
+        foreach ($description->panelSlots as $placeholder => $slot) {
+            $parameters[$placeholder] = $this->slotLabel($template, $slot);
+        }
+
+        return $this->translator->trans($description->panelKey, $parameters);
     }
 
-    private function lastRefusal(Card $card): ?CardWorkflowRefusal
+    private function lastRefusal(CardSnapshot $card): ?CardWorkflowRefusal
     {
         $latest = null;
-        foreach ($this->workflowRuleStates->findForCard($card) as $state) {
+        foreach ($this->workflowRuleStates->findForCard($card->id) as $state) {
             if (null !== $state->lastRefusal && null !== $state->lastRefusalAt && (null === $latest || $state->lastRefusalAt > $latest->at)) {
                 $latest = new CardWorkflowRefusal($state->lastRefusal, $this->codeText(['workflow.refusal.'], $state->lastRefusal), $state->lastRefusalAt, $state->attempts);
             }
