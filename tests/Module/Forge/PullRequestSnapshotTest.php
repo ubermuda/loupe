@@ -641,6 +641,7 @@ final class PullRequestSnapshotTest extends TestCase
         yield 'ready' => [['readyToMerge' => false]];
         yield 'changes requested sha' => [['changesRequestedSha' => 'fed9876']];
         yield 'numeric-looking changes requested sha' => [['changesRequestedSha' => '1e3']];
+        yield 'default branch' => [['defaultBranch' => 'trunk']];
     }
 
     #[DataProvider('checkReads')]
