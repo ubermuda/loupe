@@ -12,6 +12,7 @@ use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\EventListener\DispatchCardChangedOnBlockerMoved;
 use App\Module\Board\EventListener\DispatchCardChangedOnCardBlockersRemoved;
+use App\Module\Board\EventListener\DispatchCardChangedOnDocumentRenamed;
 use App\Module\Board\EventListener\DispatchCardChangedOnDocumentStatusChanged;
 use App\Module\Board\EventListener\DispatchCardChangedOnReviewSubmitted;
 use App\Module\Board\EventListener\DispatchCardChangedOnWorkerRunChanged;
@@ -21,6 +22,7 @@ use App\Module\Board\Service\CardMove;
 use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
+use App\Module\Review\Event\DocumentRenamed;
 use App\Module\Review\Event\DocumentStatusChanged;
 use App\Module\Review\Event\ReviewSubmitted;
 use App\Tests\Module\Board\CardStateFixtures;
@@ -68,6 +70,19 @@ final class CardTileRefreshOnStateInputsTest extends KernelTestCase
         $document = $this->reviewDocument($card);
 
         new DispatchCardChangedOnDocumentStatusChanged($this->service(CardDocumentRepository::class), $this->dispatcher)(new DocumentStatusChanged($project->id ?? Uuid::v7(), $document->id ?? Uuid::v7()));
+
+        self::assertSame([(string) $card->id], $this->changedCardIds());
+        self::assertNotContains((string) $other->id, $this->changedCardIds());
+    }
+
+    public function test_a_rename_redraws_the_cards_that_link_the_document(): void
+    {
+        $project = $this->stateProject('refresh-rename');
+        $card = $this->stateCard($project, 'tech-design');
+        $other = $this->stateCard($project, 'tech-design');
+        $document = $this->reviewDocument($card);
+
+        new DispatchCardChangedOnDocumentRenamed($this->service(CardDocumentRepository::class), $this->dispatcher)(new DocumentRenamed($project->id ?? Uuid::v7(), $document->id ?? Uuid::v7()));
 
         self::assertSame([(string) $card->id], $this->changedCardIds());
         self::assertNotContains((string) $other->id, $this->changedCardIds());
