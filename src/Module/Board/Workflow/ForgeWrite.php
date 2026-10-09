@@ -36,6 +36,7 @@ use App\Module\Workflow\Contract\CardTypeCatalog;
 use App\Module\Workflow\Contract\ChecksParameters;
 use App\Module\Workflow\Contract\Parameter;
 use App\Module\Workflow\Contract\ParameterType;
+use App\Module\Workflow\Contract\RefiresOnFactChange;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -46,7 +47,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * it opens the pull request of the epic branch and links it to the epic, and it has no fallback.
  * A comment write queues the comment that the card's facts ask for, and it has no fallback.
  */
-final readonly class ForgeWrite implements Action, ChecksParameters
+final readonly class ForgeWrite implements Action, ChecksParameters, RefiresOnFactChange
 {
     public const string KEY = 'forge-write';
     private const array WRITES_WITHOUT_FALLBACK = ['draft', 'ready', 'close', 'open-epic', 'post-review', 'site-review-check', 'comment'];
@@ -108,6 +109,13 @@ final readonly class ForgeWrite implements Action, ChecksParameters
         $needsFallback = !\in_array($write, self::WRITES_WITHOUT_FALLBACK, true);
 
         return $needsFallback && !\array_key_exists('fallback', $params) ? ['missing parameter "fallback"'] : [];
+    }
+
+    /** A comment write skips the rows it already stored, so a new item while the rule stays true posts its own comment. */
+    #[\Override]
+    public static function refiresOnFactChange(array $params): bool
+    {
+        return ForgeWriteKind::Comment->value === ($params['write'] ?? null);
     }
 
     #[\Override]
