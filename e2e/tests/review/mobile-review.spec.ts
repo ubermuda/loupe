@@ -618,6 +618,12 @@ test('hiding resolved cards leaves the document text unchanged', async ({
     await expect(page.locator('.lp-comment-thread--resolved')).toHaveCount(1, {
         timeout: coverageScaled(10000),
     });
+    // The resolved thread reopens, and its popover can cover the menu button.
+    await expect(
+        page.locator(`${OPEN_THREAD}.lp-comment-thread--resolved`),
+    ).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator(OPEN_THREAD)).toHaveCount(0);
     await givePhoneWidthReadingArea(page);
     await expect(page.locator(MARGIN)).toBeVisible();
     const proseBefore = await page.locator(DOC).textContent();
