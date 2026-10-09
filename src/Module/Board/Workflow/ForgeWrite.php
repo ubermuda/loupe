@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\Action;
+namespace App\Module\Board\Workflow;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Command\UpdateCardCommand;
@@ -33,7 +33,6 @@ use App\Module\Workflow\Contract\ChecksParameters;
 use App\Module\Workflow\Contract\Parameter;
 use App\Module\Workflow\Contract\ParameterType;
 use App\Module\Workflow\Contract\WorkflowRefusal;
-use App\Module\Workflow\Template\ForgeWriteKind;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 

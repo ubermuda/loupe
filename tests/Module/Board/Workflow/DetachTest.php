@@ -2,13 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Workflow\Action;
+namespace App\Tests\Module\Board\Workflow;
 
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Workflow\Action\Detach;
+use App\Module\Board\Workflow\Detach;
 use App\Module\Workflow\Contract\ActionOutcome;
+use App\Tests\Module\Workflow\Action\ActionScenario;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 

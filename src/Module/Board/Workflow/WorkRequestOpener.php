@@ -2,14 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\Action;
+namespace App\Module\Board\Workflow;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardPullRequests;
-use App\Module\Board\Workflow\DocumentsFacts;
 use App\Module\Bridge\Command\OpenWorkRequestCommand;
 use App\Module\Bridge\Command\OpenWorkRequestHandler;
 use App\Module\Bridge\ValueObject\WorkRequestContext;
@@ -18,33 +17,34 @@ use App\Module\Workflow\Contract\ActionContext;
 use App\Module\Workflow\Contract\ActionOutcome;
 use App\Module\Workflow\Contract\DocumentFacts;
 use App\Module\Workflow\Contract\Facts;
-use App\Module\Workflow\Template\AppRules;
-use App\Module\Workflow\Template\TemplateParser;
+use App\Module\Workflow\Contract\ParameterNames;
+use App\Module\Workflow\Contract\WorkOpener;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
 /**
  * Opens a work request of a card for a rule, with what the card holds now as its context.
  * A live request of the kind already does the work.
  */
-final readonly class WorkRequestOpener
+#[AsAlias(WorkOpener::class)]
+final readonly class WorkRequestOpener implements WorkOpener
 {
     public function __construct(
         private OpenWorkRequestHandler $openWorkRequest,
         private CardRepository $cards,
         private CardPullRequests $trackedPullRequests,
         private CardPullRequestRepository $cardPullRequests,
-        private AppRules $appRules,
     ) {
     }
 
-    /** A given reason replaces the fix reason of the pull request in the context. */
+    #[\Override]
     public function open(ActionContext $context, string $kind, ?string $capability, ?string $reason = null): ActionOutcome
     {
         $facts = $context->facts;
         $card = $this->cards->find($context->card->id) ?? throw new \LogicException('A stored card has an id.');
         $documentId = null;
-        $tag = $context->optionalString(TemplateParser::DOCUMENT_TAG);
+        $tag = $context->optionalString(ParameterNames::DOCUMENT_TAG);
         if (null !== $tag) {
-            $status = $context->optionalString(TemplateParser::DOCUMENT_STATUS);
+            $status = $context->optionalString(ParameterNames::DOCUMENT_STATUS);
             $documents = array_values(array_filter(
                 $facts->get(DocumentsFacts::class)->documents,
                 static fn (DocumentFacts $document): bool => \in_array($tag, $document->tags, true) && (null === $status || $status === $document->status),
@@ -55,8 +55,6 @@ final readonly class WorkRequestOpener
             $documentId = $documents[0]->id;
         }
 
-        $promptName = $context->appRule ? $context->optionalString(TemplateParser::PROMPT) : null;
-
         try {
             $request = ($this->openWorkRequest)(new OpenWorkRequestCommand(
                 project: $card->project,
@@ -66,7 +64,7 @@ final readonly class WorkRequestOpener
                 capability: $capability,
                 ruleId: $context->ruleId,
                 context: $this->context($card, $facts, $documentId, $reason),
-                prompt: null === $promptName ? null : $this->appRules->prompt($promptName),
+                prompt: $context->prompt,
             ));
         } catch (DomainErrors $e) {
             return \in_array(OpenWorkRequestHandler::LIVE, $e->errors, true)

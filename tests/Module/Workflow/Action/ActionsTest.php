@@ -43,8 +43,8 @@ final class ActionsTest extends TestCase
     public function test_a_call_carries_the_traits_and_the_from_slot_of_its_action(): void
     {
         $actions = new Actions([...array_map(static fn (string $class) => new \ReflectionClass($class)->newInstanceWithoutConstructor(), [
-            \App\Module\Workflow\Action\MoveCard::class,
-            \App\Module\Workflow\Action\Detach::class,
+            \App\Module\Board\Workflow\MoveCard::class,
+            \App\Module\Board\Workflow\Detach::class,
         ])]);
 
         $move = $actions->call('move', ['to' => 'build', 'from' => 'plan']);

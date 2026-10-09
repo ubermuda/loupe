@@ -14,6 +14,7 @@ use App\Module\Workflow\Contract\FactProvider;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\LegacyFingerprintGroup;
 use App\Module\Workflow\Contract\PullRequestList;
+use App\Module\Workflow\Contract\SlotKeys;
 use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
@@ -22,9 +23,9 @@ use Doctrine\DBAL\Connection;
 /** Reads what the engine knows about one card: its slots, and the facts of every provider. It logs nothing. */
 final readonly class FactsBuilder
 {
-    public const string BACKLOG_SLOT = '@backlog';
+    public const string BACKLOG_SLOT = SlotKeys::BACKLOG;
 
-    public const string TERMINAL_SLOT = '@terminal';
+    public const string TERMINAL_SLOT = SlotKeys::TERMINAL;
 
     private const string SAVEPOINT = 'workflow_fact_provider';
 

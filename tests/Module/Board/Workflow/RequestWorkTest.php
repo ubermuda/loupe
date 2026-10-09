@@ -2,23 +2,24 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Workflow\Action;
+namespace App\Tests\Module\Board\Workflow;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardPullRequests;
+use App\Module\Board\Workflow\RequestWork;
 use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\ValueObject\WorkRequestContext;
 use App\Module\Forge\Entity\PullRequestState;
-use App\Module\Workflow\Action\RequestWork;
 use App\Module\Workflow\Contract\ActionOutcome;
 use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Contract\DocumentFacts;
 use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Template\RuleOrigin;
 use App\Module\Workflow\Template\TemplateParser;
+use App\Tests\Module\Workflow\Action\ActionScenario;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;

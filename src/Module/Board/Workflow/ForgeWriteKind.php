@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\Template;
+namespace App\Module\Board\Workflow;
 
 enum ForgeWriteKind: string
 {

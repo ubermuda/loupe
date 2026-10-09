@@ -7,7 +7,11 @@ namespace App\Module\Workflow\Contract;
 /** What an action reads when it runs for one rule on one card. The template parser already checked the parameters. */
 final readonly class ActionContext
 {
-    /** @param array<string, mixed> $params the parameters of the action, and the labels of the options of an ask under "options" */
+    /**
+     * @param array<string, mixed>     $params  the parameters of the action, and the labels of the options of an ask under "options"
+     * @param array<string, ColumnRef> $columns the column of each slot parameter that has one, by parameter name
+     * @param ?string                  $prompt  the text of the prompt that an app rule names, or null
+     */
     public function __construct(
         public CardSnapshot $card,
         public string $ruleId,
@@ -15,7 +19,14 @@ final readonly class ActionContext
         public array $params,
         public Facts $facts,
         public int $fires,
+        public array $columns = [],
+        public ?string $prompt = null,
     ) {
+    }
+
+    public function column(string $name): ?ColumnRef
+    {
+        return $this->columns[$name] ?? null;
     }
 
     public function string(string $name): string
