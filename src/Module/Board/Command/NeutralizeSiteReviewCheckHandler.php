@@ -33,12 +33,7 @@ final readonly class NeutralizeSiteReviewCheckHandler
             return;
         }
 
-        // A card that links the pull request again owns its check, and its evaluation writes the check it wants.
         $forge = Forge::from($command->forge);
-        if ([] !== $this->cardPullRequests->findForPullRequest($command->projectId, $forge, $command->repository, $command->number)) {
-            return;
-        }
-
         $failure = $this->checkPublisher->neutralizeUnlinked($project, $command->forge, $command->repository, $command->number, $command->headSha, $command->runId);
         if (null === $failure) {
             $this->evaluateCardsLinkedSince($command, $forge);
@@ -54,7 +49,7 @@ final readonly class NeutralizeSiteReviewCheckHandler
         throw new RecoverableMessageHandlingException($failure->getMessage(), 0, $failure, retryDelay: null === $failure->retryAfterSeconds ? null : min($failure->retryAfterSeconds, self::MAX_RETRY_DELAY_SECONDS) * 1000, forceRetry: false);
     }
 
-    /** A card can link the pull request between the first read and the write, so its check is evaluated again after the write. */
+    /** The run is neutral whatever links the pull request now, so a card that links it again is evaluated after the write and posts the check it wants. */
     private function evaluateCardsLinkedSince(NeutralizeSiteReviewCheckCommand $command, Forge $forge): void
     {
         $cardIds = [];

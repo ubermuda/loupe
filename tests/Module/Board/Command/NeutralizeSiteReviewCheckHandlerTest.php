@@ -59,15 +59,31 @@ final class NeutralizeSiteReviewCheckHandlerTest extends KernelTestCase
         self::assertSame([PullRequestCheckConclusion::Neutral, 55, 'sha-1'], [$this->writer->published[0]['conclusion'], $this->writer->published[0]['runId'], $this->writer->published[0]['sha']]);
     }
 
-    public function test_a_pull_request_that_a_card_links_again_keeps_its_check(): void
+    public function test_a_pull_request_that_a_card_links_again_gets_the_old_run_neutral_and_the_card_evaluated(): void
     {
-        $handler = self::getContainer()->get(CreateCardHandler::class);
-        self::assertInstanceOf(CreateCardHandler::class, $handler);
-        $handler(new CreateCardCommand(project: $this->project, title: 'A card', body: 'Body', type: 'feature', pullRequestUrls: ['https://github.com/acme/widgets/pull/9']));
+        $create = self::getContainer()->get(CreateCardHandler::class);
+        self::assertInstanceOf(CreateCardHandler::class, $create);
+        $card = $create(new CreateCardCommand(project: $this->project, title: 'A card', body: 'Body', type: 'feature', pullRequestUrls: ['https://github.com/acme/widgets/pull/9']));
+        $evaluations = new class implements CardEvaluations {
+            /** @var list<string|Uuid> */
+            public array $asked = [];
 
-        ($this->handler())($this->command());
+            public function forCards(array $cardIds): void
+            {
+                array_push($this->asked, ...$cardIds);
+            }
 
-        self::assertSame([], $this->writer->published);
+            public function isOn(): bool
+            {
+                return true;
+            }
+        };
+
+        ($this->handler($evaluations))($this->command());
+
+        self::assertCount(1, $this->writer->published);
+        self::assertSame(PullRequestCheckConclusion::Neutral, $this->writer->published[0]['conclusion']);
+        self::assertSame([$card->id], $evaluations->asked);
     }
 
     public function test_a_card_that_links_the_pull_request_during_the_write_is_evaluated_again(): void
