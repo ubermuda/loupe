@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Template;
 
-use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\ActionParams;
@@ -14,6 +13,7 @@ use App\Module\Workflow\Contract\FactKey;
 use App\Module\Workflow\Contract\LabelTone;
 use App\Module\Workflow\Contract\ParameterType;
 use App\Module\Workflow\Contract\ParameterValue;
+use App\Module\Workflow\Contract\WorkKind;
 use App\Module\Workflow\Expression\AllOf;
 use App\Module\Workflow\Expression\AnyOf;
 use App\Module\Workflow\Expression\ConditionLeaf;
@@ -917,7 +917,7 @@ final readonly class TemplateParser
 
             return null;
         }
-        if (1 !== preg_match(WorkRequest::KIND_PATTERN, $repairKind)) {
+        if (1 !== preg_match(WorkKind::PATTERN, $repairKind)) {
             $errors[] = 'onWorkFailed.repair.kind: must be a work request kind';
 
             return null;

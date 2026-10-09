@@ -36,6 +36,7 @@ use App\Module\Bridge\Service\WorkRequestAnnouncer;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Bridge\ValueObject\WorkSubject;
+use App\Module\Bridge\Workflow\BridgeWorkLedger;
 use App\Module\Bridge\WorkSubject\WorkSubjectHandlers;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
@@ -63,6 +64,7 @@ use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Contract\CardDirectory;
 use App\Module\Workflow\Contract\CardEvaluations;
 use App\Module\Workflow\Contract\PauseKind;
+use App\Module\Workflow\Contract\WorkLedger;
 use App\Module\Workflow\Engine\Engine;
 use App\Module\Workflow\Engine\RuleSubject;
 use App\Module\Workflow\Entity\WorkflowBinding;
@@ -3075,12 +3077,15 @@ final class EngineTest extends KernelTestCase
             ),
             new FactFingerprint(),
             $this->service(WorkflowRuleStateRepository::class),
-            $this->service(CardHolds::class),
+            new BridgeWorkLedger(
+                $workRequests,
+                $this->service(WorkerRunRepository::class),
+                new WithdrawWorkRequestHandler($workRequests, $this->service(OutboxWriter::class), $this->em(), $clock, $auditor, $this->service(WorkRequestAnnouncer::class), new WorkSubjectHandlers([])),
+                $this->service(CardHolds::class),
+                $this->service(ProjectRepository::class),
+            ),
             $this->service(WorkflowAutomation::class),
             $this->service(WorkflowPendingBaselineRepository::class),
-            $workRequests,
-            $this->service(WorkerRunRepository::class),
-            new WithdrawWorkRequestHandler($workRequests, $this->service(OutboxWriter::class), $this->em(), $clock, $auditor, $this->service(WorkRequestAnnouncer::class), new WorkSubjectHandlers([])),
             $boardPauses,
             new Actions([
                 new MoveCard($this->service(CardRepository::class), $this->service(BoardColumnRepository::class), $this->service(WorkflowSlotLinkRepository::class), $this->service(UpdateCardHandler::class)),
@@ -3194,7 +3199,7 @@ final class EngineTest extends KernelTestCase
         $events = new EventDispatcher();
         $events->addListener(CardHoldsReleased::class, new RearmCardsOnCardHoldsReleased(
             $this->service(WorkflowRuleStateRepository::class),
-            $this->service(WorkRequestRepository::class),
+            $this->service(WorkLedger::class),
             $this->service(WorkflowPendingBaselineRepository::class),
             new EvaluationTrigger($this->service(MessageBusInterface::class)),
             $clock,

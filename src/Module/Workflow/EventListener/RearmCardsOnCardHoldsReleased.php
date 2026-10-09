@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Workflow\EventListener;
 
 use App\Module\Bridge\Event\CardHoldsReleased;
-use App\Module\Bridge\Repository\WorkRequestRepository;
+use App\Module\Workflow\Contract\WorkLedger;
 use App\Module\Workflow\Repository\WorkflowPendingBaselineRepository;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Service\EvaluationTrigger;
@@ -21,7 +21,7 @@ final readonly class RearmCardsOnCardHoldsReleased
 {
     public function __construct(
         private WorkflowRuleStateRepository $workflowRuleStates,
-        private WorkRequestRepository $workRequests,
+        private WorkLedger $ledger,
         private WorkflowPendingBaselineRepository $workflowPendingBaselines,
         private EvaluationTrigger $trigger,
         private ClockInterface $clock,
@@ -32,7 +32,7 @@ final readonly class RearmCardsOnCardHoldsReleased
     {
         $now = $this->clock->now();
         $this->workflowRuleStates->resetForCards($event->cardIds, $now);
-        $this->workRequests->restartClockOfOpenForCards($event->projectId, $event->cardIds, $now);
+        $this->ledger->restartClock($event->projectId, $event->cardIds, $now);
         $this->workflowPendingBaselines->unmarkCards($event->cardIds);
         $this->trigger->forCards($event->cardIds);
     }

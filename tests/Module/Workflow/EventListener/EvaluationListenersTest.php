@@ -25,7 +25,6 @@ use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Event\CardHoldsReleased;
 use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\Event\WorkRequestChanged;
-use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Forge\Entity\ForgePullRequest;
@@ -37,6 +36,7 @@ use App\Module\Review\Entity\Verdict;
 use App\Module\Review\Event\DocumentStatusChanged;
 use App\Module\Review\Event\ReviewSubmitted;
 use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\WorkLedger;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\EventListener\EvaluateCardOnCardDocumentsChanged;
 use App\Module\Workflow\EventListener\EvaluateCardOnWorkRequestChanged;
@@ -306,7 +306,7 @@ final class EvaluationListenersTest extends KernelTestCase
     {
         return new RearmCardsOnCardHoldsReleased(
             $this->service(WorkflowRuleStateRepository::class),
-            $this->service(WorkRequestRepository::class),
+            $this->service(WorkLedger::class),
             $this->service(WorkflowPendingBaselineRepository::class),
             $this->trigger(),
             new MockClock(self::RELEASED_AT),

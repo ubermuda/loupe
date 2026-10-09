@@ -4,12 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Engine;
 
-use App\Module\Bridge\Command\WithdrawWorkRequestCommand;
-use App\Module\Bridge\Command\WithdrawWorkRequestHandler;
-use App\Module\Bridge\Repository\WorkerRunRepository;
-use App\Module\Bridge\Repository\WorkRequestRepository;
-use App\Module\Bridge\Service\CardHolds;
-use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Workflow\Action\ActionOutcome;
@@ -28,6 +22,9 @@ use App\Module\Workflow\Contract\PauseView;
 use App\Module\Workflow\Contract\RuleAsks;
 use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
+use App\Module\Workflow\Contract\WithdrawKind;
+use App\Module\Workflow\Contract\WorkLedger;
+use App\Module\Workflow\Contract\WorkState;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Event\CardPaused;
 use App\Module\Workflow\Repository\WorkflowPendingBaselineRepository;
@@ -70,12 +67,9 @@ final readonly class Engine
         private FactsBuilder $factsBuilder,
         private FactFingerprint $fingerprint,
         private WorkflowRuleStateRepository $workflowRuleStates,
-        private CardHolds $cardHolds,
+        private WorkLedger $ledger,
         private WorkflowAutomation $automation,
         private WorkflowPendingBaselineRepository $workflowPendingBaselines,
-        private WorkRequestRepository $workRequests,
-        private WorkerRunRepository $workerRuns,
-        private WithdrawWorkRequestHandler $withdrawWorkRequest,
         private CardPauses $cardPauses,
         private Actions $actions,
         private WorkRequestOpener $opener,
@@ -119,7 +113,7 @@ final readonly class Engine
         $card = $this->cards->find($cardId);
         $project = null === $card ? null : $this->projects->find($card->projectId);
         // A held card is unmanaged: settling its requests would cancel or expire them.
-        if (null === $card || null === $project || $this->cardHolds->isHeld($project, $cardId)) {
+        if (null === $card || null === $project || $this->ledger->isHeld($card->projectId, $cardId)) {
             return null;
         }
         // The mark makes the first pass after the automation is on again quiet.
@@ -224,14 +218,14 @@ final readonly class Engine
             if ($run->ended || null === $state || null === $state->workRequestId || !$run->applies($rule) || $this->waits($run, $rule)) {
                 continue;
             }
-            $request = $this->workRequests->find($state->workRequestId);
+            $request = $this->ledger->find($state->workRequestId);
             $bound = $this->ruleSubject->bind($rule, $run->facts);
             if (null === $request || !$bound->truth) {
                 continue;
             }
             // The repair carries the rule id of the failed rule, so its kind tells it apart.
             $repair = $request->kind === $policy->repairKind;
-            if ($repair && \in_array($request->state, [WorkRequestState::Open, WorkRequestState::Claimed], true)) {
+            if ($repair && \in_array($request->state, [WorkState::Open, WorkState::Claimed], true)) {
                 $run->repairing[$rule->id] = true;
                 continue;
             }
@@ -240,7 +234,7 @@ final readonly class Engine
             if ($bound->binds && null !== $stored && null !== $bound->subject && !$stored->equals($bound->subject)) {
                 continue;
             }
-            if ($repair && WorkRequestState::Done === $request->state) {
+            if ($repair && WorkState::Done === $request->state) {
                 // The rule fires its last try in this pass. The cleared id keeps the next pass from reading the repair again.
                 $this->write($run, $state, static function (WorkflowRuleState $state) use ($run): void {
                     $state->dueAt = $run->now;
@@ -248,7 +242,7 @@ final readonly class Engine
                 });
                 continue;
             }
-            if (WorkRequestState::Done === $request->state) {
+            if (WorkState::Done === $request->state) {
                 $this->write($run, $state, static function (WorkflowRuleState $state): void {
                     $state->attempts = 0;
                     $state->dueAt = null;
@@ -260,7 +254,7 @@ final readonly class Engine
                 continue;
             }
             // A refusal the engine counted already leaves lastRefusalAt at or after the settle.
-            if (WorkRequestState::Refused !== $request->state || (null !== $state->lastRefusalAt && null !== $request->settledAt && $state->lastRefusalAt >= $request->settledAt)) {
+            if (WorkState::Refused !== $request->state || (null !== $state->lastRefusalAt && null !== $request->settledAt && $state->lastRefusalAt >= $request->settledAt)) {
                 continue;
             }
 
@@ -295,13 +289,13 @@ final readonly class Engine
         if (null === $rule || null === $state || null !== $state->lastRefusal || null === $state->lastRefusalAt || !$run->applies($rule) || $this->waits($run, $rule)) {
             return;
         }
-        $resumed = $this->workerRuns->findLatestContinuationOfCard($cardId, $pause->createdAt, $rule->id);
+        $resumed = $this->ledger->latestContinuation($cardId, $pause->createdAt, $rule->id);
         $bound = $this->ruleSubject->bind($rule, $run->facts);
-        if (null === $resumed || !$resumed->state->isStop() || !$bound->truth) {
+        if (null === $resumed || !$resumed->stop || !$bound->truth) {
             return;
         }
 
-        $this->write($run, $state, fn (WorkflowRuleState $state) => $this->refuse($run, $rule, $state, $policy, $resumed->state->value, $bound));
+        $this->write($run, $state, fn (WorkflowRuleState $state) => $this->refuse($run, $rule, $state, $policy, $resumed->state, $bound));
     }
 
     /** Earns a retry after the next delay, or opens the repair, or pauses the card, as the failure block says. */
@@ -348,17 +342,17 @@ final readonly class Engine
     private function settleWorkRequests(Evaluation $run, Uuid $cardId, bool $expire = true): void
     {
         $withdrawn = false;
-        foreach ($this->workRequests->findLiveForCard($cardId) as $request) {
-            $requestId = $request->id ?? throw new \LogicException('A persisted work request has an id.');
+        foreach ($this->ledger->live($cardId) as $request) {
+            $requestId = $request->id;
             $rule = $run->rule($request->ruleId);
             if (null === $rule || !$run->applies($rule)) {
-                $withdrawn = ($this->withdrawWorkRequest)(new WithdrawWorkRequestCommand($requestId, WorkRequestState::Cancelled)) || $withdrawn;
+                $withdrawn = $this->ledger->withdraw($requestId, WithdrawKind::Cancelled) || $withdrawn;
                 continue;
             }
 
             $deadline = ($request->reopenedAt ?? $request->createdAt)->add(new \DateInterval(\sprintf('PT%dM', $run->template->workTimeoutMinutes)));
-            if ($expire && WorkRequestState::Open === $request->state && $deadline <= $run->now
-                && ($this->withdrawWorkRequest)(new WithdrawWorkRequestCommand($requestId, WorkRequestState::Expired))) {
+            if ($expire && WorkState::Open === $request->state && $deadline <= $run->now
+                && $this->ledger->withdraw($requestId, WithdrawKind::Expired)) {
                 $withdrawn = true;
                 // A repair always pauses, because nothing else ends its escalation.
                 $state = $run->states[$rule->id] ?? null;
@@ -426,7 +420,7 @@ final readonly class Engine
             return false;
         }
 
-        return null !== $this->workerRuns->findLatestContinuationOfCard($run->card->id, $pause->createdAt, $pause->ruleId);
+        return null !== $this->ledger->latestContinuation($run->card->id, $pause->createdAt, $pause->ruleId);
     }
 
     /**
@@ -538,9 +532,9 @@ final readonly class Engine
         }
         if (!$bound->truth) {
             // The reset forgets the repair, so its live request ends with it.
-            $tracked = $state->repaired && null !== $state->workRequestId ? $this->workRequests->find($state->workRequestId) : null;
+            $tracked = $state->repaired && null !== $state->workRequestId ? $this->ledger->find($state->workRequestId) : null;
             if (null !== $tracked && $tracked->kind === $run->template->onWorkFailed?->repairKind
-                && ($this->withdrawWorkRequest)(new WithdrawWorkRequestCommand($state->workRequestId, WorkRequestState::Cancelled))) {
+                && $this->ledger->withdraw($state->workRequestId, WithdrawKind::Cancelled)) {
                 // The rules after this one read the cancelled request.
                 $run->facts = $this->facts($run->card, $run->now, $run->facts);
             }

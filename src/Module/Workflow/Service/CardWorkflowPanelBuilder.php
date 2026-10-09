@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Service;
 
-use App\Module\Bridge\Service\CardHolds;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Workflow\Action\ActionParams;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
@@ -15,6 +14,7 @@ use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Contract\PauseView;
 use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
+use App\Module\Workflow\Contract\WorkLedger;
 use App\Module\Workflow\Engine\RuleSubject;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Template\ActionType;
@@ -35,7 +35,7 @@ final readonly class CardWorkflowPanelBuilder
 {
     public function __construct(
         private WorkflowAutomation $automation,
-        private CardHolds $cardHolds,
+        private WorkLedger $ledger,
         private CardPauses $cardPauses,
         private ProjectRepository $projects,
         private TemplateSource $templates,
@@ -53,7 +53,7 @@ final readonly class CardWorkflowPanelBuilder
         $cardId = $card->id;
         $projectId = $card->projectId;
         $project = $this->projects->find($projectId) ?? throw new \LogicException('A stored card has a project.');
-        $managed = !$this->cardHolds->isHeld($project, $cardId) && $this->automation->runsFor($project);
+        $managed = !$this->ledger->isHeld($projectId, $cardId) && $this->automation->runsFor($project);
         $pause = $this->cardPauses->findActive($cardId);
 
         $template = null;

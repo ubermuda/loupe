@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Module\Workflow\Command;
 
 use App\Exception\DomainErrors;
-use App\Module\Bridge\Service\CardHolds;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Workflow\Contract\CardEvaluations;
 use App\Module\Workflow\Contract\CardPauses;
 use App\Module\Workflow\Contract\PauseView;
+use App\Module\Workflow\Contract\WorkLedger;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Service\WorkflowAutomation;
 use Doctrine\ORM\EntityManagerInterface;
@@ -31,7 +31,7 @@ final readonly class ReleaseWorkflowPauseHandler
     public function __construct(
         private EntityManagerInterface $em,
         private WorkflowRuleStateRepository $workflowRuleStates,
-        private CardHolds $cardHolds,
+        private WorkLedger $ledger,
         private WorkflowAutomation $automation,
         private CardPauses $cardPauses,
         private ProjectRepository $projects,
@@ -48,7 +48,7 @@ final readonly class ReleaseWorkflowPauseHandler
         // Returns the refusal, because an exception inside the closure closes the entity manager.
         $outcome = $this->em->wrapInTransaction(function () use ($command, $cardId, $project): PauseView|string {
             $this->workflowRuleStates->lockCard($cardId);
-            if ($this->cardHolds->isHeld($project, $cardId) || !$this->automation->runsFor($project)) {
+            if ($this->ledger->isHeld($project->id ?? throw new \LogicException('A stored project has an id.'), $cardId) || !$this->automation->runsFor($project)) {
                 return self::CARD_UNMANAGED;
             }
             $pause = $this->cardPauses->findActive($cardId);
