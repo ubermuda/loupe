@@ -28,6 +28,8 @@ This paragraph contains a ${KNOWN_PHRASE} in this review.`;
 const DOC = '[data-comment-anchor-target="doc"]';
 const TOOLBAR = '[data-comment-anchor-target="toolbar"]';
 const COMPOSER = '[data-comment-anchor-target="composer"]';
+// A strike row shows its quote struck through, and a new row opens the panel.
+const STRIKE_ROW = '#comment-rows .lp-comment-row:has(del)';
 const SUGGEST_COMPOSER = '[data-comment-anchor-target="suggestComposer"]';
 
 interface ReviewState {
@@ -167,14 +169,10 @@ test('a keystroke strikes the selection without ever opening a composer', async 
     await selectKnownPhrase(page);
     await page.keyboard.press('s');
 
-    await expect(
-        page.locator('.lp-comment-thread[data-anchor-kind="strike"]'),
-    ).toBeVisible({
+    await expect(page.locator(STRIKE_ROW)).toBeVisible({
         timeout: coverageScaled(10000),
     });
-    await expect(page.locator('.lp-comment-quote--struck')).toContainText(
-        KNOWN_PHRASE,
-    );
+    await expect(page.locator(`${STRIKE_ROW} del`)).toHaveText(KNOWN_PHRASE);
     await expect(page.locator(COMPOSER)).toBeHidden();
     await expect(page.locator(SUGGEST_COMPOSER)).toBeHidden();
 
@@ -209,9 +207,7 @@ test('clicking away disarms the shortcut instead of leaving it on a stale anchor
     // be zero for the boring reason that nothing was ever wired up.
     await selectKnownPhrase(page);
     await page.keyboard.press('s');
-    await expect(
-        page.locator('.lp-comment-thread[data-anchor-kind="strike"]'),
-    ).toBeVisible({
+    await expect(page.locator(STRIKE_ROW)).toBeVisible({
         timeout: coverageScaled(10000),
     });
 
@@ -238,9 +234,7 @@ test('holding the strike key posts one strike, not one per repeat', async ({
     // what makes the test about `event.repeat` specifically: once submit-end has
     // released the in-flight flag, that guard can no longer suppress anything, so
     // the repeats below are held back by nothing else.
-    await expect(
-        page.locator('.lp-comment-thread[data-anchor-kind="strike"]'),
-    ).toBeVisible({
+    await expect(page.locator(STRIKE_ROW)).toBeVisible({
         timeout: coverageScaled(10000),
     });
 
@@ -264,9 +258,7 @@ test('two fast keypresses post one strike, not two', async ({ page }) => {
     await page.keyboard.press('s');
     await page.keyboard.press('s');
 
-    await expect(
-        page.locator('.lp-comment-thread[data-anchor-kind="strike"]'),
-    ).toBeVisible({
+    await expect(page.locator(STRIKE_ROW)).toBeVisible({
         timeout: coverageScaled(10000),
     });
 

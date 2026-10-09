@@ -10,6 +10,7 @@
 import { expect, type Page } from '@playwright/test';
 import { createTest, suppressToolbar, suppressWidget } from '../fixtures';
 import { coverageScaled } from '../timeouts';
+import { showPanel } from './panels';
 
 // Switching view is a Turbo visit, and a loaded dev server answers one in more
 // than the 5 s default: a trace of a failed run measured 6.6 s for a single
@@ -88,6 +89,7 @@ const VERSION_TWO = [
 const CELL = '.lp-diff-columns__cell';
 const VOID_CELL = '.lp-diff-columns__cell--void';
 const MARGIN = '.lp-review-margin';
+const WHOLE_DOCUMENT = '.lp-comment-whole-document';
 const VIEWS = '.lp-diff-views';
 
 test('comparison controls share the standard desktop metrics', async ({
@@ -293,9 +295,7 @@ test('the two columns pair the blocks and carry no comment column', async ({
     // The two columns spend the whole width on the versions, so this view
     // carries no comment column and takes no new comment.
     await expect(page.locator(MARGIN)).toHaveCount(0);
-    await expect(
-        page.getByRole('button', { name: 'Add general comment' }),
-    ).toHaveCount(0);
+    await expect(page.locator(WHOLE_DOCUMENT)).toHaveCount(0);
     await expect(page.locator('#diff-columns-notice')).toContainText(
         'no comment column',
     );
@@ -328,8 +328,9 @@ test('the two columns pair the blocks and carry no comment column', async ({
         .click();
     await expect(page).toHaveURL(`${reviewPath}/diff/1/2?view=rendered`, VISIT);
     await expect(page.locator(MARGIN)).toHaveCount(1);
+    await showPanel(page, 'Comments');
     await expect(
-        page.getByRole('button', { name: 'Add general comment' }),
+        page.getByRole('button', { name: 'Comment on the whole document' }),
     ).toBeVisible();
     await expect(page.locator('#diff-columns-notice')).toHaveCount(0);
 });
