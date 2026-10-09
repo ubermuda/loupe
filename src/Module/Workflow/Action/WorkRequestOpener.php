@@ -8,6 +8,8 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\CardPullRequests;
+use App\Module\Board\Workflow\DocumentsFacts;
 use App\Module\Bridge\Command\OpenWorkRequestCommand;
 use App\Module\Bridge\Command\OpenWorkRequestHandler;
 use App\Module\Bridge\ValueObject\WorkRequestContext;
@@ -16,7 +18,6 @@ use App\Module\Workflow\Contract\ActionContext;
 use App\Module\Workflow\Contract\ActionOutcome;
 use App\Module\Workflow\Contract\DocumentFacts;
 use App\Module\Workflow\Contract\Facts;
-use App\Module\Workflow\Service\CardPullRequests;
 use App\Module\Workflow\Template\AppRules;
 use App\Module\Workflow\Template\TemplateParser;
 
@@ -45,7 +46,7 @@ final readonly class WorkRequestOpener
         if (null !== $tag) {
             $status = $context->optionalString(TemplateParser::DOCUMENT_STATUS);
             $documents = array_values(array_filter(
-                $facts->card->documents,
+                $facts->get(DocumentsFacts::class)->documents,
                 static fn (DocumentFacts $document): bool => \in_array($tag, $document->tags, true) && (null === $status || $status === $document->status),
             ));
             if (1 !== \count($documents)) {

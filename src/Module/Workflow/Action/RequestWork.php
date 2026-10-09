@@ -8,6 +8,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\CardPullRequests;
 use App\Module\Workflow\Contract\Action;
 use App\Module\Workflow\Contract\ActionContext;
 use App\Module\Workflow\Contract\ActionDescription;
@@ -19,7 +20,6 @@ use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\Parameter;
 use App\Module\Workflow\Contract\ParameterType;
 use App\Module\Workflow\Contract\PauseKind;
-use App\Module\Workflow\Service\CardPullRequests;
 use App\Module\Workflow\Template\TemplateParser;
 
 /** A fix request also writes the fix-requested card event that the experiment report counts. */

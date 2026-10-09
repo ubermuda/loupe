@@ -32,7 +32,7 @@ final class RuleSubjectTest extends TestCase
         self::assertTrue($bound->binds);
         self::assertSame($red, $bound->facts->pullRequest);
         self::assertSame($red->id, $bound->subject);
-        self::assertSame([$merged, $green, $red], $bound->facts->pullRequests);
+        self::assertSame([$merged, $green, $red], $bound->facts->pullRequests());
     }
 
     public function test_a_rule_that_no_open_pull_request_makes_true_binds_the_first_open_one(): void

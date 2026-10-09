@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Workflow\Condition;
 
 use App\Module\Workflow\Contract\Condition;
-use App\Module\Workflow\Contract\FactKey;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\PullRequestFacts;
+use App\Module\Workflow\Contract\PullRequestList;
 use App\Module\Workflow\Contract\PullRequestState;
 use Symfony\Component\Translation\TranslatableMessage;
 
@@ -34,13 +34,13 @@ final readonly class PullRequestsAllFinishedOneMerged implements Condition
     #[\Override]
     public function reads(array $params): array
     {
-        return [FactKey::PullRequests];
+        return [PullRequestList::class];
     }
 
     #[\Override]
     public function evaluate(Facts $facts, array $params): bool
     {
-        $pullRequests = $facts->pullRequests;
+        $pullRequests = $facts->pullRequests();
 
         return array_any($pullRequests, static fn (PullRequestFacts $pullRequest): bool => PullRequestState::Merged === $pullRequest->state)
             && array_all($pullRequests, static fn (PullRequestFacts $pullRequest): bool => PullRequestState::Open !== $pullRequest->state);

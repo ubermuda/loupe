@@ -89,7 +89,7 @@ final readonly class MoveCard implements Action
     {
         $card = $this->cards->find($context->card->id) ?? throw new \LogicException('A stored card has an id.');
         $from = $context->optionalString('from');
-        if (null !== $from && $from !== $context->facts->card->slot) {
+        if (null !== $from && $from !== $context->facts->slot) {
             return ActionOutcome::done();
         }
         $target = $this->column($card, $context->string('to'));

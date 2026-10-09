@@ -490,7 +490,7 @@ final readonly class Engine
                 !$applies => 'facts-changed',
                 null !== $rule->when->unreadable($run->facts) => null,
                 !$bound->truth,
-                $this->fingerprint->of($bound->facts, $rule->when->reads()) !== ($run->states[$rule->id] ?? null)?->fingerprint => 'facts-changed',
+                !$this->fingerprint->sameAs(($run->states[$rule->id] ?? null)?->fingerprint, $bound->facts, $rule->when->reads()) => 'facts-changed',
                 default => null,
             },
         };
@@ -557,7 +557,7 @@ final readonly class Engine
         $stored = $state->subjectPullRequestId;
         $newSubject = $bound->binds && null !== $stored && null !== $bound->subject && !$stored->equals($bound->subject);
         $fire = !isset($run->repairing[$rule->id])
-            && ($newSubject || !$state->truth || ($state->attempts > 0 && ((null !== $state->dueAt && $state->dueAt <= $run->now) || $state->fingerprint !== $fingerprint)));
+            && ($newSubject || !$state->truth || ($state->attempts > 0 && ((null !== $state->dueAt && $state->dueAt <= $run->now) || !$this->fingerprint->sameAs($state->fingerprint, $bound->facts, $rule->when->reads()))));
         // A release rule that turned true before its pause existed would otherwise wait for a new edge.
         if (!$fire && ReleasePause::KEY === $rule->then->key) {
             $fire = null !== $run->holdingPause && $run->holdingPause->reason === ActionOutcome::code(ActionParams::string($rule, 'reason'));

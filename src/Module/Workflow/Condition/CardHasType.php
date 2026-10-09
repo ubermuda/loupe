@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Condition;
 
+use App\Module\Board\Workflow\CardTypeFacts;
 use App\Module\Workflow\Contract\Condition;
-use App\Module\Workflow\Contract\FactKey;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\Parameter;
 use App\Module\Workflow\Contract\ParameterType;
@@ -35,13 +35,13 @@ final readonly class CardHasType implements Condition
     #[\Override]
     public function reads(array $params): array
     {
-        return [FactKey::CardType];
+        return [CardTypeFacts::class];
     }
 
     #[\Override]
     public function evaluate(Facts $facts, array $params): bool
     {
-        return ParameterValue::string($params, 'type') === $facts->card->type;
+        return ParameterValue::string($params, 'type') === $facts->get(CardTypeFacts::class)->type;
     }
 
     #[\Override]
