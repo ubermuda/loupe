@@ -6676,16 +6676,6 @@
             <trans-unit id="board.card.link.mergeability.conflicting"><source>board.card.link.mergeability.conflicting</source><target>Conflict</target></trans-unit>
             <trans-unit id="board.card.link.mergeability.behind"><source>board.card.link.mergeability.behind</source><target>Behind base</target></trans-unit>
             <trans-unit id="board.card.link.mergeability.blocked"><source>board.card.link.mergeability.blocked</source><target>Merge blocked</target></trans-unit>
-            <trans-unit id="board.card.link.sync.waits_for_approval"><source>board.card.link.sync.waits_for_approval</source><target>Waits for an approval</target></trans-unit>
-            <trans-unit id="board.card.link.sync.conflicts"><source>board.card.link.sync.conflicts</source><target>Conflicts with the base</target></trans-unit>
-            <trans-unit id="board.card.link.sync.waits_turn"><source>board.card.link.sync.waits_turn</source><target>Waits its turn behind #%number%</target></trans-unit>
-            <trans-unit id="board.card.link.sync.synced_checks_running"><source>board.card.link.sync.synced_checks_running</source><target>Synced, checks running</target></trans-unit>
-            <trans-unit id="board.card.link.sync.sync_failed"><source>board.card.link.sync.sync_failed</source><target>Sync failed: %reason%</target></trans-unit>
-            <trans-unit id="board.card.link.sync.reason.permission"><source>board.card.link.sync.reason.permission</source><target>the app may not write to the repository</target></trans-unit>
-            <trans-unit id="board.card.link.sync.reason.refused"><source>board.card.link.sync.reason.refused</source><target>the forge refused the update</target></trans-unit>
-            <trans-unit id="board.card.link.sync.reason.timeout"><source>board.card.link.sync.reason.timeout</source><target>the update did not finish in time</target></trans-unit>
-            <trans-unit id="board.card.link.sync.reason.no_updater"><source>board.card.link.sync.reason.no_updater</source><target>Loupe cannot update a pull request on this forge</target></trans-unit>
-            <trans-unit id="board.card.link.sync.reason.retries_exhausted"><source>board.card.link.sync.reason.retries_exhausted</source><target>the forge failed each try to update the branch</target></trans-unit>
             <trans-unit id="board.card.link.review.approved"><source>board.card.link.review.approved</source><target>Approved</target></trans-unit>
             <trans-unit id="board.card.link.review.approval_outdated"><source>board.card.link.review.approval_outdated</source><target>Approval outdated</target></trans-unit>
             <trans-unit id="board.card.link.review.changes_requested"><source>board.card.link.review.changes_requested</source><target>Changes requested</target></trans-unit>
@@ -7018,10 +7008,6 @@
                 <source>board.automation.flash.saved</source>
                 <target>Automation settings saved.</target>
             </trans-unit>
-            <trans-unit id="board.automation.error.epic_branch_pattern_invalid">
-                <source>board.automation.error.epic_branch_pattern_invalid</source>
-                <target>The pattern must be a branch name that holds {number} exactly once, or be empty.</target>
-            </trans-unit>
             <trans-unit id="board.fix_run_comment.intro">
                 <source>board.fix_run_comment.intro</source>
                 <target>Loupe queued a fix run for this pull request.</target>
@@ -7092,7 +7078,7 @@
             </trans-unit>
             <trans-unit id="board.form.save_board_automation_settings_form.sync_behind.help">
                 <source>board.form.save_board_automation_settings_form.sync_behind.help</source>
-                <target>Loupe updates the branch of the next approved pull request that is behind its base, one at a time. The GitHub App needs "Contents: read and write".</target>
+                <target>Has no effect. The rule of the workflow decides this write.</target>
             </trans-unit>
             <trans-unit id="board.form.save_board_automation_settings_form.merge_pull_requests.label">
                 <source>board.form.save_board_automation_settings_form.merge_pull_requests.label</source>
@@ -7149,14 +7135,6 @@
             <trans-unit id="board.form.save_board_automation_settings_form.site_review_check.help">
                 <source>board.form.save_board_automation_settings_form.site_review_check.help</source>
                 <target>Loupe posts a check named "Loupe site review" on each open pull request of a managed card. It fails while open site-review notes remain. The GitHub App needs "Checks: read and write".</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.epic_branch_pattern.label">
-                <source>board.form.save_board_automation_settings_form.epic_branch_pattern.label</source>
-                <target>Epic branch pattern</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.epic_branch_pattern.help">
-                <source>board.form.save_board_automation_settings_form.epic_branch_pattern.help</source>
-                <target>The branch that the breakdown pushes for an epic. {number} stands for the epic card number. The pattern must match the epic branch of your repository profile. Leave it empty when the project uses no epic branches.</target>
             </trans-unit>
             <trans-unit id="board.automation.comment_failure.summary">
                 <source>board.automation.comment_failure.summary</source>

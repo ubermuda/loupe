@@ -10,7 +10,6 @@ use App\Module\Board\Entity\PullRequestCommentState;
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
-use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
@@ -61,7 +60,6 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         self::assertCount(0, $form->filter('input[name="'.self::FORM.'[postWidgetReviews]"]:checked'));
         self::assertCount(1, $form->filter('input[name="'.self::FORM.'[siteReviewCheck]"]'));
         self::assertCount(0, $form->filter('input[name="'.self::FORM.'[siteReviewCheck]"]:checked'));
-        self::assertSame('epic/{number}', $form->filter('input[name="'.self::FORM.'[epicBranchPattern]"]')->attr('value'));
         self::assertSelectorTextContains('[data-board-automation-settings]', 'Contents: read and write');
         self::assertSelectorNotExists('[data-fix-run-comment-failure]');
         self::assertNull($this->stored($project));
@@ -94,7 +92,6 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         $siteReviewCheck = $submit[self::FORM.'[siteReviewCheck]'];
         self::assertInstanceOf(ChoiceFormField::class, $siteReviewCheck);
         $siteReviewCheck->tick();
-        $submit[self::FORM.'[epicBranchPattern]'] = 'feature/epic-{number}';
         $this->client->submit($submit);
 
         $url = '/projects/'.$project->id.'/settings/automation';
@@ -115,7 +112,6 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         self::assertTrue($settings->epicDraftSwitch);
         self::assertFalse($settings->closeEpicPullRequests);
         self::assertTrue($settings->openEpicPullRequests);
-        self::assertSame('feature/epic-{number}', $settings->epicBranchPattern);
 
         $form = $this->page($project)->filter('form[name="'.self::FORM.'"]');
         self::assertCount(0, $form->filter('input[name="'.self::FORM.'[enabled]"]:checked'));
@@ -128,45 +124,7 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         self::assertCount(1, $form->filter('input[name="'.self::FORM.'[openEpicPullRequests]"]:checked'));
         self::assertCount(1, $form->filter('input[name="'.self::FORM.'[postWidgetReviews]"]:checked'));
         self::assertCount(1, $form->filter('input[name="'.self::FORM.'[siteReviewCheck]"]:checked'));
-        self::assertSame('feature/epic-{number}', $form->filter('input[name="'.self::FORM.'[epicBranchPattern]"]')->attr('value'));
-    }
-
-    public function test_an_empty_epic_branch_pattern_is_stored_as_null(): void
-    {
-        $project = $this->ownedProject('automation-empty-pattern@example.com');
-        $submit = $this->page($project)->filter('form[name="'.self::FORM.'"]')->form();
-        $submit[self::FORM.'[epicBranchPattern]'] = '  ';
-        $this->client->submit($submit);
-
-        self::assertResponseRedirects('/projects/'.$project->id.'/settings/automation');
-        $settings = $this->stored($project);
-        self::assertNotNull($settings);
-        self::assertNull($settings->epicBranchPattern);
-    }
-
-    /** @return iterable<string, array{string}> */
-    public static function invalidPatterns(): iterable
-    {
-        yield 'no placeholder' => ['epic/main'];
-        yield 'the placeholder twice' => ['epic/{number}/{number}'];
-        yield 'a trailing slash' => ['epic/{number}/'];
-        yield 'two dots' => ['epic/{number}..old'];
-        yield 'a space' => ['epic {number}'];
-        yield 'a lock suffix' => ['epic/{number}.lock'];
-        yield 'a leading dash' => ['-epic-{number}'];
-    }
-
-    #[DataProvider('invalidPatterns')]
-    public function test_an_epic_branch_pattern_that_is_no_branch_name_with_one_number_is_refused(string $pattern): void
-    {
-        $project = $this->ownedProject('automation-bad-pattern@example.com');
-        $submit = $this->page($project)->filter('form[name="'.self::FORM.'"]')->form();
-        $submit[self::FORM.'[epicBranchPattern]'] = $pattern;
-        $this->client->submit($submit);
-
-        self::assertResponseStatusCodeSame(422);
-        self::assertSelectorTextContains('[data-field-errors="epicBranchPattern"]', 'branch name');
-        self::assertNull($this->stored($project));
+        self::assertCount(0, $form->filter('input[name="'.self::FORM.'[epicBranchPattern]"]'));
     }
 
     public function test_the_newest_failed_comment_shows_its_pull_request_and_its_cause(): void

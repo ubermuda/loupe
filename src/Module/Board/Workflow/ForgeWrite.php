@@ -9,7 +9,6 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardPullRequests;
 use App\Module\Board\Service\FixRunCommentQueue;
 use App\Module\Board\Service\SiteReviewCheckPublisher;
@@ -19,7 +18,6 @@ use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Forge\Service\ForgePullRequestWrites;
-use App\Module\Forge\Service\PullRequestBranchUpdaters;
 use App\Module\Forge\Service\PullRequestOpeners;
 use App\Module\Forge\Service\PullRequestStateWriters;
 use App\Module\Forge\Service\PullRequestSyncFailed;
@@ -34,6 +32,7 @@ use App\Module\Workflow\Contract\CardEvaluations;
 use App\Module\Workflow\Contract\CardEventCause;
 use App\Module\Workflow\Contract\CardTypeCatalog;
 use App\Module\Workflow\Contract\ChecksParameters;
+use App\Module\Workflow\Contract\EpicBranches;
 use App\Module\Workflow\Contract\Parameter;
 use App\Module\Workflow\Contract\ParameterType;
 use App\Module\Workflow\Contract\RefiresOnFactChange;
@@ -56,10 +55,9 @@ final readonly class ForgeWrite implements Action, ChecksParameters, RefiresOnFa
     public function __construct(
         private CardRepository $cards,
         private CardPullRequests $cardPullRequests,
-        private BoardAutomation $boardAutomation,
+        private EpicBranches $epicBranches,
         private ForgePullRequestWrites $forgePullRequestWrites,
         private ForgePullRequestRepository $forgePullRequests,
-        private PullRequestBranchUpdaters $branchUpdaters,
         private PullRequestStateWriters $stateWriters,
         private PullRequestOpeners $pullRequestOpeners,
         private WorkRequestOpener $opener,
@@ -190,7 +188,7 @@ final readonly class ForgeWrite implements Action, ChecksParameters, RefiresOnFa
             return match ($write) {
                 ForgeWriteKind::Merge => $this->forgeWrite(fn () => $this->forgePullRequestWrites->merge($pullRequest, $this->mergeMethod), $fallback),
                 ForgeWriteKind::ChangeBase => $this->changeBase($pullRequest, $fallback),
-                ForgeWriteKind::UpdateBranch => $this->updateBranch($pullRequest, $fallback),
+                ForgeWriteKind::UpdateBranch => $this->forgeWrite(fn () => $this->forgePullRequestWrites->updateBranch($pullRequest), $fallback),
             };
         } catch (PullRequestWriteFailed|PullRequestSyncFailed $e) {
             return ActionOutcome::refused($e->cause);
@@ -204,8 +202,7 @@ final readonly class ForgeWrite implements Action, ChecksParameters, RefiresOnFa
      */
     private function openEpic(string $ruleId, Card $card, array $pullRequests): ActionOutcome
     {
-        $settings = $this->boardAutomation->settingsOf($card->project);
-        $epicBranch = $settings->epicBranchOf($card->number);
+        $epicBranch = $this->epicBranches->of($card->project->requireId(), $card->number);
         if (!$this->catalog->forProject($card->project->requireId())->get($card->type)->children || null === $epicBranch) {
             return ActionOutcome::done();
         }
@@ -265,7 +262,7 @@ final readonly class ForgeWrite implements Action, ChecksParameters, RefiresOnFa
     {
         try {
             $write();
-        } catch (PullRequestWriteFailed $e) {
+        } catch (PullRequestWriteFailed|PullRequestSyncFailed $e) {
             if (self::lacksWriter($e->cause)) {
                 return $fallback();
             }
@@ -312,29 +309,6 @@ final readonly class ForgeWrite implements Action, ChecksParameters, RefiresOnFa
         }
 
         return $parent?->baseBranch;
-    }
-
-    /** @param \Closure(): ActionOutcome $fallback */
-    private function updateBranch(ForgePullRequest $pullRequest, \Closure $fallback): ActionOutcome
-    {
-        $updater = $this->branchUpdaters->for($pullRequest->forge);
-        if (null === $updater) {
-            return $fallback();
-        }
-        if (null === $pullRequest->headSha) {
-            return ActionOutcome::refused('no-head');
-        }
-        try {
-            $updater->update($pullRequest, $pullRequest->headSha);
-        } catch (PullRequestSyncFailed $e) {
-            if (self::lacksWriter($e->cause)) {
-                return $fallback();
-            }
-
-            throw $e;
-        }
-
-        return ActionOutcome::done();
     }
 
     /**

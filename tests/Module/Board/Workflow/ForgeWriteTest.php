@@ -19,7 +19,6 @@ use App\Module\Board\Repository\CardVerdictDeliveryRepository;
 use App\Module\Board\Repository\PullRequestCommentRepository;
 use App\Module\Board\Repository\PullRequestNoticeRepository;
 use App\Module\Board\Repository\SiteReviewCheckStateRepository;
-use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardPullRequests;
 use App\Module\Board\Service\FixRunCommentQueue;
 use App\Module\Board\Service\SiteReviewCheckPublisher;
@@ -49,6 +48,7 @@ use App\Module\Forge\Service\PullRequestSyncFailed;
 use App\Module\Forge\Service\PullRequestWriteFailed;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Contract\ActionOutcome;
+use App\Module\Workflow\Contract\EpicBranches;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Messenger\EvaluateCard;
 use App\Module\Workflow\Service\EvaluationTrigger;
@@ -232,6 +232,9 @@ final class ForgeWriteTest extends KernelTestCase
         self::assertEquals(ActionOutcome::done(), $this->write($card, 'update-branch'));
 
         self::assertSame([['update', $pullRequest->number, 'abc123']], $this->writer->calls);
+        self::assertSame('abc123', $this->em()->getConnection()->fetchOne('SELECT sync_from_sha FROM forge_pull_requests WHERE id = ?', [$pullRequest->id?->toRfc4122()]));
+        self::assertEquals(ActionOutcome::refused('in-flight'), $this->write($card, 'update-branch'));
+        self::assertCount(1, $this->writer->calls);
     }
 
     public function test_a_branch_update_without_an_updater_or_a_head_or_that_fails(): void
@@ -245,6 +248,7 @@ final class ForgeWriteTest extends KernelTestCase
         self::assertEquals(ActionOutcome::refused('no-head'), $this->write($card, 'update-branch'));
 
         $pullRequest->headSha = 'abc123';
+        $this->em()->flush();
         $this->writer->failure = new PullRequestSyncFailed('merge_conflict', permanent: true);
         self::assertEquals(ActionOutcome::refused('merge-conflict'), $this->write($card, 'update-branch'));
     }
@@ -626,16 +630,16 @@ final class ForgeWriteTest extends KernelTestCase
         $action = new ForgeWrite(
             $this->service(CardRepository::class),
             new CardPullRequests($this->service(CardPullRequestRepository::class), $forgePullRequests),
-            $this->service(BoardAutomation::class),
+            $this->service(EpicBranches::class),
             new ForgePullRequestWrites(
                 new PullRequestMergers($registered),
                 new PullRequestBaseChangers($registered),
+                new PullRequestBranchUpdaters($registered),
                 $forgePullRequests,
                 $this->service(EntityManagerInterface::class),
                 new MockClock('2026-10-02 12:00:00'),
             ),
             $forgePullRequests,
-            new PullRequestBranchUpdaters($registered),
             new PullRequestStateWriters($registered),
             new PullRequestOpeners($registered),
             $this->opener(),

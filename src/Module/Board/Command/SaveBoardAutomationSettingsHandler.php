@@ -4,14 +4,10 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
-use App\Exception\DomainErrors;
-use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Event\BoardAutomationSettingsSaved;
-use App\Module\Board\Messenger\SyncNextPullRequest;
 use App\Module\Board\Service\BoardAutomation;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
-use Symfony\Component\Messenger\MessageBusInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 
@@ -21,25 +17,14 @@ final readonly class SaveBoardAutomationSettingsHandler
         private BoardAutomation $automation,
         private EntityManagerInterface $em,
         private Auditor $auditor,
-        private MessageBusInterface $bus,
         private EventDispatcherInterface $events,
     ) {
     }
 
-    public const string EPIC_BRANCH_PATTERN_INVALID = 'board.automation.error.epic_branch_pattern_invalid';
-
     public function __invoke(SaveBoardAutomationSettingsCommand $command): void
     {
-        $epicBranchPattern = trim($command->epicBranchPattern ?? '');
-        if ('' !== $epicBranchPattern
-            && (mb_strlen($epicBranchPattern) > BoardAutomationSettings::EPIC_BRANCH_PATTERN_MAX_LENGTH
-                || 1 !== preg_match(BoardAutomationSettings::EPIC_BRANCH_PATTERN_RULE, $epicBranchPattern))) {
-            throw new DomainErrors(['epicBranchPattern' => self::EPIC_BRANCH_PATTERN_INVALID]);
-        }
-
         $settings = $this->automation->settingsForUpdate($command->project);
         $wasEnabled = $settings->enabled;
-        $wasSyncing = $settings->enabled && $settings->syncBehind;
         $settings->enabled = $command->enabled;
         $settings->commentOnFixQueued = $command->commentOnFixQueued;
         $settings->commentOnStaleApproval = $command->commentOnStaleApproval;
@@ -51,17 +36,11 @@ final readonly class SaveBoardAutomationSettingsHandler
         $settings->openEpicPullRequests = $command->openEpicPullRequests;
         $settings->postWidgetReviews = $command->postWidgetReviews;
         $settings->siteReviewCheck = $command->siteReviewCheck;
-        $settings->epicBranchPattern = '' === $epicBranchPattern ? null : $epicBranchPattern;
         $this->em->flush();
         $this->events->dispatch(new BoardAutomationSettingsSaved(
             $command->project,
             !$wasEnabled && $command->enabled,
         ));
-
-        // A pull request that fell behind while the sync was off waits for no other trigger.
-        if (!$wasSyncing && $command->enabled && $command->syncBehind) {
-            $this->bus->dispatch(new SyncNextPullRequest($command->project->id ?? throw new \LogicException('A stored project has an id.')));
-        }
 
         $this->auditor->record('board.automation_settings_saved', AuditOutcome::Success, [
             'projectId' => (string) $command->project->id,
@@ -76,7 +55,6 @@ final readonly class SaveBoardAutomationSettingsHandler
             'openEpicPullRequests' => $command->openEpicPullRequests,
             'postWidgetReviews' => $command->postWidgetReviews,
             'siteReviewCheck' => $command->siteReviewCheck,
-            'epicBranchPattern' => $settings->epicBranchPattern,
         ]);
     }
 }

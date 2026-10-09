@@ -12,10 +12,7 @@ use App\Module\Forge\Entity\PullRequestState;
 /** The stored state of one pull request that a card links. */
 final readonly class PullRequestStateView
 {
-    /**
-     * @param list<string>         $failedChecks
-     * @param ?PullRequestSyncView $sync         null when the project does not sync a behind pull request, or the row has nothing to show
-     */
+    /** @param list<string> $failedChecks */
     public function __construct(
         public PullRequestState $state,
         public bool $draft,
@@ -25,11 +22,10 @@ final readonly class PullRequestStateView
         public PullRequestReviewView $review,
         public bool $readyToMerge,
         public ?\DateTimeImmutable $refreshedAt,
-        public ?PullRequestSyncView $sync = null,
     ) {
     }
 
-    public static function of(ForgePullRequest $row, ?PullRequestSyncView $sync = null): self
+    public static function of(ForgePullRequest $row): self
     {
         return new self(
             $row->state,
@@ -40,7 +36,6 @@ final readonly class PullRequestStateView
             PullRequestReviewView::of($row),
             $row->readyToMerge,
             $row->refreshedAt,
-            $sync,
         );
     }
 }
