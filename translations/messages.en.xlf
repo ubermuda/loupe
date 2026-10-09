@@ -4449,6 +4449,14 @@
                 <source>landing.feature.harnesses.text</source>
                 <target>Your bridge runs each stage worker on Claude Code or Codex, on your own subscriptions or on an API key such as OpenRouter. An experiment compares them on cost, speed and outcome.</target>
             </trans-unit>
+            <trans-unit id="landing.feature.agent_review.title">
+                <source>landing.feature.agent_review.title</source>
+                <target>An agent reviews each pull request</target>
+            </trans-unit>
+            <trans-unit id="landing.feature.agent_review.text">
+                <source>landing.feature.agent_review.text</source>
+                <target>A separate agent reviews each pull request before you see it, and posts its findings beside the lines they concern. A failed review asks for a fix at once. The pull request reaches you when the review passes.</target>
+            </trans-unit>
             <trans-unit id="landing.feature.cost_analysis.title">
                 <source>landing.feature.cost_analysis.title</source>
                 <target>Cost and experiment analysis</target>
