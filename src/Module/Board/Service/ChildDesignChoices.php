@@ -66,7 +66,7 @@ final readonly class ChildDesignChoices
 
     /**
      * Runs the card write and the actions of the choice in one transaction. A refusal rolls both back.
-     * For a card that exists and keeps its parent, the move the choice makes is checked before the write, so a refusal leaves no trace.
+     * For a card that exists and keeps its parent and its column, the moves of the choice are checked before the write, so a refusal leaves no trace.
      *
      * @param \Closure(): Card $write
      *
@@ -83,8 +83,7 @@ final readonly class ChildDesignChoices
             }
         }
         if (null !== $existing) {
-            // The write can change the column, so the check stops at a move with a `from` slot, and the check after the write covers it.
-            $this->checkMoves($existing, $choice, $cause, withFrom: false);
+            $this->checkMoves($existing, $choice, $cause);
         }
 
         return $this->em->wrapInTransaction(function () use ($write, $choice, $cause): Card {
@@ -92,7 +91,7 @@ final readonly class ChildDesignChoices
             if (null === $card->parent) {
                 throw new ChildDesignRefused('childDesign: The card has no parent card, so there is nothing to inherit.');
             }
-            $this->checkMoves($card, $choice, $cause, withFrom: true);
+            $this->checkMoves($card, $choice, $cause);
             $refusal = $this->choices->run($card->id ?? throw new \LogicException('A stored card has an id.'), $choice);
             if (null !== $refusal) {
                 throw new ChildDesignRefused(self::refusal($choice, $refusal));
@@ -104,20 +103,15 @@ final readonly class ChildDesignChoices
     }
 
     /** Checks each move from the column the steps before it reach, as an agent move. */
-    private function checkMoves(Card $card, string $choice, ?CardEventCause $cause, bool $withFrom): void
+    private function checkMoves(Card $card, string $choice, ?CardEventCause $cause): void
     {
         $snapshot = $card->snapshot();
         foreach ($this->choices->forProject($card->project->requireId())[$choice] ?? [] as $step) {
             if (MoveCard::KEY !== $step->key || null === $step->to) {
                 continue;
             }
-            if (isset($step->params['from'])) {
-                if (!$withFrom) {
-                    return;
-                }
-                if (true !== $step->from?->id->equals($snapshot->column->id)) {
-                    continue;
-                }
+            if (isset($step->params['from']) && true !== $step->from?->id->equals($snapshot->column->id)) {
+                continue;
             }
             if (!$this->moveGuard->allows($snapshot, $step->to, Actor::Agent, $cause)) {
                 throw new CardManaged($card->number);
