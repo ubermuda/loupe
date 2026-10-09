@@ -12,7 +12,6 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEvent;
 use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardVerdict;
 use App\Module\Board\Entity\CardVerdictDelivery;
 use App\Module\Board\Entity\CardVerdictDeliveryState;
@@ -27,6 +26,7 @@ use App\Module\Board\Service\CardNoteSnapshot;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
+use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Contract\CardEvaluations;
 use App\Module\Workflow\Messenger\EvaluateCard;
 use App\Tests\Module\Board\CardVerdictScenario;
@@ -123,7 +123,7 @@ final class SendCardVerdictHandlerTest extends KernelTestCase
 
         $event = $this->service(CardEventRepository::class)->findOneBy(['card' => $card, 'kind' => CardEventKind::Verdict]);
         self::assertInstanceOf(CardEvent::class, $event);
-        self::assertSame(CardReporter::Human, $event->actorKind);
+        self::assertSame(Actor::Human, $event->actorKind);
         self::assertSame($this->reviewer->id?->toRfc4122(), $event->actorUser?->id?->toRfc4122());
         self::assertSame(['kind' => 'approve', 'noteCount' => 1, 'pullRequestCount' => 1], $event->detail);
 

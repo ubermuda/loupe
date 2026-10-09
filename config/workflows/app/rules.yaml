@@ -15,11 +15,11 @@ rules:
                   - The bridge rule file maps the discovery kind, or sets appPrompts to true
 
     - id: post-widget-review
-      when: { site_review.verdict_unsent: {} }
+      when: { card.site_review.verdict_unsent: {} }
       then: { forge-write: { write: post-review } }
 
     - id: sync-site-review-check
-      when: { site_review.check_stale: {} }
+      when: { card.site_review.check_stale: {} }
       then: { forge-write: { write: site-review-check } }
 
 # Work the app asks a bridge for outside the engine. Each entry ships a prompt.

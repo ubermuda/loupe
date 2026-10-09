@@ -31,6 +31,8 @@ final class ConditionCatalogueTest extends KernelTestCase
         'card.run.last_refusal' => 'workflow.source.bridge',
         'card.run.work_active' => 'workflow.source.bridge',
         'card.run.worker_active' => 'workflow.source.bridge',
+        'card.site_review.check_stale' => 'workflow.source.board',
+        'card.site_review.verdict_unsent' => 'workflow.source.board',
         'card.type' => 'workflow.source.board',
         'pr.approval_covers_head' => 'workflow.source.forge',
         'pr.base_is_epic_branch' => 'workflow.source.forge',
@@ -44,8 +46,6 @@ final class ConditionCatalogueTest extends KernelTestCase
         'pr.open' => 'workflow.source.forge',
         'pr.parent_merged' => 'workflow.source.forge',
         'pr.stacked' => 'workflow.source.forge',
-        'site_review.check_stale' => 'workflow.source.board',
-        'site_review.verdict_unsent' => 'workflow.source.board',
     ];
 
     /** The keys whose waiting sentence id is not the key with underscores. */
@@ -67,6 +67,8 @@ final class ConditionCatalogueTest extends KernelTestCase
         'card.run.last_refusal' => 'run_last_refusal',
         'card.run.work_active' => 'run_work_active',
         'card.run.worker_active' => 'run_worker_active',
+        'card.site_review.check_stale' => 'site_review_check_stale',
+        'card.site_review.verdict_unsent' => 'site_review_verdict_unsent',
     ];
 
     public function test_the_container_registers_exactly_the_catalogue(): void

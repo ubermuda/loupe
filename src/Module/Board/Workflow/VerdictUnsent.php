@@ -14,7 +14,7 @@ final readonly class VerdictUnsent implements Condition
     #[\Override]
     public static function key(): string
     {
-        return 'site_review.verdict_unsent';
+        return 'card.site_review.verdict_unsent';
     }
 
     #[\Override]

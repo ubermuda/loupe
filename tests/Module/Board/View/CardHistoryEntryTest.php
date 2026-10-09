@@ -278,7 +278,7 @@ final class CardHistoryEntryTest extends TestCase
 
     public function test_a_verdict_names_the_person_and_the_decision(): void
     {
-        $entry = CardHistoryEntry::of($this->event(CardEventKind::Verdict, CardReporter::Human, $this->user, ['kind' => 'request-changes', 'noteCount' => 2]));
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::Verdict, Actor::Human, $this->user, ['kind' => 'request-changes', 'noteCount' => 2]));
 
         self::assertSame('lucide:message-square', $entry->icon);
         self::assertEquals(new TranslatableMessage('board.card.history.verdict', [

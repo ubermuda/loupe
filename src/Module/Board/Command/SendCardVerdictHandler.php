@@ -7,7 +7,6 @@ namespace App\Module\Board\Command;
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEventKind;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardVerdict;
 use App\Module\Board\Entity\CardVerdictDelivery;
 use App\Module\Board\Repository\CardEventRepository;
@@ -17,6 +16,7 @@ use App\Module\Board\Repository\CardVerdictDeliveryRepository;
 use App\Module\Board\Repository\CardVerdictRepository;
 use App\Module\Board\Service\CardNoteSnapshot;
 use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Contract\CardEvaluations;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Uid\Uuid;
@@ -107,7 +107,7 @@ final readonly class SendCardVerdictHandler
             foreach ($picked as $pullRequest) {
                 $this->em->persist(new CardVerdictDelivery($verdict, $pullRequest));
             }
-            $this->cardEvents->record($card, CardEventKind::Verdict, CardReporter::Human, $command->reviewer, [
+            $this->cardEvents->record($card, CardEventKind::Verdict, Actor::Human, $command->reviewer, [
                 'kind' => $command->kind->value,
                 'noteCount' => \count($notes),
                 'pullRequestCount' => \count($picked),

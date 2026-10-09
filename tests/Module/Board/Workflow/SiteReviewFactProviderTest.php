@@ -303,7 +303,7 @@ final class SiteReviewFactProviderTest extends KernelTestCase
     private function build(Card $card): SiteReviewFacts
     {
         $this->em->flush();
-        $facts = $this->provider()->build($card->id ?? throw new \LogicException('A flushed card has an id.'));
+        $facts = $this->provider()->build($card->snapshot());
         self::assertInstanceOf(SiteReviewFacts::class, $facts);
 
         return $facts;

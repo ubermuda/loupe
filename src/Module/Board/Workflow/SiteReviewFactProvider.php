@@ -13,8 +13,8 @@ use App\Module\Board\Repository\CardVerdictRepository;
 use App\Module\Board\Repository\SiteReviewCheckStateRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Contract\FactProvider;
-use Symfony\Component\Uid\Uuid;
 
 final readonly class SiteReviewFactProvider implements FactProvider
 {
@@ -41,9 +41,9 @@ final readonly class SiteReviewFactProvider implements FactProvider
     }
 
     #[\Override]
-    public function build(Uuid $cardId): object
+    public function build(CardSnapshot $snapshot): object
     {
-        $card = $this->cards->find($cardId) ?? throw new \LogicException('The card of the facts exists.');
+        $card = $this->cards->find($snapshot->id) ?? throw new \LogicException('The card of the facts exists.');
 
         $checks = $this->wantedChecks($this->cardPullRequests->findOpenGitHubForCard($card));
 

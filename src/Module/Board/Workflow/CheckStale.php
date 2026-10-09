@@ -14,7 +14,7 @@ final readonly class CheckStale implements Condition
     #[\Override]
     public static function key(): string
     {
-        return 'site_review.check_stale';
+        return 'card.site_review.check_stale';
     }
 
     #[\Override]

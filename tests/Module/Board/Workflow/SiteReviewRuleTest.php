@@ -137,6 +137,8 @@ final class SiteReviewRuleTest extends KernelTestCase
         $ruleStates = self::getContainer()->get(WorkflowRuleStateRepository::class);
         self::assertInstanceOf(WorkflowRuleStateRepository::class, $ruleStates);
 
-        return isset($ruleStates->findForCard($card)[$ruleId]) ? $ruleStates->findForCard($card)[$ruleId]->fires : 0;
+        $states = $ruleStates->findForCard($card->id ?? throw new \LogicException('A stored card has an id.'));
+
+        return isset($states[$ruleId]) ? $states[$ruleId]->fires : 0;
     }
 }

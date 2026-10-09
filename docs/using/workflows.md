@@ -313,8 +313,8 @@ group, and each fires one write:
 
 | Rule | Condition | Write |
 |---|---|---|
-| `post-widget-review` | `site_review.verdict_unsent`: a verdict of the card has a pull request that no review settled yet | `post-review` |
-| `sync-site-review-check` | `site_review.check_stale`: an open GitHub pull request of the card has no check for its head commit, a check with another result than the one the card now wants, or a check that lists other notes than the card now carries | `site-review-check` |
+| `post-widget-review` | `card.site_review.verdict_unsent`: a verdict of the card has a pull request that no review settled yet | `post-review` |
+| `sync-site-review-check` | `card.site_review.check_stale`: an open GitHub pull request of the card has no check for its head commit, a check with another result than the one the card now wants, or a check that lists other notes than the card now carries | `site-review-check` |
 
 The review is posted under the reviewer's own account. The reviewer connects
 that account from the widget. A review that the connection cannot send, because

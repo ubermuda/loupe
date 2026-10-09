@@ -2,21 +2,22 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Workflow\Service;
+namespace App\Tests\Module\Board\Workflow;
 
 use App\Module\Board\Entity\CardVerdictKind;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\VerdictActionPreview;
+use App\Module\Board\Workflow\BoardVerdictActionPreview;
 use App\Module\Project\Entity\Project;
-use App\Module\Workflow\Service\WorkflowAutomation;
-use App\Module\Workflow\Service\WorkflowVerdictActionPreview;
+use App\Module\Workflow\Contract\BoardSettings;
+use App\Module\Workflow\Service\WorkflowRuleActions;
 use App\Module\Workflow\Template\Template;
 use App\Module\Workflow\Template\TemplateSource;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
-final class WorkflowVerdictActionPreviewTest extends KernelTestCase
+final class BoardVerdictActionPreviewTest extends KernelTestCase
 {
     use WorkflowProjects;
 
@@ -28,9 +29,9 @@ final class WorkflowVerdictActionPreviewTest extends KernelTestCase
         $this->project = $this->workflowProject('verdict-preview');
     }
 
-    public function test_the_container_wires_the_workflow_preview_to_the_board_port(): void
+    public function test_the_container_wires_the_board_preview_to_its_port(): void
     {
-        self::assertInstanceOf(WorkflowVerdictActionPreview::class, self::getContainer()->get(VerdictActionPreview::class));
+        self::assertInstanceOf(BoardVerdictActionPreview::class, self::getContainer()->get(VerdictActionPreview::class));
     }
 
     /** @return iterable<string, array{CardVerdictKind}> */
@@ -96,10 +97,10 @@ final class WorkflowVerdictActionPreviewTest extends KernelTestCase
         $this->em()->flush();
         $templates = $this->createStub(TemplateSource::class);
         $templates->method('forProject')->willReturn(new Template('bare', 1, [], [], [], [10], 120, [], 'feature'));
-        $automation = self::getContainer()->get(WorkflowAutomation::class);
-        self::assertInstanceOf(WorkflowAutomation::class, $automation);
+        $boardSettings = self::getContainer()->get(BoardSettings::class);
+        self::assertInstanceOf(BoardSettings::class, $boardSettings);
 
-        $preview = new WorkflowVerdictActionPreview($automation, $templates, $this->boardAutomation());
+        $preview = new BoardVerdictActionPreview(new WorkflowRuleActions($boardSettings, $templates), $this->boardAutomation());
 
         self::assertSame([], $preview->actionsFor($this->project, CardVerdictKind::Approve));
     }
