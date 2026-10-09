@@ -23,6 +23,11 @@ export default class extends Controller {
     connect() {
         this.closeTimer = null;
         this.onScroll = () => this.close();
+        this.onOutsidePress = (event) => {
+            if (!this.element.contains(event.target)) {
+                this.close();
+            }
+        };
     }
 
     disconnect() {
@@ -40,17 +45,23 @@ export default class extends Controller {
         this.place();
         this.tooltipTarget.setAttribute('data-open', '');
         window.addEventListener('scroll', this.onScroll, true);
+        document.addEventListener('pointerdown', this.onOutsidePress, true);
     }
 
     close() {
         this.cancelClose();
         window.removeEventListener('scroll', this.onScroll, true);
+        document.removeEventListener('pointerdown', this.onOutsidePress, true);
         if (this.hasTooltipTarget) {
             this.tooltipTarget.removeAttribute('data-open');
         }
     }
 
-    scheduleClose() {
+    /** A touch has no hover to return to, so a touch tooltip waits for a press outside it. */
+    scheduleClose(event) {
+        if (event?.pointerType === 'touch' || event?.pointerType === 'pen') {
+            return;
+        }
         this.cancelClose();
         this.closeTimer = setTimeout(() => {
             const active = document.activeElement;

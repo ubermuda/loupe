@@ -69,6 +69,18 @@ it('closes a moment after the pointer leaves', async () => {
     expect(isOpen()).toBe(false);
 });
 
+it('stays open after a touch leaves, and closes on a press outside', async () => {
+    anchor().dispatchEvent(new Event('pointerenter'));
+    const leave = new Event('pointerleave');
+    leave.pointerType = 'touch';
+    anchor().dispatchEvent(leave);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(isOpen()).toBe(true);
+
+    document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    expect(isOpen()).toBe(false);
+});
+
 it('flips above the anchor when the tooltip does not fit below', () => {
     anchor().getBoundingClientRect = () => rectangle(40, 700, 16, 16);
     anchor().dispatchEvent(new Event('pointerenter'));
