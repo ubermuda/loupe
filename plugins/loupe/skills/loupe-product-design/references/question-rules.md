@@ -5,8 +5,8 @@ Each rule has a stable ID, so a comment can cite it.
 ## Rules
 
 1. Q1: Find facts yourself. Code, existing behaviour, docs and board history are facts. Look them up, with a subagent when that helps. A subagent only reads. It asks the owner nothing, and it changes no card and no document. Never ask the owner for a fact. Ask the owner only for decisions.
-2. Q2: Give every question a recommendation. Each question carries a recommended answer and a one-line reason why it matters. Say when your confidence is low.
-3. Q3: Ask one question at a time. Ask one question per turn. Use AskUserQuestion when the answer has clear options, and plain chat when the tool is missing. Never bundle two decisions in one question.
+2. Q2: Give every question a recommendation. Each question carries a recommended answer and a one-line reason why it matters. The recommendation says what the option does, in plain words, never only its label. Say when your confidence is low.
+3. Q3: Ask one question at a time. Ask one question per turn. Use AskUserQuestion when the answer has clear options, and plain chat when the tool is missing. Never bundle two decisions in one question. State the context of the question in the question, because the owner can answer after a gap.
 4. Q4: Ask for disagreement. A recommended answer makes it easy to agree with everything. The owner can agree with several answers in a row. Then name the answer you are least sure of, and ask again.
 5. Q5: Send look and feel to a mockup. A question about how something looks gets a sketch or a prototype, not more questions. Follow `claude-design.md`. The first visual choice of the session gets the offer, and a later one uses the project or the sketches of the first answer.
 6. Q6: Park technical choices. An entity, a table, an API or a module goes to the "For tech design" section. Do not settle it in the session.

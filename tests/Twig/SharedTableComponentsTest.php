@@ -12,7 +12,7 @@ final class SharedTableComponentsTest extends KernelTestCase
 {
     public function test_a_chip_with_no_reason_has_no_tooltip(): void
     {
-        $chip = $this->render("{{ component('StatusChip', {modifier: 'ok', label: 'Succeeded'}) }}")->filter('.lp-status-chip');
+        $chip = $this->render("{{ component('Ds:StatusChip', {modifier: 'ok', label: 'Succeeded'}) }}")->filter('.lp-status-chip');
 
         self::assertCount(1, $chip);
         self::assertStringContainsString('lp-status-chip--ok', (string) $chip->attr('class'));
@@ -24,7 +24,7 @@ final class SharedTableComponentsTest extends KernelTestCase
 
     public function test_a_chip_with_a_reason_describes_itself_with_a_tooltip(): void
     {
-        $chip = $this->render("{{ component('StatusChip', {modifier: 'failed', label: 'Failed', reason: 'Exit code 2'}) }}")->filter('.lp-status-chip');
+        $chip = $this->render("{{ component('Ds:StatusChip', {modifier: 'failed', label: 'Failed', reason: 'Exit code 2'}) }}")->filter('.lp-status-chip');
 
         self::assertStringContainsString('lp-status-chip--reason', (string) $chip->attr('class'));
         self::assertSame('0', $chip->attr('tabindex'));
@@ -37,7 +37,7 @@ final class SharedTableComponentsTest extends KernelTestCase
 
     public function test_two_chips_with_a_reason_get_distinct_tooltip_ids(): void
     {
-        $crawler = $this->render("{{ component('StatusChip', {modifier: 'failed', label: 'A', reason: 'x'}) }}{{ component('StatusChip', {modifier: 'failed', label: 'B', reason: 'y'}) }}");
+        $crawler = $this->render("{{ component('Ds:StatusChip', {modifier: 'failed', label: 'A', reason: 'x'}) }}{{ component('Ds:StatusChip', {modifier: 'failed', label: 'B', reason: 'y'}) }}");
 
         $ids = $crawler->filter('.lp-tooltip')->each(static fn (Crawler $tooltip): ?string => $tooltip->attr('id'));
         self::assertCount(2, $ids);
@@ -46,7 +46,7 @@ final class SharedTableComponentsTest extends KernelTestCase
 
     public function test_a_chip_takes_a_given_tooltip_id(): void
     {
-        $chip = $this->render("{{ component('StatusChip', {modifier: 'failed', label: 'Failed', reason: 'x', id: 'run-7-reason'}) }}")->filter('.lp-status-chip');
+        $chip = $this->render("{{ component('Ds:StatusChip', {modifier: 'failed', label: 'Failed', reason: 'x', id: 'run-7-reason'}) }}")->filter('.lp-status-chip');
 
         self::assertSame('run-7-reason', $chip->attr('aria-describedby'));
         self::assertSame('run-7-reason', $chip->filter('.lp-tooltip')->attr('id'));

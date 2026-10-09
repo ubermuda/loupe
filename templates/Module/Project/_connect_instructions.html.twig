@@ -88,7 +88,7 @@
          data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
         <twig:ux:icon name="lucide:code-xml" class="lp-connect-field__glyph w-4 h-4" />
         <code class="lp-connect-field__value">{{ mcpUrl }}</code>
-        <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+        <twig:Ds:Button variant="ghost" size="sm" type="button" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</twig:Ds:Button>
     </div>
 </div>
 

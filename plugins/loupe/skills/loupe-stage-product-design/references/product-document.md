@@ -68,8 +68,9 @@ Put each open choice in its own decision fence (rule 12). Read `loupe-documents`
 
 1. Put the "**Decision needed:**" lead-in, the context and your recommendation above the fence (rule 5). Give the recommendation a confidence: high, moderate or low.
 2. When the choice has two or more real options, put the pros and cons table and the worked example of `design-structure.md` above the fence. A product document gets no "How each option works" list, because the code belongs to the tech design.
-3. Give the fence one short question paragraph, then flat one-line options.
-4. Choose a fence id from the subject, such as `export-format`. Never change an id after the document is published, because a changed id discards the answer.
+3. Write each open question so that a reader who opens only it can answer it (`loupe-documents` rule 18). The recommendation says what the option does.
+4. Give the fence one short question paragraph, then flat one-line options.
+5. Choose a fence id from the subject, such as `export-format`. Never change an id after the document is published, because a changed id discards the answer.
 
 When a revision folds an answer in, keep the fence and add a `**Decided:**` line under it (rule 6).
 

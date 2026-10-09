@@ -1,13 +1,13 @@
-/* Plain CSS with hardcoded values — no CSS variables, no cascade layers — so
- * twig/cssinliner-extra can inline everything for email clients. The hexes are
- * the app's Chartreuse tokens copied for that reason; keep them in step with
- * the :root block in app.css.
+/* Plain CSS with literal values, no variables and no cascade layers, so
+ * twig/cssinliner-extra can inline everything for email clients. Each value is
+ * copied from tokens.css, with its token named in a trailing comment, and
+ * EmailTokensMatchAppTest keeps the copies equal.
  */
 
 body {
     margin: 0;
     padding: 40px;
-    background-color: #f4f4f0;
+    background-color: #f7f8f3; /* --bg */
     font-family:
         ui-sans-serif,
         system-ui,
@@ -15,7 +15,7 @@ body {
         BlinkMacSystemFont,
         sans-serif;
     font-size: 14px;
-    color: #14140f;
+    color: #20241f; /* --ink */
     -webkit-font-smoothing: antialiased;
 }
 
@@ -30,15 +30,15 @@ body {
     font-size: 18px;
     font-weight: 700;
     letter-spacing: -0.02em;
-    color: #14140f;
+    color: #20241f; /* --ink */
 }
 
 .brand-mark {
     display: inline-block;
     width: 22px;
     height: 22px;
-    border-radius: 7px;
-    background-color: #c4d600;
+    border-radius: 8px; /* --radius-lg */
+    background-color: #d4e94c; /* --accent */
     vertical-align: middle;
     margin-right: 9px;
 }
@@ -48,12 +48,12 @@ body {
 }
 
 .card {
-    background-color: #ffffff;
-    border-radius: 16px;
+    background-color: #ffffff; /* --surface-1 */
+    border-radius: 16px; /* --radius-2xl */
     padding: 40px;
     max-width: 448px;
     margin: 0 auto;
-    border: 1px solid #f0f0ec;
+    border: 1px solid #edf0e8; /* --border-faint */
 }
 
 h1 {
@@ -61,13 +61,13 @@ h1 {
     font-weight: 700;
     letter-spacing: -0.02em;
     margin: 0 0 12px 0;
-    color: #0f0f0d;
+    color: #20241f; /* --ink */
 }
 
 .body-text {
     font-size: 14px;
     line-height: 1.625;
-    color: #6f6f66;
+    color: #555b52; /* --text-mute */
     margin: 0 0 20px 0;
 }
 
@@ -76,8 +76,8 @@ h1 {
 .btn {
     display: inline-block;
     padding: 12px 24px;
-    background-color: #c4d600;
-    color: #0f0f0d;
+    background-color: #d4e94c; /* --accent */
+    color: #20241f; /* --ink */
     text-decoration: none;
     border-radius: 999px;
     font-size: 14px;
@@ -89,7 +89,7 @@ h1 {
 .footer {
     font-size: 12px;
     line-height: 1.6;
-    color: #8f8f84;
+    color: #656b60; /* --text-dim */
     margin-top: 24px;
     word-break: break-word;
 }

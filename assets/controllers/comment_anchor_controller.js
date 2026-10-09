@@ -91,6 +91,11 @@ export default class extends Controller {
     // from a data-anchor-status value.
     static AGENT_HIGHLIGHT = 'lp-agent-highlight';
 
+    // Passages the version added since the one before it, switched on by the
+    // review-new-text controller. The lowest rung: it is a reading aid and
+    // must never hide a comment, a strike or the agent's marks.
+    static NEW_TEXT_HIGHLIGHT = 'lp-new-text';
+
     // Painted while the pointer is over a card or over the passage it points
     // at, so the pair can be told apart in a crowded margin.
     static HOVER_HIGHLIGHT = 'lp-anchor-hover';
@@ -101,12 +106,13 @@ export default class extends Controller {
     // `transparent` leaves the tint below showing — which is why
     // #highlightAnchors routes a strike away from its status rung instead.
     static PRIORITY = {
-        agent: 0,
-        status: 1,
-        suggestion: 2,
-        struck: 3,
-        hover: 4,
-        active: 5,
+        newText: 0,
+        agent: 1,
+        status: 2,
+        suggestion: 3,
+        struck: 4,
+        hover: 5,
+        active: 6,
     };
 
     // Below this the page has no gutter a card could sit in, so demo mode
@@ -280,6 +286,7 @@ export default class extends Controller {
         this.activeHighlight?.clear();
         this.struckHighlight?.clear();
         this.agentHighlight?.clear();
+        this.newTextHighlight?.clear();
         this.hoverHighlight?.clear();
         this.suggestionHighlight?.clear();
         for (const highlight of Object.values(this.statusHighlights ?? {})) {
@@ -1226,6 +1233,13 @@ export default class extends Controller {
             this.agentHighlight,
         );
 
+        this.newTextHighlight = new window.Highlight();
+        this.newTextHighlight.priority = priority.newText;
+        window.CSS.highlights.set(
+            this.constructor.NEW_TEXT_HIGHLIGHT,
+            this.newTextHighlight,
+        );
+
         this.hoverHighlight = new window.Highlight();
         this.hoverHighlight.priority = priority.hover;
         window.CSS.highlights.set(
@@ -1426,6 +1440,11 @@ export default class extends Controller {
             this.#highlightAgentMarks();
         } catch {
             this.agentHighlight?.clear();
+        }
+        try {
+            this.#highlightNewText();
+        } catch {
+            this.newTextHighlight?.clear();
         }
         try {
             if (this.#threadsInMargin()) {
@@ -1771,6 +1790,35 @@ export default class extends Controller {
             );
             if (range !== null) {
                 this.agentHighlight.add(range);
+            }
+        }
+    }
+
+    /**
+     * Action for the review-new-text controller: remembers the passages to
+     * paint, or none to clear them, and repaints.
+     */
+    paintNewText(event) {
+        this.newTextAnchors = event.detail?.anchors ?? [];
+        this.#scheduleLayout();
+    }
+
+    #highlightNewText() {
+        if (!this.newTextHighlight) {
+            return;
+        }
+        this.newTextHighlight.clear();
+        for (const anchor of this.newTextAnchors ?? []) {
+            if (!anchor.quote) {
+                continue;
+            }
+            const range = this.#findRange(
+                anchor.quote ?? '',
+                anchor.prefix ?? '',
+                anchor.suffix ?? '',
+            );
+            if (range !== null) {
+                this.newTextHighlight.add(range);
             }
         }
     }

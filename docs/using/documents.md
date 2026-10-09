@@ -200,6 +200,23 @@ Use **Revise** or **Finish review** there to act on the current version.
 The **From** and **To** picker beside the heading compares any two versions,
 not only two that follow one another.
 
+### Highlighting new text
+
+Use the **Highlight new text** switch in the document header to see what a version added.
+The switch marks every passage that this version added since the previous version.
+Added text shows green, with a thin underline for readers who cannot tell colours apart.
+Decisions and comments work as usual while the switch is on.
+
+The switch compares the version on screen with the version before it.
+On an earlier version, it compares that version with the one before that.
+Text that a version only removed leaves nothing to mark.
+
+Your browser remembers the switch. It stays on for other documents and after a reload.
+The switch is off for version 1, because no earlier version exists to compare with.
+It is also off when the two versions are too large to compare.
+Point at the switch to read the reason.
+A comparison page does not show the switch, because it already marks every change.
+
 ### What a comparison looks like
 
 A comparison is a mode of the review page. The title, the byline, the toolbar,

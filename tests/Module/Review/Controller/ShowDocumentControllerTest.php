@@ -1132,6 +1132,40 @@ final class ShowDocumentControllerTest extends WebTestCase
         );
     }
 
+    public function test_the_new_text_switch_is_off_for_the_first_version_and_on_for_a_later_one(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-new-text', 'owner-new-text@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Switch Doc');
+        $doc->addVersion('# v1', '<h1>v1</h1>');
+        $doc->addVersion('# v2', '<h1>v2</h1>');
+        $em->persist($doc);
+        $em->flush();
+
+        $base = '/projects/'.$project->id.'/documents/'.$doc->id.'/review';
+        $client->loginUser($owner);
+
+        $crawler = $client->request(Request::METHOD_GET, $base);
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('.lp-btn--ghost.lp-btn--sm.lp-new-text-switch[role="switch"][aria-checked="false"][data-controller="review-new-text"]:not([aria-disabled])'));
+        self::assertStringEndsWith(
+            $base.'/new-text/2',
+            (string) $crawler->filter('[role="switch"]')->attr('data-review-new-text-url-value'),
+        );
+
+        $crawler = $client->request(Request::METHOD_GET, $base.'/versions/1');
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[role="switch"][aria-disabled="true"]'));
+
+        $crawler = $client->request(Request::METHOD_GET, $base.'/diff/1/2');
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('[role="switch"]'));
+    }
+
     /**
      * The invariant every comment anchor rests on: the pane the browser walks
      * reads exactly as DocumentVersion::plainText(), which is what the server

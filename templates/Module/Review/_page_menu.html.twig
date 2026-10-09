@@ -19,7 +19,7 @@
     })},
 ]|filter(group => group.rows is not empty) %}
 <div class="lp-page-menu" data-controller="popover">
-    <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm lp-page-menu__trigger"
+    <twig:Ds:Button variant="ghost" size="sm" type="button" class="lp-page-menu__trigger"
             aria-label="{{ 'review.document.page_menu.label'|trans }}"
             title="{{ 'review.document.page_menu.label'|trans }}"
             aria-expanded="false"
@@ -27,7 +27,7 @@
             data-popover-target="trigger"
             data-action="click->popover#toggle">
         <twig:ux:icon name="lucide:ellipsis" />
-    </button>
+    </twig:Ds:Button>
     <div class="lp-page-menu__panel" id="review-page-menu" data-popover-target="panel" hidden>
         {% for group in groups %}
         {% set rows = group.rows %}
