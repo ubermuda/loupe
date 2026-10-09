@@ -178,7 +178,7 @@ final readonly class VerdictReviewSettler
         $first = $notes[0] ?? null;
         $parts = null === $first ? false : parse_url($first['url']);
         if (\is_array($parts) && isset($parts['scheme'], $parts['host']) && \in_array($parts['scheme'], ['http', 'https'], true)) {
-            $preview = $parts['scheme'].'://'.$parts['host'].(isset($parts['port']) ? ':'.$parts['port'] : '');
+            $preview = str_replace([' ', '(', ')'], ['%20', '%28', '%29'], $first['url']);
             $line .= ' '.$this->translator->trans('board.verdict.review.preview', ['%preview_url%' => $preview], 'messages', $this->locale);
         }
 

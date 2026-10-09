@@ -103,7 +103,7 @@ final class VerdictReviewSettlerTest extends KernelTestCase
         $this->settle($card);
 
         self::assertSame(
-            $this->sourceLine($card, ' · [Open the preview](https://app.example)')."\n\nTwo problems\n\nhttps://app.example/a\n\nFooter overlaps\n<!-- loupe-note:note-1 -->\n\nhttps://app.example/b\n\nLogo is blurry\n<!-- loupe-note:note-2 -->",
+            $this->sourceLine($card, ' · [Open the preview](https://app.example/a)')."\n\nTwo problems\n\nhttps://app.example/a\n\nFooter overlaps\n<!-- loupe-note:note-1 -->\n\nhttps://app.example/b\n\nLogo is blurry\n<!-- loupe-note:note-2 -->",
             $this->poster->posts[0]['body'],
         );
     }
