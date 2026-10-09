@@ -6,17 +6,23 @@ namespace App\Tests\Module\Board\Command;
 
 use App\Module\Board\Command\PostPullRequestCommentCommand;
 use App\Module\Board\Command\PostPullRequestCommentHandler;
-use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\PullRequestComment;
 use App\Module\Board\Entity\PullRequestCommentState;
 use App\Module\Board\Repository\PullRequestCommentRepository;
 use App\Module\Board\Service\FixRunCommentBody;
+use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Entity\WorkRequest;
+use App\Module\Bridge\Repository\WorkerRunRepository;
+use App\Module\Bridge\Repository\WorkRequestRepository;
+use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Forge\Service\PullRequestCommenters;
 use App\Module\Forge\Service\PullRequestCommentFailed;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\RuleBudgets;
 use App\Tests\Module\Board\FakePullRequestCommenter;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use Doctrine\ORM\EntityManagerInterface;
@@ -27,6 +33,7 @@ use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Messenger\Exception\RecoverableMessageHandlingException;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Uid\Uuid;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class PostPullRequestCommentHandlerTest extends KernelTestCase
 {
@@ -75,11 +82,8 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
 
     public function test_the_body_names_the_reason_the_checks_the_stored_round_and_links_the_card(): void
     {
-        $this->em->persist(new BoardAutomationSettings($this->project, loopLimit: 3));
-        $this->em->flush();
-
-        $comment = $this->pending(fixRound: 2);
-        $this->handle($comment);
+        $comment = $this->pending(fixRound: 2, runId: $this->fixRun('fix-in-review'));
+        $this->handle($comment, $this->budgets('fix-in-review', 3));
 
         $urls = self::getContainer()->get(UrlGeneratorInterface::class);
         self::assertInstanceOf(UrlGeneratorInterface::class, $urls);
@@ -188,6 +192,16 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
         self::assertSame(PullRequestCommentState::Pending, $comment->state);
         self::assertSame(2, $comment->attempts);
         self::assertSame('api_failed_http_status_502', $comment->cause);
+    }
+
+    public function test_a_round_whose_rule_has_no_limit_or_whose_run_is_gone_omits_the_round(): void
+    {
+        $this->handle($this->pending(fixRound: 2, runId: $this->fixRun('fix-in-review')), $this->budgets('other-rule', 3));
+        $this->handle($this->pending(fixRound: 2), $this->budgets('fix-in-review', 3));
+
+        self::assertCount(2, $this->commenter->comments);
+        self::assertStringNotContainsString('**Round:**', $this->commenter->comments[0][1]);
+        self::assertStringNotContainsString('**Round:**', $this->commenter->comments[1][1]);
     }
 
     public function test_a_comment_without_a_round_omits_it_and_a_conflict_omits_the_checks(): void
@@ -393,11 +407,11 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
         self::assertSame([], $this->commenter->comments);
     }
 
-    private function pending(?string $reason = 'checks-failed', int $number = 5, ?int $fixRound = null, ?Uuid $forgePullRequestId = null): PullRequestComment
+    private function pending(?string $reason = 'checks-failed', int $number = 5, ?int $fixRound = null, ?Uuid $forgePullRequestId = null, ?Uuid $runId = null): PullRequestComment
     {
         $comment = new PullRequestComment(
             project: $this->project,
-            runId: Uuid::v7(),
+            runId: $runId ?? Uuid::v7(),
             cardId: $this->card->id ?? throw new \LogicException('A persisted card has an id.'),
             forge: 'github',
             repository: 'Acme/Widgets',
@@ -414,14 +428,51 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
         return $comment;
     }
 
-    private function handle(PullRequestComment $comment): void
+    /** A fix run whose work request the rule opened. */
+    private function fixRun(string $ruleId): Uuid
+    {
+        $cardId = $this->card->id ?? throw new \LogicException('A persisted card has an id.');
+        $request = new WorkRequest($this->project, WorkSubject::CARD, $cardId, $this->card->number, 'fix', null, $ruleId, $this->clock->now());
+        $this->em->persist($request);
+        $this->em->flush();
+        $run = new WorkerRun(
+            project: $this->project,
+            bridgeId: Uuid::v7(),
+            subjectType: WorkSubject::CARD,
+            subjectId: $cardId,
+            cardNumber: $this->card->number,
+            workKind: 'fix',
+            state: WorkerRunState::Queued,
+            workRequestId: $request->id,
+        );
+        $this->em->persist($run);
+        $this->em->flush();
+
+        return $run->id ?? throw new \LogicException('A flushed run has an id.');
+    }
+
+    private function budgets(string $ruleId, int $limit): RuleBudgets
+    {
+        $budgets = $this->createStub(RuleBudgets::class);
+        $budgets->method('limit')->willReturnCallback(static fn (Uuid $projectId, string $asked): ?int => $asked === $ruleId ? $limit : null);
+
+        return $budgets;
+    }
+
+    private function handle(PullRequestComment $comment, ?RuleBudgets $budgets = null): void
     {
         $comments = self::getContainer()->get(PullRequestCommentRepository::class);
         self::assertInstanceOf(PullRequestCommentRepository::class, $comments);
         $pullRequests = self::getContainer()->get(ForgePullRequestRepository::class);
         self::assertInstanceOf(ForgePullRequestRepository::class, $pullRequests);
-        $body = self::getContainer()->get(FixRunCommentBody::class);
-        self::assertInstanceOf(FixRunCommentBody::class, $body);
+        $body = new FixRunCommentBody(
+            self::getContainer()->get(WorkerRunRepository::class),
+            self::getContainer()->get(WorkRequestRepository::class),
+            $budgets ?? $this->createStub(RuleBudgets::class),
+            self::getContainer()->get(UrlGeneratorInterface::class),
+            self::getContainer()->get(TranslatorInterface::class),
+            'en',
+        );
 
         $handler = new PostPullRequestCommentHandler(
             pullRequestComments: $comments,
