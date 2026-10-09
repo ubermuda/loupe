@@ -18,7 +18,7 @@ use Mcp\Exception\ToolCallException;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Uid\Uuid;
 
-#[McpTool(name: self::NAME, description: 'Submit the review of a pull request of a card. Only a running review worker of the card can call it: the call must come from the loupe CLI session of a worker run of the review work on this card. Pass the cardId, the URL of a pull request that the card links, the full 40-character commit SHA that you reviewed, a summary, and the findings. Each finding names a file path relative to the repository root, a line range on the reviewed commit, a severity (important, nit or pre-existing), a title and a body. Loupe stores the review against that commit, also when the pull request has a newer head. The result says whether the commit is still the head of the pull request. The review fails when a finding has a severity that the project counts as failing, important by default.')]
+#[McpTool(name: self::NAME, description: 'Submit the review of a pull request of a card. Only a running review worker of the card can call it: the call must come from the loupe CLI session of a worker run of the review work on this card. Pass the cardId, the URL of a pull request that the card links, the full 40-character commit SHA that you reviewed, a summary, and the findings. Each finding names a file path relative to the repository root, a line range on the reviewed commit, a severity (important, nit or pre-existing), a title and a body. Loupe stores the review against that commit, also when the pull request has a newer head. The result field current says whether the commit matches the last head commit that Loupe read from the forge. That commit can be older than the head on the forge. The review fails when a finding has a severity that the project counts as failing, important by default.')]
 final readonly class AgentReviewSubmitTool
 {
     public const string NAME = 'agent_review_submit';
@@ -58,7 +58,7 @@ final readonly class AgentReviewSubmitTool
      * @param string         $summary        a short summary of the review
      * @param array<mixed>[] $findings       the findings, an empty list when the review found nothing
      *
-     * @return array{reviewId: string, conclusion: string, current: bool}
+     * @return array{reviewId: string, conclusion: string, current: bool} current compares $headSha with the last head commit that Loupe read from the forge
      */
     public function __invoke(
         string $cardId,

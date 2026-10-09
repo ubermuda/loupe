@@ -287,7 +287,7 @@ Roughly in the order an agent uses them:
 | `series_rename` | Rename a series; every document in it keeps its position |
 | `feedback_list` | The project's site-review feedback, each item with the card it belongs to (off with the board, see below) |
 | `feedback_mark_addressed` | Mark feedback items acted on, so the next `feedback_list` skips them (off with the board, see below) |
-| `agent_review_submit` | Submit the review of a pull request of a card, with findings on file lines. Only a running `review` worker of the card can call it. Loupe stores the review against the commit it names, and the `agent-review-check` forge write shows it as a check on the pull request |
+| `agent_review_submit` | Submit the review of a pull request of a card, with findings on file lines. Only a running `review` worker of the card can call it. Loupe stores the review against the commit it names, and the `agent-review-check` forge write shows it as a check on the pull request. The result field `current` says whether that commit matches the last head commit that Loupe read from the forge |
 | `card_create` | Put a card on the project board (off with the board, see below) |
 | `card_list` | Read a page of the board, filtered by status, type, reporter or parent, with the board's columns |
 | `board_columns` | List the board's columns, each with its slug, label, terminal flag, default flag and backlog flag, and the card types of the project |
