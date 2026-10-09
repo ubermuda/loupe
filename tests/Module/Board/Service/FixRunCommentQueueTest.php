@@ -256,6 +256,15 @@ final class FixRunCommentQueueTest extends KernelTestCase
         self::assertEquals($ended->id, $this->comments()[0]->runId);
     }
 
+    public function test_a_long_run_that_ended_recently_still_gets_its_comment(): void
+    {
+        $card = $this->linkedCard();
+        $ended = $this->workerRun($card, state: WorkerRunState::Succeeded, receivedAt: $this->ago('3 hours'), endedAt: $this->ago('5 minutes'));
+        $this->workerRun($card, state: WorkerRunState::Succeeded, receivedAt: $this->ago('3 hours'), endedAt: $this->ago('2 hours'));
+
+        self::assertSame([$ended], $this->queue()->uncommentedRuns($card));
+    }
+
     public function test_an_open_run_received_long_ago_still_gets_its_comment(): void
     {
         $card = $this->linkedCard();

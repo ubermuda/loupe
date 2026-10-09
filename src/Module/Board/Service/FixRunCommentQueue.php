@@ -52,7 +52,7 @@ final readonly class FixRunCommentQueue
     /**
      * A card that links no pull request on a forge with a commenter has none, so no rule waits for a comment that cannot post.
      *
-     * @return list<WorkerRun> the open or recently received fix runs of the card with no comment, by id
+     * @return list<WorkerRun> the open or recently ended fix runs of the card with no comment, by id
      */
     public function uncommentedRuns(Card $card): array
     {
