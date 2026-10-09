@@ -5962,31 +5962,75 @@
     .lp-landing-mock__main {
         @apply overflow-clip;
     }
-    /* Opens a gap the comment card can sit level with, the way a real thread
-       pushes its paragraph clear of the one above. */
-    .lp-landing-mock__gap {
-        @apply mt-15;
-    }
-    /* Sits in the gap .lp-landing-mock__gap opens, and level with the ringed
-       passage — the two offsets are measured against the still's fixed layout,
-       which is why the copy inside it must not be re-flowed casually. */
-    .lp-landing-mock__toolbar {
-        @apply left-0 top-76;
-    }
-    /* The still is a fixed-width frame, so its review geometry answers to the
-       frame and never to the viewport. The padding is part of that: the margin
-       below is placed from the block's top edge. */
+    /* The review page rules sit under .lp-review and answer to the window, so
+       the still restates the few it needs. The thread and the panels are
+       placed against the document block: do not re-flow the copy casually. */
     .lp-landing-mock .lp-review-block {
-        @apply w-243 px-0 pt-13 pb-30;
+        @apply w-243 px-0 pt-9 pb-30;
     }
-    .lp-landing-mock__margin {
-        @apply block absolute left-169 top-72 w-74;
+    .lp-landing-mock .lp-review-doc__head {
+        @apply mb-2;
     }
-    .lp-landing-mock .lp-comment-thread {
-        @apply absolute;
+    .lp-landing-mock .lp-review-doc__identity {
+        @apply flex min-w-0 items-start gap-3;
+    }
+    .lp-landing-mock .lp-review-doc__back {
+        @apply inline-flex size-8 items-center justify-center rounded-lg text-fg-dim;
+    }
+    .lp-landing-mock .lp-review-doc__title {
+        @apply text-2xl leading-snug font-bold tracking-tight;
+    }
+    .lp-landing-mock .lp-review-doc__byline {
+        @apply mt-1.75 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm text-fg-dim;
+    }
+    .lp-landing-mock .lp-review-doc__middot {
+        @apply shrink-0 text-fg-faint;
+    }
+    .lp-landing-mock .lp-review-doc__author {
+        @apply inline-flex items-center gap-1.5;
+    }
+    .lp-landing-mock .lp-review-doc__avatar {
+        @apply inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-tint text-xs font-bold text-fg-mute;
+    }
+    .lp-landing-mock .lp-review-doc__version {
+        @apply rounded-md bg-surface-3 px-1.75 py-0.75 font-sans text-xs leading-4 font-semibold text-fg-dim;
+    }
+    .lp-landing-mock .lp-review-doc__prose {
+        @apply max-w-144! border-0 bg-transparent px-0 py-3 text-base leading-7 text-ink;
+        box-shadow: none;
+    }
+    .lp-landing-mock__thread {
+        @apply absolute top-51 left-24 w-88 shadow-composer;
     }
     .lp-landing-mock__reply {
-        @apply mt-7;
+        @apply mt-1 flex flex-col gap-1.5 border-t border-line pt-3;
+    }
+    .lp-landing-mock__panels {
+        @apply absolute top-0 left-153 flex w-67 flex-col gap-3;
+    }
+    .lp-landing-mock__toolbar {
+        @apply flex items-center justify-end gap-1;
+    }
+    .lp-landing-mock__tool {
+        @apply inline-flex min-h-8 items-center gap-1.5 rounded-md px-2.5 py-1 text-sm font-medium text-fg-dim;
+    }
+    .lp-landing-mock__tool svg {
+        @apply size-4 shrink-0;
+    }
+    .lp-landing-mock__tool--on {
+        @apply bg-review-resolved font-semibold text-review-tab-ink;
+    }
+    .lp-landing-mock__panel {
+        @apply flex flex-col rounded-lg bg-surface-2 p-4;
+    }
+    .lp-landing-mock__panel-head {
+        @apply mb-1 flex min-h-8 items-center gap-2;
+    }
+    .lp-landing-mock__panel-title {
+        @apply font-sans text-sm font-semibold text-ink;
+    }
+    .lp-landing-mock__panel-count {
+        @apply text-xs text-fg-dim;
     }
 
     /* ── Bands ──────────────────────────────────────────────────────────
@@ -6180,25 +6224,35 @@
         );
         mask-image: linear-gradient(to bottom, #000 80%, transparent 100%);
     }
+    /* The thread opens over its passage, so it overlaps the prose rather than
+       sitting in a column beside it. */
     .lp-tech-panel__body {
-        @apply grid grid-cols-5 gap-6 overflow-hidden;
+        @apply relative min-h-64 overflow-hidden;
     }
     .lp-tech-panel__body .lp-review-doc__prose {
-        @apply col-span-3 min-w-0;
+        @apply min-h-0 max-w-88! min-w-0 border-0 bg-transparent p-0 shadow-none;
     }
-    /* The real margin is absolutely positioned against the document block; here
-       the thread is simply the second column. */
-    .lp-tech-panel__margin {
-        @apply col-span-2 min-w-0;
-    }
-    /* A real thread is positioned against its passage by the anchor controller;
-       with no controller here it would otherwise sit at the origin. */
-    .lp-tech-panel__margin .lp-comment-thread {
-        @apply static;
+    .lp-tech-panel__thread {
+        @apply absolute top-4 right-0 left-auto w-64 shadow-composer;
     }
     /* The doc head at full app scale would spend the whole still on a title. */
     .lp-tech-panel .lp-review-doc__title {
-        @apply text-2xl;
+        @apply text-2xl font-bold tracking-tight;
+    }
+    .lp-tech-panel .lp-review-doc__byline {
+        @apply mt-1.75 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm text-fg-dim;
+    }
+    .lp-tech-panel .lp-review-doc__middot {
+        @apply shrink-0 text-fg-faint;
+    }
+    .lp-tech-panel .lp-review-doc__author {
+        @apply inline-flex items-center gap-1.5;
+    }
+    .lp-tech-panel .lp-review-doc__avatar {
+        @apply inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-tint text-xs font-bold text-fg-mute;
+    }
+    .lp-tech-panel .lp-review-doc__version {
+        @apply rounded-md bg-surface-3 px-1.75 py-0.75 font-sans text-xs leading-4 font-semibold text-fg-dim;
     }
     .lp-tech-panel .lp-review-doc__prose h3 {
         @apply text-lg;
