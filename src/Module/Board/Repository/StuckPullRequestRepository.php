@@ -6,6 +6,7 @@ namespace App\Module\Board\Repository;
 
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Forge\Service\ForgePullRequestWrites;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -42,6 +43,7 @@ class StuckPullRequestRepository extends ServiceEntityRepository
                     AND due.ready_to_merge
                     AND due.ready_since IS NOT NULL
                     AND (due.stuck_announced_for IS NULL OR due.stuck_announced_for <> due.ready_since)
+                    AND (due.merge_requested_sha IS NULL OR due.merge_requested_at IS NULL OR due.merge_requested_at <= :requestCutoff)
                     AND EXISTS (SELECT 1 FROM board_card_pull_requests linked JOIN board_cards linked_card ON linked_card.id = linked.card_id WHERE linked_card.project_id = due.project_id AND linked.forge = due.forge AND LOWER(linked.repository) = due.repository AND linked.number = due.number)
                     AND due.ready_since + make_interval(mins => COALESCE(settings.stuck_delay_minutes, :defaultDelay)) <= :now
                 ORDER BY due.ready_since, due.id
@@ -53,6 +55,8 @@ class StuckPullRequestRepository extends ServiceEntityRepository
                 'open' => 'open',
                 'defaultDelay' => BoardAutomationSettings::DEFAULT_STUCK_DELAY_MINUTES,
                 'now' => $now->format(self::TIME_FORMAT),
+                // A merge in flight hides Stuck on the tile, so the announcement waits until its marker expires.
+                'requestCutoff' => $now->modify(\sprintf('-%d seconds', ForgePullRequestWrites::MARKER_LIFETIME_SECONDS))->format(self::TIME_FORMAT),
                 'limit' => $limit,
             ],
         );

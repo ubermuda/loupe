@@ -16,6 +16,7 @@ use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\Entity\PullRequestReview;
+use App\Module\Forge\Service\ForgePullRequestWrites;
 use App\Tests\Module\Board\CardStateFixtures;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -84,6 +85,25 @@ final class AnnounceStuckPullRequestsHandlerTest extends KernelTestCase
         $this->changes = [];
 
         self::assertSame(1, $this->announce());
+    }
+
+    public function test_a_merge_in_flight_defers_the_announcement_until_its_marker_expires(): void
+    {
+        $card = $this->stateCard($this->stateProject('announce-merge-in-flight'));
+        $row = $this->ready($card, '-20 minutes');
+        $row->mergeRequestedSha = 'head1';
+        $row->mergeRequestedAt = new \DateTimeImmutable('-5 minutes');
+        $this->em()->flush();
+
+        self::assertSame(0, $this->announce());
+        self::assertNull($this->reload($row)->stuckAnnouncedFor);
+
+        $row = $this->reload($row);
+        $row->mergeRequestedAt = new \DateTimeImmutable(\sprintf('-%d seconds', ForgePullRequestWrites::MARKER_LIFETIME_SECONDS + 60));
+        $this->em()->flush();
+
+        self::assertSame(1, $this->announce());
+        self::assertSame([(string) $card->id], $this->changedCardIds());
     }
 
     public function test_a_pull_request_that_is_not_ready_is_left_alone(): void
