@@ -21,6 +21,8 @@ final class DesignSystemChangedScriptTest extends TestCase
         $this->git('config', 'user.email', 'test@loupe.test');
         $this->git('config', 'user.name', 'Test');
         $this->git('config', 'commit.gpgsign', 'false');
+        // A detached auto maintenance writes into .git while tearDown removes it.
+        $this->git('config', 'maintenance.auto', 'false');
         $this->write('README.md');
         $this->git('add', '.');
         $this->git('commit', '-q', '-m', 'base');
