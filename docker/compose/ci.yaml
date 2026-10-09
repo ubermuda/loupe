@@ -30,3 +30,5 @@ services:
       # normal CI run, and it roughly doubles the PHPUnit leg on a small runner.
       # The weekly coverage workflow sets XDEBUG_MODE=coverage to turn it back on.
       XDEBUG_MODE: '${XDEBUG_MODE:-off}'
+      # The suite never opens the profiler, and saving its data slows every request.
+      PROFILER_COLLECT: '0'

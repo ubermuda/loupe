@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { hubStubbedTest as test } from '../fixtures';
 
 /**
  * The policy pages are what a visitor agrees to by signing up, so they have to

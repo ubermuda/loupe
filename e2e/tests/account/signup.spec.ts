@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { hubStubbedTest as test } from '../fixtures';
 import { getLatestEmailTo, submitRedirectingForm } from '../helpers';
 
 // Guest by default — make the unauthenticated starting state explicit.

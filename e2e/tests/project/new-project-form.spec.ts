@@ -1,6 +1,10 @@
-import { expect, test } from '@playwright/test';
+import { expect } from '@playwright/test';
 import { registerAndVerify, submitRedirectingForm } from '../helpers';
-import { suppressToolbar, suppressWidget } from '../fixtures';
+import {
+    hubStubbedTest as test,
+    suppressToolbar,
+    suppressWidget,
+} from '../fixtures';
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
