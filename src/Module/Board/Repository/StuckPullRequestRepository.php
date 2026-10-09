@@ -25,7 +25,7 @@ class StuckPullRequestRepository extends ServiceEntityRepository
     }
 
     /**
-     * Each row is one card that links a ready pull request that passed its delay and was not announced for that ready time.
+     * Each row is one card that links one of the next `$limit` ready pull requests that passed their delay and were not announced for that ready time.
      *
      * @return list<array{pullRequestId: string, readySince: string, projectId: string, cardId: string}>
      */
@@ -34,17 +34,21 @@ class StuckPullRequestRepository extends ServiceEntityRepository
         /** @var list<array{pull_request_id: string, ready_since: string, project_id: string, card_id: string}> $rows */
         $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
             'SELECT pr.id AS pull_request_id, pr.ready_since, pr.project_id, card.id AS card_id
-            FROM forge_pull_requests pr
-            LEFT JOIN board_automation_settings settings ON settings.project_id = pr.project_id
+            FROM (
+                SELECT due.*
+                FROM forge_pull_requests due
+                LEFT JOIN board_automation_settings settings ON settings.project_id = due.project_id
+                WHERE due.state = :open
+                    AND due.ready_to_merge
+                    AND due.ready_since IS NOT NULL
+                    AND (due.stuck_announced_for IS NULL OR due.stuck_announced_for <> due.ready_since)
+                    AND EXISTS (SELECT 1 FROM board_card_pull_requests linked WHERE linked.forge = due.forge AND LOWER(linked.repository) = due.repository AND linked.number = due.number)
+                    AND due.ready_since + make_interval(mins => COALESCE(settings.stuck_delay_minutes, :defaultDelay)) <= :now
+                ORDER BY due.ready_since, due.id
+                LIMIT :limit
+            ) pr
             JOIN board_card_pull_requests link ON link.forge = pr.forge AND LOWER(link.repository) = pr.repository AND link.number = pr.number
-            JOIN board_cards card ON card.id = link.card_id AND card.project_id = pr.project_id
-            WHERE pr.state = :open
-                AND pr.ready_to_merge
-                AND pr.ready_since IS NOT NULL
-                AND (pr.stuck_announced_for IS NULL OR pr.stuck_announced_for <> pr.ready_since)
-                AND pr.ready_since + make_interval(mins => COALESCE(settings.stuck_delay_minutes, :defaultDelay)) <= :now
-            ORDER BY pr.ready_since, pr.id
-            LIMIT :limit',
+            JOIN board_cards card ON card.id = link.card_id AND card.project_id = pr.project_id',
             [
                 'open' => 'open',
                 'defaultDelay' => BoardAutomationSettings::DEFAULT_STUCK_DELAY_MINUTES,

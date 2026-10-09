@@ -16,7 +16,8 @@ use Symfony\Component\Uid\Uuid;
  */
 final readonly class AnnounceStuckPullRequestsHandler
 {
-    public const int BATCH = 500;
+    /** The pull requests announced in one run. */
+    public const int BATCH = 200;
 
     public function __construct(
         private StuckPullRequestRepository $stuckPullRequests,
@@ -34,10 +35,6 @@ final readonly class AnnounceStuckPullRequestsHandler
             $this->events->dispatch(new CardChanged(Uuid::fromString($row['projectId']), Uuid::fromString($row['cardId']), CardChanged::UPDATED, false));
             $announced[$row['pullRequestId']] = $row['readySince'];
             ++$refreshed;
-        }
-        if (self::BATCH === \count($rows)) {
-            // The batch can cut the links of its last pull request short, so the next sweep reads that one again.
-            array_pop($announced);
         }
         foreach ($announced as $pullRequestId => $readySince) {
             $this->stuckPullRequests->markAnnounced($pullRequestId, $readySince);
