@@ -8,6 +8,8 @@ use App\Module\Account\Entity\User;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\ForgeRepository;
 use App\Module\Forge\Entity\ForgeRepositorySource;
+use App\Module\Forge\Service\PullRequestCheckAnnotation;
+use App\Module\Forge\Service\PullRequestCheckAnnotationLevel;
 use App\Module\Forge\Service\PullRequestCheckConclusion;
 use App\Module\Forge\Service\PullRequestCheckFailed;
 use App\Module\Forge\Service\PullRequestCheckWriters;
@@ -68,7 +70,7 @@ final class GitHubPullRequestCheckWriterTest extends KernelTestCase
         $pullRequest = $this->tracked('Ubermuda/Loupe.site', 72_001 + \count($this->requests));
         $this->responses = [$this->answer(['token' => 'ghs_token'], 201), $this->answer(['id' => 4242], 201)];
 
-        $runId = $this->writer()->publish($pullRequest, 'Loupe site review', 'abc123', $conclusion, '2 open notes', 'Fix the footer.', null);
+        $runId = $this->writer()->publish($pullRequest, 'Loupe site review', 'abc123', $conclusion, '2 open notes', 'Fix the footer.', null, []);
 
         self::assertSame(4242, $runId);
         self::assertCount(2, $this->requests);
@@ -88,7 +90,7 @@ final class GitHubPullRequestCheckWriterTest extends KernelTestCase
         $pullRequest = $this->tracked('ubermuda/loupe', 72_010);
         $this->responses = [$this->answer(['token' => 'ghs_token'], 201), $this->answer(['id' => 4242])];
 
-        $runId = $this->writer()->publish($pullRequest, 'Loupe site review', 'abc123', PullRequestCheckConclusion::Success, 'No open note', 'Done.', 4242);
+        $runId = $this->writer()->publish($pullRequest, 'Loupe site review', 'abc123', PullRequestCheckConclusion::Success, 'No open note', 'Done.', 4242, []);
 
         self::assertSame(4242, $runId);
         self::assertSame('PATCH', $this->requests[1]['method']);
@@ -105,11 +107,96 @@ final class GitHubPullRequestCheckWriterTest extends KernelTestCase
         $pullRequest = $this->tracked('ubermuda/loupe', 72_011);
         $this->responses = [$this->answer(['token' => 'ghs_token'], 201), $this->answer(['id' => 1], 201)];
 
-        $this->writer()->publish($pullRequest, 'Loupe site review', 'abc123', PullRequestCheckConclusion::Failure, 'Notes', str_repeat('é', 70_000), null);
+        $this->writer()->publish($pullRequest, 'Loupe site review', 'abc123', PullRequestCheckConclusion::Failure, 'Notes', str_repeat('é', 70_000), null, []);
 
         $output = $this->sentBody()['output'] ?? null;
         self::assertIsArray($output);
         self::assertSame(60_000, mb_strlen((string) $output['summary']));
+    }
+
+    /** @return iterable<string, array{int, ?int, list<int>}> */
+    public static function annotationPages(): iterable
+    {
+        yield 'no annotation on a new run' => [0, null, [0]];
+        yield '50 annotations on a new run' => [50, null, [50]];
+        yield '120 annotations on a new run' => [120, null, [50, 50, 20]];
+        yield '120 annotations on an updated run' => [120, 4242, [50, 50, 20]];
+    }
+
+    /** @param list<int> $perRequest */
+    #[DataProvider('annotationPages')]
+    public function test_annotations_go_50_to_a_request_and_the_rest_patch_the_run(int $count, ?int $runId, array $perRequest): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 72_040 + $count + ($runId ?? 0));
+        $this->responses = [$this->answer(['token' => 'ghs_token'], 201)];
+        foreach ($perRequest as $_) {
+            $this->responses[] = $this->answer(['id' => 4242], 201);
+        }
+        $annotations = [];
+        for ($i = 1; $i <= $count; ++$i) {
+            $annotations[] = new PullRequestCheckAnnotation('src/page.html', $i, $i + 1, PullRequestCheckAnnotationLevel::Warning, 'Note '.$i, 'Fix line '.$i.'.');
+        }
+
+        $result = $this->writer()->publish($pullRequest, 'Loupe site review', 'abc123', PullRequestCheckConclusion::Failure, 'Notes', 'Summary', $runId, $annotations);
+
+        self::assertSame(4242, $result);
+        self::assertCount(1 + \count($perRequest), $this->requests);
+        self::assertSame(null === $runId ? 'POST' : 'PATCH', $this->requests[1]['method']);
+        $sent = [];
+        foreach ($perRequest as $page => $expected) {
+            $body = $this->sentBody($page + 1);
+            $output = $body['output'] ?? null;
+            self::assertIsArray($output);
+            self::assertSame('Notes', $output['title']);
+            self::assertSame('Summary', $output['summary']);
+            $pageAnnotations = $output['annotations'] ?? [];
+            self::assertIsArray($pageAnnotations);
+            self::assertCount($expected, $pageAnnotations);
+            if ($page > 0) {
+                self::assertSame('PATCH', $this->requests[$page + 1]['method']);
+                self::assertSame('https://api.github.com/repos/ubermuda/loupe/check-runs/4242', $this->requests[$page + 1]['url']);
+                self::assertSame(['output'], array_keys($body));
+            }
+            $sent = [...$sent, ...$pageAnnotations];
+        }
+        if ($count > 0) {
+            self::assertSame([
+                'path' => 'src/page.html',
+                'start_line' => $count,
+                'end_line' => $count + 1,
+                'annotation_level' => 'warning',
+                'title' => 'Note '.$count,
+                'message' => 'Fix line '.$count.'.',
+            ], $sent[$count - 1]);
+        }
+    }
+
+    public function test_a_check_with_no_annotation_sends_no_annotations_key(): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 72_200);
+        $this->responses = [$this->answer(['token' => 'ghs_token'], 201), $this->answer(['id' => 1], 201)];
+
+        $this->writer()->publish($pullRequest, 'Loupe site review', 'abc123', PullRequestCheckConclusion::Success, 'Clean', 'Done.', null, []);
+
+        $output = $this->sentBody()['output'] ?? null;
+        self::assertIsArray($output);
+        self::assertArrayNotHasKey('annotations', $output);
+    }
+
+    public function test_a_long_annotation_title_and_message_are_cut(): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 72_201);
+        $this->responses = [$this->answer(['token' => 'ghs_token'], 201), $this->answer(['id' => 1], 201)];
+        $annotation = new PullRequestCheckAnnotation('a.html', 1, 1, PullRequestCheckAnnotationLevel::Failure, str_repeat('t', 300), str_repeat('é', 70_000));
+
+        $this->writer()->publish($pullRequest, 'Loupe site review', 'abc123', PullRequestCheckConclusion::Failure, 'Notes', 'Summary', null, [$annotation]);
+
+        $output = $this->sentBody()['output'] ?? null;
+        self::assertIsArray($output);
+        $sent = $output['annotations'][0] ?? null;
+        self::assertIsArray($sent);
+        self::assertSame(255, mb_strlen((string) $sent['title']));
+        self::assertSame(str_repeat('é', 30_000), $sent['message']);
     }
 
     /** @return iterable<string, array{int}> */
@@ -188,9 +275,9 @@ final class GitHubPullRequestCheckWriterTest extends KernelTestCase
     }
 
     /** @return array<string, mixed> */
-    private function sentBody(): array
+    private function sentBody(int $request = 1): array
     {
-        $body = $this->requests[1]['options']['body'] ?? null;
+        $body = $this->requests[$request]['options']['body'] ?? null;
         self::assertIsString($body);
         $decoded = json_decode($body, true, flags: \JSON_THROW_ON_ERROR);
         self::assertIsArray($decoded);
@@ -244,7 +331,7 @@ final class GitHubPullRequestCheckWriterTest extends KernelTestCase
     private function failure(ForgePullRequest $pullRequest): PullRequestCheckFailed
     {
         try {
-            $this->writer()->publish($pullRequest, 'Loupe site review', 'abc123', PullRequestCheckConclusion::Failure, 'Notes', 'Summary', null);
+            $this->writer()->publish($pullRequest, 'Loupe site review', 'abc123', PullRequestCheckConclusion::Failure, 'Notes', 'Summary', null, []);
         } catch (PullRequestCheckFailed $e) {
             return $e;
         }

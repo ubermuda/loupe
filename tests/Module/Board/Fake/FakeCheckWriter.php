@@ -30,7 +30,7 @@ final class FakeCheckWriter implements PullRequestCheckWriter
     }
 
     #[\Override]
-    public function publish(ForgePullRequest $pullRequest, string $name, string $sha, PullRequestCheckConclusion $conclusion, string $title, string $summary, ?int $runId): int
+    public function publish(ForgePullRequest $pullRequest, string $name, string $sha, PullRequestCheckConclusion $conclusion, string $title, string $summary, ?int $runId, array $annotations): int
     {
         $this->published[] = ['number' => $pullRequest->number, 'name' => $name, 'sha' => $sha, 'conclusion' => $conclusion, 'title' => $title, 'summary' => $summary, 'runId' => $runId];
         if (\in_array($pullRequest->number, $this->failingNumbers, true)) {

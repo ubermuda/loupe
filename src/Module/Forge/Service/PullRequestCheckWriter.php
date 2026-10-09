@@ -17,9 +17,11 @@ interface PullRequestCheckWriter
     /**
      * Reports a finished check on $sha. A $runId updates the run the forge gave a past call, and null makes a new run.
      *
+     * @param list<PullRequestCheckAnnotation> $annotations the line notes to add to the run; the forge adds them to the notes the run already has
+     *
      * @return int the forge's id of the run, to pass as $runId on the next call for the same commit
      *
      * @throws PullRequestCheckFailed when the forge does not take the check
      */
-    public function publish(ForgePullRequest $pullRequest, string $name, string $sha, PullRequestCheckConclusion $conclusion, string $title, string $summary, ?int $runId): int;
+    public function publish(ForgePullRequest $pullRequest, string $name, string $sha, PullRequestCheckConclusion $conclusion, string $title, string $summary, ?int $runId, array $annotations): int;
 }

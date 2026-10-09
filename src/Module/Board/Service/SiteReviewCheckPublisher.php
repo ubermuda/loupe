@@ -91,6 +91,7 @@ final readonly class SiteReviewCheckPublisher
                         $this->title($check),
                         $this->summary($check),
                         $reusable ? $state->checkRunId : null,
+                        [],
                     );
                 } catch (PullRequestCheckFailed $e) {
                     $failure ??= $e->cause;
@@ -165,6 +166,7 @@ final readonly class SiteReviewCheckPublisher
                 $this->translator->trans('board.site_review_check.title_off'),
                 $this->translator->trans('board.site_review_check.summary_unlinked'),
                 $runId,
+                [],
             );
         } catch (PullRequestCheckFailed $e) {
             return $e;
@@ -205,6 +207,7 @@ final readonly class SiteReviewCheckPublisher
                 $this->translator->trans('board.site_review_check.title_off'),
                 $this->translator->trans('board.site_review_check.summary_off'),
                 $state->checkRunId,
+                [],
             );
         } catch (PullRequestCheckFailed $e) {
             return $e;

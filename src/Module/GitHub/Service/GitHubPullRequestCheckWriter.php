@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\GitHub\Service;
 
 use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Forge\Service\PullRequestCheckAnnotation;
 use App\Module\Forge\Service\PullRequestCheckConclusion;
 use App\Module\Forge\Service\PullRequestCheckFailed;
 use App\Module\Forge\Service\PullRequestCheckWriter;
@@ -21,6 +22,14 @@ final readonly class GitHubPullRequestCheckWriter implements PullRequestCheckWri
     /** GitHub caps the summary of a check run at 65535 characters. */
     private const int MAX_SUMMARY_LENGTH = 60000;
 
+    /** GitHub takes at most 50 annotations in one request. */
+    private const int ANNOTATIONS_PER_REQUEST = 50;
+
+    private const int MAX_ANNOTATION_TITLE_LENGTH = 255;
+
+    /** GitHub caps the message of an annotation at 64 KB, so the cut counts bytes. */
+    private const int MAX_ANNOTATION_MESSAGE_BYTES = 60000;
+
     public function __construct(
         private GitHubAppApi $api,
         private GitHubPullRequestInstallations $installations,
@@ -34,7 +43,7 @@ final readonly class GitHubPullRequestCheckWriter implements PullRequestCheckWri
     }
 
     #[\Override]
-    public function publish(ForgePullRequest $pullRequest, string $name, string $sha, PullRequestCheckConclusion $conclusion, string $title, string $summary, ?int $runId): int
+    public function publish(ForgePullRequest $pullRequest, string $name, string $sha, PullRequestCheckConclusion $conclusion, string $title, string $summary, ?int $runId, array $annotations): int
     {
         try {
             [$installationId, $path] = $this->installations->for($pullRequest);
@@ -44,13 +53,15 @@ final readonly class GitHubPullRequestCheckWriter implements PullRequestCheckWri
 
         $runs = GitHubPullRequestInstallations::repositoryPath($path).'/check-runs';
         $output = ['title' => $title, 'summary' => mb_substr($summary, 0, self::MAX_SUMMARY_LENGTH)];
+        $pages = array_chunk(array_map(self::annotation(...), $annotations), self::ANNOTATIONS_PER_REQUEST);
+        $first = [] === $pages ? $output : [...$output, 'annotations' => array_shift($pages)];
 
         try {
             if (null !== $runId) {
                 $answer = $this->api->patch($installationId, $runs.'/'.$runId, [
                     'status' => 'completed',
                     'conclusion' => $conclusion->value,
-                    'output' => $output,
+                    'output' => $first,
                 ]);
             } else {
                 $answer = $this->api->post($installationId, $runs, [
@@ -58,19 +69,37 @@ final readonly class GitHubPullRequestCheckWriter implements PullRequestCheckWri
                     'head_sha' => $sha,
                     'status' => 'completed',
                     'conclusion' => $conclusion->value,
-                    'output' => $output,
+                    'output' => $first,
                 ]);
+            }
+
+            $id = $answer['id'] ?? null;
+            if (!\is_int($id)) {
+                throw new PullRequestCheckFailed('api_failed_malformed_body', permanent: false);
+            }
+
+            // GitHub appends the annotations of each update to the run, so the next pages go in more updates.
+            foreach ($pages as $page) {
+                $this->api->patch($installationId, $runs.'/'.$id, ['output' => [...$output, 'annotations' => $page]]);
             }
         } catch (GitHubAppApiFailed $e) {
             throw self::failed($e);
         }
 
-        $id = $answer['id'] ?? null;
-        if (!\is_int($id)) {
-            throw new PullRequestCheckFailed('api_failed_malformed_body', permanent: false);
-        }
-
         return $id;
+    }
+
+    /** @return array{path: string, start_line: int, end_line: int, annotation_level: string, title: string, message: string} */
+    private static function annotation(PullRequestCheckAnnotation $annotation): array
+    {
+        return [
+            'path' => $annotation->path,
+            'start_line' => $annotation->startLine,
+            'end_line' => $annotation->endLine,
+            'annotation_level' => $annotation->level->value,
+            'title' => mb_substr($annotation->title, 0, self::MAX_ANNOTATION_TITLE_LENGTH),
+            'message' => mb_strcut($annotation->message, 0, self::MAX_ANNOTATION_MESSAGE_BYTES, 'UTF-8'),
+        ];
     }
 
     private static function failed(GitHubAppApiFailed $e): PullRequestCheckFailed
