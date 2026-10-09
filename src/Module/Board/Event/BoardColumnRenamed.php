@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Event;
 
 use App\Module\Board\Entity\BoardColumn;
-use App\Module\Board\Entity\CardReporter;
+use App\Module\Workflow\Contract\Actor;
 
 /**
  * Dispatched inside ConfigureBoardColumnHandler's transaction, after the flush,
@@ -18,7 +18,7 @@ final readonly class BoardColumnRenamed
         public BoardColumn $column,
         public string $fromSlug,
         public string $toSlug,
-        public CardReporter $actor,
+        public Actor $actor,
     ) {
     }
 }

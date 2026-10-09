@@ -32,6 +32,11 @@ class Project implements ProjectScopedSubject
     #[ORM\Id]
     public private(set) ?Uuid $id = null;
 
+    public function requireId(): Uuid
+    {
+        return $this->id ?? throw new \LogicException('A stored project has an id.');
+    }
+
     /**
      * Whether a site-review submission may reach the owner's agent. Off by
      * default, because a reviewer who can open the page can then reach the

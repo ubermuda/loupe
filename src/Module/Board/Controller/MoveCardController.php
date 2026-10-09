@@ -14,11 +14,11 @@ use App\Module\Board\Command\MoveCardHandler;
 use App\Module\Board\Command\ShowCardPlacementCommand;
 use App\Module\Board\Command\ShowCardPlacementHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Form\MoveCardFormType;
 use App\Module\Board\Form\MoveCardRequest;
 use App\Module\Board\Security\CardVoter;
 use App\Module\Project\Security\ProjectVoter;
+use App\Module\Workflow\Contract\Actor;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -85,7 +85,7 @@ final class MoveCardController extends AppController
             try {
                 ($this->moveCard)(new MoveCardCommand(
                     card: $card,
-                    actor: CardReporter::Human,
+                    actor: Actor::Human,
                     column: $data->column ?? throw new \LogicException('column required after validation'),
                     position: $data->position,
                     parent: $data->parent,

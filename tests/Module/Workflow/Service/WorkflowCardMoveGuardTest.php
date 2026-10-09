@@ -7,18 +7,19 @@ namespace App\Tests\Module\Workflow\Service;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Service\BoardAutomation;
-use App\Module\Board\Service\CardEventCause;
-use App\Module\Board\Service\CardMoveGuard;
 use App\Module\Bridge\Entity\WorkerRun;
-use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
+use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardEventCause;
+use App\Module\Workflow\Contract\CardMoveGuard;
+use App\Module\Workflow\Contract\WorkLedger;
 use App\Module\Workflow\Service\FactsBuilder;
 use App\Module\Workflow\Service\WorkflowAutomation;
 use App\Module\Workflow\Service\WorkflowCardMoveGuard;
@@ -52,24 +53,24 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $this->boardAutomation()->settingsForUpdate($this->project)->enabled = false;
         $this->em()->flush();
 
-        self::assertTrue($this->guard()->allows($card, $this->column($this->project, 'in-progress'), CardReporter::Human, null));
+        self::assertTrue($this->guard()->allows($card->snapshot(), $this->column($this->project, 'in-progress')->ref(), Actor::Human, null));
     }
 
-    /** @return iterable<string, array{CardReporter}> */
+    /** @return iterable<string, array{Actor}> */
     public static function refusedActors(): iterable
     {
-        yield 'human' => [CardReporter::Human];
-        yield 'agent' => [CardReporter::Agent];
-        yield 'reviewer' => [CardReporter::Reviewer];
+        yield 'human' => [Actor::Human];
+        yield 'agent' => [Actor::Agent];
+        yield 'reviewer' => [Actor::Reviewer];
     }
 
     #[DataProvider('refusedActors')]
-    public function test_a_move_the_template_does_not_list_is_refused(CardReporter $actor): void
+    public function test_a_move_the_template_does_not_list_is_refused(Actor $actor): void
     {
         $this->bindLifecycle($this->project);
         $card = $this->card('next');
 
-        self::assertFalse($this->guard()->allows($card, $this->column($this->project, 'in-progress'), $actor, null));
+        self::assertFalse($this->guard()->allows($card->snapshot(), $this->column($this->project, 'in-progress')->ref(), $actor, null));
     }
 
     public function test_the_app_itself_may_make_any_move(): void
@@ -77,7 +78,7 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $this->bindLifecycle($this->project);
         $card = $this->card('next');
 
-        self::assertTrue($this->guard()->allows($card, $this->column($this->project, 'in-progress'), CardReporter::System, null));
+        self::assertTrue($this->guard()->allows($card->snapshot(), $this->column($this->project, 'in-progress')->ref(), Actor::System, null));
     }
 
     public function test_a_held_card_is_unmanaged_and_moves_anywhere(): void
@@ -86,14 +87,14 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $card = $this->card('next');
         $this->holds()->hold($this->project, $this->idOf($card), null);
 
-        self::assertTrue($this->guard()->allows($card, $this->column($this->project, 'in-progress'), CardReporter::Human, null));
+        self::assertTrue($this->guard()->allows($card->snapshot(), $this->column($this->project, 'in-progress')->ref(), Actor::Human, null));
     }
 
     public function test_a_project_with_no_template_manages_no_card(): void
     {
         $card = $this->card('next');
 
-        self::assertTrue($this->guard()->allows($card, $this->column($this->project, 'in-progress'), CardReporter::Human, null));
+        self::assertTrue($this->guard()->allows($card->snapshot(), $this->column($this->project, 'in-progress')->ref(), Actor::Human, null));
     }
 
     public function test_a_move_to_the_column_the_card_is_in_is_allowed(): void
@@ -101,7 +102,7 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $this->bindLifecycle($this->project);
         $card = $this->card('in-progress');
 
-        self::assertTrue($this->guard()->allows($card, $this->column($this->project, 'in-progress'), CardReporter::Human, null));
+        self::assertTrue($this->guard()->allows($card->snapshot(), $this->column($this->project, 'in-progress')->ref(), Actor::Human, null));
     }
 
     /** @return iterable<string, array{string}> */
@@ -118,7 +119,7 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $epic = $this->card('in-progress', 'epic');
         $child = $this->card('backlog', parent: $epic);
 
-        self::assertTrue($this->guard()->allows($child, $this->column($this->project, 'in-progress'), CardReporter::Agent, $this->runCause($epic, $workKind)));
+        self::assertTrue($this->guard()->allows($child->snapshot(), $this->column($this->project, 'in-progress')->ref(), Actor::Agent, $this->runCause($epic, $workKind)));
     }
 
     public function test_a_run_of_the_parent_epic_may_make_only_the_move_the_template_names(): void
@@ -128,8 +129,8 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $guard = $this->guard();
         $cause = $this->runCause($epic, 'breakdown');
 
-        self::assertFalse($guard->allows($this->card('backlog', parent: $epic), $this->column($this->project, 'in-review'), CardReporter::Agent, $cause), 'a column the entry does not name');
-        self::assertFalse($guard->allows($this->card('next', parent: $epic), $this->column($this->project, 'in-progress'), CardReporter::Agent, $cause), 'a source the entry does not name');
+        self::assertFalse($guard->allows($this->card('backlog', parent: $epic)->snapshot(), $this->column($this->project, 'in-review')->ref(), Actor::Agent, $cause), 'a column the entry does not name');
+        self::assertFalse($guard->allows($this->card('next', parent: $epic)->snapshot(), $this->column($this->project, 'in-progress')->ref(), Actor::Agent, $cause), 'a source the entry does not name');
     }
 
     public function test_only_a_stored_worker_run_of_the_parent_matches_a_parent_run_move(): void
@@ -142,14 +143,14 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $target = $this->column($this->project, 'in-progress');
         $elsewhere = $this->workflowProject('move-guard-elsewhere');
 
-        self::assertFalse($guard->allows($child, $target, CardReporter::Human, null), 'a person');
-        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, CardEventCause::workflowRule('breakdown')), 'a rule');
-        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'breakdown', WorkerRunKind::Interactive)), 'an interactive run');
-        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'breakdown', project: $elsewhere)), 'a run of another project');
-        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, CardEventCause::run(Uuid::v7(), 'breakdown')), 'no stored run');
-        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($orphan, 'breakdown')), 'a run of a card that is not the parent');
-        self::assertFalse($guard->allows($orphan, $target, CardReporter::Agent, $this->runCause($orphan, 'breakdown')), 'a card with no parent');
-        self::assertFalse($guard->allows($child, $target, CardReporter::Agent, $this->runCause($epic, 'breakdown', state: WorkerRunState::Succeeded)), 'a run that ended');
+        self::assertFalse($guard->allows($child->snapshot(), $target->ref(), Actor::Human, null), 'a person');
+        self::assertFalse($guard->allows($child->snapshot(), $target->ref(), Actor::Agent, CardEventCause::workflowRule('breakdown')), 'a rule');
+        self::assertFalse($guard->allows($child->snapshot(), $target->ref(), Actor::Agent, $this->runCause($epic, 'breakdown', WorkerRunKind::Interactive)), 'an interactive run');
+        self::assertFalse($guard->allows($child->snapshot(), $target->ref(), Actor::Agent, $this->runCause($epic, 'breakdown', project: $elsewhere)), 'a run of another project');
+        self::assertFalse($guard->allows($child->snapshot(), $target->ref(), Actor::Agent, CardEventCause::run(Uuid::v7(), 'breakdown')), 'no stored run');
+        self::assertFalse($guard->allows($child->snapshot(), $target->ref(), Actor::Agent, $this->runCause($orphan, 'breakdown')), 'a run of a card that is not the parent');
+        self::assertFalse($guard->allows($orphan->snapshot(), $target->ref(), Actor::Agent, $this->runCause($orphan, 'breakdown')), 'a card with no parent');
+        self::assertFalse($guard->allows($child->snapshot(), $target->ref(), Actor::Agent, $this->runCause($epic, 'breakdown', state: WorkerRunState::Succeeded)), 'a run that ended');
     }
 
     public function test_a_resumed_session_whose_cause_is_an_older_child_run_still_moves_the_child_for_its_open_parent_run(): void
@@ -161,16 +162,16 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $session = Uuid::v7();
         $childRun = $this->runCause($child, 'implement', state: WorkerRunState::Succeeded, sessionId: $session);
 
-        self::assertFalse($this->guard()->allows($child, $target, CardReporter::Agent, $childRun), 'no parent run in the session');
+        self::assertFalse($this->guard()->allows($child->snapshot(), $target->ref(), Actor::Agent, $childRun), 'no parent run in the session');
 
         $this->runCause($epic, 'implement', sessionId: $session);
         $this->runCause($epic, 'implement', kind: WorkerRunKind::Interactive, sessionId: $session);
-        self::assertTrue($this->guard()->allows($child, $target, CardReporter::Agent, $childRun), 'an open parent worker run behind a newer interactive one');
+        self::assertTrue($this->guard()->allows($child->snapshot(), $target->ref(), Actor::Agent, $childRun), 'an open parent worker run behind a newer interactive one');
 
         $other = Uuid::v7();
         $otherChildRun = $this->runCause($child, 'implement', state: WorkerRunState::Succeeded, sessionId: $other);
         $this->runCause($epic, 'implement', kind: WorkerRunKind::Interactive, sessionId: $other);
-        self::assertFalse($this->guard()->allows($child, $target, CardReporter::Agent, $otherChildRun), 'an interactive parent run alone');
+        self::assertFalse($this->guard()->allows($child->snapshot(), $target->ref(), Actor::Agent, $otherChildRun), 'an interactive parent run alone');
     }
 
     private function runCause(Card $card, string $rule, WorkerRunKind $kind = WorkerRunKind::Worker, ?Project $project = null, WorkerRunState $state = WorkerRunState::Running, ?Uuid $sessionId = null): CardEventCause
@@ -197,12 +198,12 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $this->bindLifecycle($this->project);
         $guard = $this->guard();
 
-        self::assertTrue($guard->allows($this->card('backlog'), $this->column($this->project, 'next'), CardReporter::Human, null));
-        self::assertTrue($guard->allows($this->card('next'), $this->column($this->project, 'tech-design'), CardReporter::Human, null));
-        self::assertFalse($guard->allows($this->card('tech-design'), $this->column($this->project, 'next'), CardReporter::Human, null));
-        self::assertTrue($guard->allows($this->card('in-progress'), $this->column($this->project, 'tech-design'), CardReporter::Human, null));
-        self::assertFalse($guard->allows($this->card('in-progress'), $this->column($this->project, 'product-design'), CardReporter::Human, null));
-        self::assertFalse($guard->allows($this->card('next'), $this->column($this->project, 'done'), CardReporter::Human, null));
+        self::assertTrue($guard->allows($this->card('backlog')->snapshot(), $this->column($this->project, 'next')->ref(), Actor::Human, null));
+        self::assertTrue($guard->allows($this->card('next')->snapshot(), $this->column($this->project, 'tech-design')->ref(), Actor::Human, null));
+        self::assertFalse($guard->allows($this->card('tech-design')->snapshot(), $this->column($this->project, 'next')->ref(), Actor::Human, null));
+        self::assertTrue($guard->allows($this->card('in-progress')->snapshot(), $this->column($this->project, 'tech-design')->ref(), Actor::Human, null));
+        self::assertFalse($guard->allows($this->card('in-progress')->snapshot(), $this->column($this->project, 'product-design')->ref(), Actor::Human, null));
+        self::assertFalse($guard->allows($this->card('next')->snapshot(), $this->column($this->project, 'done')->ref(), Actor::Human, null));
     }
 
     public function test_a_wildcard_manual_move_matches_any_column(): void
@@ -210,8 +211,8 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $this->bindHandler()(new BindWorkflowTemplateCommand($this->project, 'simple', []));
         $guard = $this->guard();
 
-        self::assertTrue($guard->allows($this->card('next'), $this->column($this->project, 'done'), CardReporter::Human, null));
-        self::assertTrue($guard->allows($this->card('backlog'), $this->column($this->project, 'in-progress'), CardReporter::Human, null));
+        self::assertTrue($guard->allows($this->card('next')->snapshot(), $this->column($this->project, 'done')->ref(), Actor::Human, null));
+        self::assertTrue($guard->allows($this->card('backlog')->snapshot(), $this->column($this->project, 'in-progress')->ref(), Actor::Human, null));
     }
 
     public function test_the_lifecycle_template_lets_no_run_of_the_parent_move_a_child(): void
@@ -220,7 +221,7 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
         $epic = $this->card('in-progress', 'epic');
         $child = $this->card('backlog', parent: $epic);
 
-        self::assertFalse($this->guard()->allows($child, $this->column($this->project, 'in-progress'), CardReporter::Agent, $this->runCause($epic, 'breakdown')));
+        self::assertFalse($this->guard()->allows($child->snapshot(), $this->column($this->project, 'in-progress')->ref(), Actor::Agent, $this->runCause($epic, 'breakdown')));
     }
 
     /** The engine keeps the entry for a template that names it, so the tests give Lifecycle one. */
@@ -233,19 +234,20 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
 
     private function guard(): WorkflowCardMoveGuard
     {
-        $holds = $this->holds();
+        $ledger = self::getContainer()->get(WorkLedger::class);
+        self::assertInstanceOf(WorkLedger::class, $ledger);
         $templates = self::getContainer()->get(TemplateSource::class);
         self::assertInstanceOf(TemplateSource::class, $templates);
         $facts = self::getContainer()->get(FactsBuilder::class);
         self::assertInstanceOf(FactsBuilder::class, $facts);
 
-        $workerRuns = self::getContainer()->get(WorkerRunRepository::class);
-        self::assertInstanceOf(WorkerRunRepository::class, $workerRuns);
-
         $automation = self::getContainer()->get(WorkflowAutomation::class);
         self::assertInstanceOf(WorkflowAutomation::class, $automation);
 
-        return new WorkflowCardMoveGuard($automation, $holds, $templates, $facts, $workerRuns);
+        $projects = self::getContainer()->get(ProjectRepository::class);
+        self::assertInstanceOf(ProjectRepository::class, $projects);
+
+        return new WorkflowCardMoveGuard($automation, $ledger, $templates, $facts, $projects);
     }
 
     private function boardAutomation(): BoardAutomation
@@ -275,7 +277,7 @@ final class WorkflowCardMoveGuardTest extends KernelTestCase
             body: 'Body',
             type: $type,
             column: $this->column($this->project, $column),
-            reporter: CardReporter::Human,
+            reporter: Actor::Human,
             parentCardId: null === $parent ? null : (string) $parent->id,
         ));
     }

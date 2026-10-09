@@ -6,9 +6,9 @@ namespace App\Module\Board\Form;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Project\Security\ProjectVoter;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use Doctrine\ORM\QueryBuilder;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Form\AbstractType;
@@ -59,7 +59,7 @@ final class CardParentAutocompleteField extends AbstractType
                 return $cards->parentCandidates(
                     $projectId,
                     self::uuidOption($options, 'excludeCardId'),
-                    null === $project ? [] : $this->catalog->forProject($project)->withChildren(),
+                    null === $project ? [] : $this->catalog->forProject($project->requireId())->withChildren(),
                 );
             },
             'filter_query' => static function (QueryBuilder $qb, string $query, CardRepository $cards): void {

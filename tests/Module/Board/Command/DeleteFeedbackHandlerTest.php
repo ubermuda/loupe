@@ -16,13 +16,13 @@ use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\SiteReview\Command\CommentNotFound;
 use App\Module\SiteReview\Command\NewAnchor;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
@@ -320,7 +320,7 @@ final class DeleteFeedbackHandlerTest extends KernelTestCase
 
         $delete = self::getContainer()->get(DeleteCardHandler::class);
         self::assertInstanceOf(DeleteCardHandler::class, $delete);
-        $delete(new DeleteCardCommand($card, CardReporter::Human));
+        $delete(new DeleteCardCommand($card, Actor::Human));
         // A later write in the same request flushes every managed link.
         $this->card($project, 'backlog');
 

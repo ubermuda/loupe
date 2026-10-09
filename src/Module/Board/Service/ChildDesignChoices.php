@@ -7,20 +7,59 @@ namespace App\Module\Board\Service;
 use App\Module\Board\Command\CardManaged;
 use App\Module\Board\Command\ChildDesignRefused;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Repository\CardDocumentRepository;
+use App\Module\Board\Workflow\LinkDocument;
+use App\Module\Board\Workflow\MoveCard;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardEventCause;
+use App\Module\Workflow\Contract\CardMoveGuard;
+use App\Module\Workflow\Contract\ChildChoices;
+use App\Module\Workflow\Contract\ChildChoiceStep;
+use Doctrine\DBAL\ArrayParameterType;
+use Doctrine\DBAL\Connection;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Uid\Uuid;
 
-/** Board may not import Workflow, so the workflow template says what the choices of an agent mean, and Workflow runs them. */
-interface ChildDesignChoices
+/** Reads what the workflow says about the choice an agent states for a card it files under a parent, and writes the card with that choice. */
+final readonly class ChildDesignChoices
 {
-    public const string INHERIT = 'inherit';
-    public const string OWN = 'own';
-    public const array CHOICES = [self::INHERIT, self::OWN];
+    public const string INHERIT = ChildChoices::INHERIT;
+    public const string OWN = ChildChoices::OWN;
+    public const array CHOICES = ChildChoices::CHOICES;
+
+    private const string APPROVED = 'approved';
+
+    public function __construct(
+        private ChildChoices $choices,
+        private CardDocumentRepository $cardDocuments,
+        private CardMoveGuard $moveGuard,
+        private EntityManagerInterface $em,
+        private Connection $connection,
+    ) {
+    }
 
     /**
      * Null when the workflow of the project declares no choices, or does not run for the project.
      *
      * @param list<string> $documentIds the ids of the documents the card links once the call has run
      */
-    public function forChild(Card $parent, array $documentIds): ?ChildDesignTargets;
+    public function forChild(Card $parent, array $documentIds): ?ChildDesignTargets
+    {
+        $steps = $this->choices->forProject($parent->project->requireId());
+        if ([] === $steps) {
+            return null;
+        }
+        $tag = self::inheritTag($steps);
+        $parentDocuments = null === $tag ? [] : $this->cardDocuments->findStatusesAndTagsForCard($parent);
+        $tagged = array_filter($parentDocuments, static fn (array $document): bool => \in_array($tag, $document['tags'], true));
+        $approved = array_filter($tagged, static fn (array $document): bool => self::APPROVED === $document['status']);
+
+        return new ChildDesignTargets(
+            declared: array_keys($steps),
+            choiceRequired: null !== $tag && [] !== $approved && !$this->linksApproved($documentIds, $tag),
+            inheritAvailable: [] !== $tagged,
+        );
+    }
 
     /**
      * Runs the card write and the actions of the choice in one transaction. A refusal rolls both back.
@@ -31,5 +70,72 @@ interface ChildDesignChoices
      * @throws ChildDesignRefused when the workflow declares no such choice, or an action refuses
      * @throws CardManaged        when the workflow does not allow the move that `own` makes
      */
-    public function write(\Closure $write, string $choice, ?CardEventCause $cause = null, ?Card $existing = null): Card;
+    public function write(\Closure $write, string $choice, ?CardEventCause $cause = null, ?Card $existing = null): Card
+    {
+        if (null !== $existing) {
+            $this->checkMoves($existing, $choice, $cause);
+        }
+
+        return $this->em->wrapInTransaction(function () use ($write, $choice, $cause): Card {
+            $card = $write();
+            if (null === $card->parent) {
+                throw new ChildDesignRefused('childDesign: The card has no parent card, so there is nothing to inherit.');
+            }
+            $this->checkMoves($card, $choice, $cause);
+            $refusal = $this->choices->run($card->id ?? throw new \LogicException('A stored card has an id.'), $choice);
+            if (null !== $refusal) {
+                throw new ChildDesignRefused(self::refusal($choice, $refusal));
+            }
+            $this->em->flush();
+
+            return $card;
+        });
+    }
+
+    private function checkMoves(Card $card, string $choice, ?CardEventCause $cause): void
+    {
+        foreach ($this->choices->forProject($card->project->requireId())[$choice] ?? [] as $step) {
+            if (MoveCard::KEY === $step->key && null !== $step->to && !$this->moveGuard->allows($card->snapshot(), $step->to, Actor::Agent, $cause)) {
+                throw new CardManaged($card->number);
+            }
+        }
+    }
+
+    private static function refusal(string $choice, string $code): string
+    {
+        return match ($code) {
+            LinkDocument::NO_PARENT_DOCUMENT => 'childDesign: The parent card has no tech design to inherit. Pass "own" to give this card a design of its own.',
+            'workflow-slot-missing' => 'childDesign: This board has no column for the Tech design step, so "own" cannot move the card there.',
+            ChildChoices::NO_CHOICE => \sprintf('childDesign: The workflow of this project declares no "%s" choice.', $choice),
+            default => \sprintf('childDesign: The workflow refused the "%s" choice (%s).', $choice, $code),
+        };
+    }
+
+    /** @param array<string, list<ChildChoiceStep>> $steps */
+    private static function inheritTag(array $steps): ?string
+    {
+        foreach ($steps[self::INHERIT] ?? [] as $step) {
+            if (LinkDocument::KEY === $step->key && \is_string($step->params['tag'] ?? null)) {
+                return $step->params['tag'];
+            }
+        }
+
+        return null;
+    }
+
+    /** @param list<string> $documentIds */
+    private function linksApproved(array $documentIds, string $tag): bool
+    {
+        $ids = array_values(array_filter($documentIds, Uuid::isValid(...)));
+        if ([] === $ids) {
+            return false;
+        }
+
+        return false !== $this->connection->fetchOne(
+            'SELECT 1 FROM documents d JOIN document_tags dt ON dt.document_id = d.id JOIN tags t ON t.id = dt.tag_id
+             WHERE d.id IN (:ids) AND d.status = :status AND t.name = :tag AND d.archived_at IS NULL LIMIT 1',
+            ['ids' => $ids, 'status' => self::APPROVED, 'tag' => $tag],
+            ['ids' => ArrayParameterType::STRING],
+        );
+    }
 }

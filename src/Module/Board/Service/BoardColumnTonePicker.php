@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Service;
 
 use App\Module\Board\Entity\BoardColumn;
-use App\Module\Board\Entity\LabelTone;
+use App\Module\Workflow\Contract\LabelTone;
 use Random\Randomizer;
 
 /** Chooses a new column's colour: a random one no column uses, the Backlog included, or any when all are taken. */

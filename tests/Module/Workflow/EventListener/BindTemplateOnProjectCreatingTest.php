@@ -8,13 +8,13 @@ use App\Doctrine\SearchLanguage;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
-use App\Module\Board\Entity\LabelTone;
 use App\Module\Board\EventListener\SeedBoardColumnsOnProjectCreating;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Project\Command\CreateProjectCommand;
 use App\Module\Project\Command\CreateProjectHandler;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Event\ProjectCreating;
+use App\Module\Workflow\Contract\LabelTone;
 use App\Module\Workflow\Entity\WorkflowSlotLink;
 use App\Module\Workflow\EventListener\BindTemplateOnProjectCreating;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
@@ -56,8 +56,8 @@ final class BindTemplateOnProjectCreatingTest extends KernelTestCase
         $links = $this->links($project);
         self::assertCount(5, $links);
         foreach ($links as $link) {
-            self::assertNotNull($link->column);
-            self::assertSame($link->slotKey, $link->column->slug);
+            self::assertNotNull($link->columnId);
+            self::assertSame($link->slotKey, $this->em->find(BoardColumn::class, $link->columnId)?->slug);
         }
 
         $binding = $this->bindings()->findOneByProjectId($project->id ?? throw new \LogicException());

@@ -36,7 +36,7 @@ onWorkFailed:
 rules:
     - id: product-design-session
       slot: product-design
-      when: { not: { card.document: { tag: product-design } } }
+      when: { not: { card.document.linked: { tag: product-design } } }
       then:
           request:
               kind: product-design
@@ -47,7 +47,7 @@ rules:
 
     - id: product-design-revise
       slot: product-design
-      when: { card.document_changes_requested: { tag: product-design } }
+      when: { card.document.changes_requested: { tag: product-design } }
       then:
           request:
               kind: product-design-revise
@@ -59,13 +59,13 @@ rules:
       slot: product-design
       when:
           all:
-              - card.document_approved: { tag: product-design }
-              - not: { card.document_changes_requested: { tag: product-design } }
+              - card.document.approved: { tag: product-design }
+              - not: { card.document.changes_requested: { tag: product-design } }
       then: { move: { to: tech-design } }
 
     - id: tech-design-write
       slot: tech-design
-      when: { not: { card.document: { tag: tech-design } } }
+      when: { not: { card.document.linked: { tag: tech-design } } }
       then:
           request:
               kind: tech-design
@@ -76,7 +76,7 @@ rules:
 
     - id: tech-design-revise
       slot: tech-design
-      when: { card.document_changes_requested: { tag: tech-design } }
+      when: { card.document.changes_requested: { tag: tech-design } }
       then:
           request:
               kind: tech-design-revise
@@ -90,9 +90,9 @@ rules:
       slot: tech-design
       when:
           all:
-              - card.document_approved: { tag: tech-design }
-              - not: { card.document_changes_requested: { tag: tech-design } }
-              - not: { card.has_open_blocker: {} }
+              - card.document.approved: { tag: tech-design }
+              - not: { card.document.changes_requested: { tag: tech-design } }
+              - not: { card.blocker.open: {} }
       then: { move: { to: implementation } }
 
     - id: implement
@@ -100,7 +100,7 @@ rules:
       when:
           all:
               - not: { card.type: { type: epic } }
-              - not: { pr.linked: {} }
+              - not: { card.pr.linked: {} }
       then:
           request:
               kind: implement
@@ -212,7 +212,7 @@ rules:
       slot: in-review
       when:
           all:
-              - card.children_finished: {}
+              - card.children.finished: {}
               - pr.open: {}
               - not: { pr.draft: {} }
               - pr.checks_passed: {}
@@ -228,7 +228,7 @@ rules:
       slot: in-review
       when:
           all:
-              - card.children_finished: {}
+              - card.children.finished: {}
               - pr.open: {}
               - not: { pr.draft: {} }
               - pr.checks_passed: {}
@@ -236,7 +236,7 @@ rules:
               - not: { pr.conflicting: {} }
               - not: { pr.changes_requested: {} }
               - not: { pr.behind: {} }
-              - not: { parent.work_active: {} }
+              - not: { card.parent.run.active: {} }
       then: { forge-write: { write: merge, fallback: merge } }
 
     - id: epic-to-review
@@ -244,10 +244,10 @@ rules:
       when:
           all:
               - card.type: { type: epic }
-              - card.has_children: {}
-              - card.children_finished: {}
+              - card.children.exist: {}
+              - card.children.finished: {}
               - pr.open: {}
-              - not: { run.work_active: {} }
+              - not: { card.run.work_active: {} }
       then: { move: { to: in-review } }
 
     - id: epic-to-done
@@ -255,11 +255,11 @@ rules:
       when:
           all:
               - card.type: { type: epic }
-              - card.has_children: {}
-              - card.children_finished: {}
-              - not: { pr.linked: {} }
-              - not: { card.child_merged_into_epic_branch: {} }
-              - not: { run.work_active: {} }
+              - card.children.exist: {}
+              - card.children.finished: {}
+              - not: { card.pr.linked: {} }
+              - not: { card.children.merged_into_epic_branch: {} }
+              - not: { card.run.work_active: {} }
       then: { move: { to: '@terminal' } }
 
     - id: epic-entered-implementation
@@ -271,7 +271,7 @@ rules:
       when:
           all:
               - card.type: { type: epic }
-              - not: { run.worker_active: {} }
+              - not: { card.run.worker_active: {} }
       then: { evaluate: { cards: children } }
 
     - id: epic-reopened-from-review
@@ -279,7 +279,7 @@ rules:
       when:
           all:
               - card.type: { type: epic }
-              - not: { card.children_finished: {} }
+              - not: { card.children.finished: {} }
       then: { move: { to: implementation } }
 
     - id: epic-reopened-from-done
@@ -287,7 +287,7 @@ rules:
       when:
           all:
               - card.type: { type: epic }
-              - not: { card.children_finished: {} }
+              - not: { card.children.finished: {} }
       then: { move: { to: implementation } }
 
     - id: epic-open-pull-request
@@ -295,7 +295,7 @@ rules:
       when:
           all:
               - card.type: { type: epic }
-              - card.child_merged_into_epic_branch: {}
+              - card.children.merged_into_epic_branch: {}
               - not: { pr.open: {} }
       then: { forge-write: { write: open-epic } }
 
@@ -328,9 +328,9 @@ rules:
       slot: '@terminal'
       when:
           all:
-              - card.is_child: {}
+              - card.parent.exists: {}
               - pr.base_is_epic_branch: {}
-              - pr.all_finished_one_merged: {}
+              - card.pr.all_finished_one_merged: {}
       then:
           request:
               kind: epic-preview
@@ -342,22 +342,22 @@ rules:
       slot: next
       when:
           all:
-              - card.is_child: {}
-              - card.document_approved: { tag: tech-design }
-              - parent.in_slot: { slot: implementation }
-              - not: { card.has_open_blocker: {} }
-              - not: { pr.linked: {} }
-              - not: { parent.work_active: {} }
+              - card.parent.exists: {}
+              - card.document.approved: { tag: tech-design }
+              - card.parent.in_slot: { slot: implementation }
+              - not: { card.blocker.open: {} }
+              - not: { card.pr.linked: {} }
+              - not: { card.parent.run.active: {} }
       then: { move: { to: implementation } }
 
     - id: unplanned-child
       slot: next
       when:
           all:
-              - card.is_child: {}
-              - not: { card.document_approved: { tag: tech-design } }
-              - parent.document_approved: { tag: tech-design }
-              - not: { parent.work_active: {} }
+              - card.parent.exists: {}
+              - not: { card.document.approved: { tag: tech-design } }
+              - card.parent.document.approved: { tag: tech-design }
+              - not: { card.parent.run.active: {} }
       then:
           ask:
               question: workflow.ask.unplanned_child
@@ -378,13 +378,13 @@ rules:
       when:
           all:
               - not: { card.in_slot: { slot: '@terminal' } }
-              - pr.all_finished_one_merged: {}
-              - card.children_finished: {}
-              - any: [{ not: { card.type: { type: epic } } }, { not: { run.worker_active: {} } }]
+              - card.pr.all_finished_one_merged: {}
+              - card.children.finished: {}
+              - any: [{ not: { card.type: { type: epic } } }, { not: { card.run.worker_active: {} } }]
       then: { move: { to: '@terminal' } }
 
     # Last, with no slot. A fired move ends the pass even when it moves nothing, so an earlier place would shadow the rules after it.
     # The truth outlives a move: a child that a person moves back to the Backlog makes no edge and stays parked.
     - id: child-to-next
-      when: { card.is_child: {} }
+      when: { card.parent.exists: {} }
       then: { move: { to: next, from: '@backlog' } }

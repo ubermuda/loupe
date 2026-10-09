@@ -10,6 +10,7 @@ use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunReason;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkSubject;
+use App\Module\Workflow\Contract\WorkKind;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
@@ -58,7 +59,7 @@ final class ReportWorkerRunStateRequest
         public ?string $workRequestId = null,
 
         #[Assert\NotBlank(allowNull: true)]
-        #[Assert\Regex(pattern: WorkRequest::KIND_PATTERN)]
+        #[Assert\Regex(pattern: WorkKind::PATTERN)]
         public ?string $workKind = null,
 
         #[Assert\NotBlank(allowNull: true)]

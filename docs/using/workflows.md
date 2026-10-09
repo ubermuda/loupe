@@ -191,8 +191,8 @@ Some rules act from any slot:
    the work requests of the epic, or to the documents of the child, also
    evaluates the child. An older bridge that sends no run key reports a run only
    after it ends, so its run does not hold the children. In a workflow file, the
-   condition `parent.document_approved` with a `tag` is true when a document of
-   the parent card has that tag and is approved. The condition `parent.in_slot`
+   condition `card.parent.document.approved` with a `tag` is true when a document of
+   the parent card has that tag and is approved. The condition `card.parent.in_slot`
    with a `slot` is true when the parent card sits in that slot.
 4. A child in Next that links no approved tech design asks the owner what to do,
    once the epic has an approved tech design and no work in progress. The rule
@@ -359,7 +359,7 @@ a map with the key `tag`, and an optional `status`: `in-review`, `approved`,
 ```yaml
 - id: tech-design-revise
   slot: tech-design
-  when: { card.document_changes_requested: { tag: tech-design } }
+  when: { card.document.changes_requested: { tag: tech-design } }
   then:
       request:
           kind: tech-design-revise

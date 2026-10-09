@@ -8,7 +8,6 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Event\CardBlockersRemoved;
 use App\Module\Board\Event\CardChanged;
@@ -17,20 +16,21 @@ use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\CardLinkResolver;
 use App\Module\Board\Service\CardLinkSync;
-use App\Module\Board\Service\CardMoveGuard;
 use App\Module\Board\Service\CardMover;
 use App\Module\Board\Service\CardParentPolicy;
 use App\Module\Board\Service\CardParentResolver;
 use App\Module\Board\Service\CardSearchIndexer;
-use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Board\Service\DocumentLinkResolver;
 use App\Module\Board\Service\PullRequestTracking;
 use App\Module\Board\Service\PullRequestUrlResolver;
 use App\Module\Bridge\Service\CardPause;
 use App\Module\Bridge\Service\InteractiveRuns;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardEventCause;
+use App\Module\Workflow\Contract\CardMoveGuard;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -161,7 +161,7 @@ final readonly class UpdateCardHandler
             }
             // After the parent step, so the guard reads the parent the move keeps or sets.
             // A card the update holds is unmanaged, so the guard has nothing to refuse.
-            $needsHold = $column !== $card->column && !$this->moveGuard->allows($card, $column, $command->actor, $command->cause);
+            $needsHold = $column !== $card->column && !$this->moveGuard->allows($card->snapshot(), $column->ref(), $command->actor, $command->cause);
             if ($needsHold && null === $command->unmanageBy) {
                 // A returned refusal commits, so the parent goes back first.
                 $card->parent = $oldParent;
@@ -169,12 +169,12 @@ final readonly class UpdateCardHandler
                 return new CardManaged($card->number);
             }
             $laneChanged = null !== $command->laneEnabled && $command->laneEnabled !== $card->laneEnabled;
-            $types = $this->catalog->forProject($card->project);
+            $types = $this->catalog->forProject($card->project->requireId());
             $lanesBefore = $card->drawsLane($types);
 
             // Only a card with children can be refused, and only an epic has
             // children. The app itself closes an epic by the same path.
-            if ($column->terminal && $column !== $card->column && CardReporter::System !== $command->actor) {
+            if ($column->terminal && $column !== $card->column && Actor::System !== $command->actor) {
                 $open = $this->cards->openChildNumbers($card);
                 if ([] !== $open) {
                     return new EpicChildrenOpen($open);
@@ -186,7 +186,7 @@ final readonly class UpdateCardHandler
                 $card->project,
                 $card->id ?? throw new \LogicException('A persisted card has an id.'),
                 $command->unmanageBy,
-                CardReporter::Agent === $command->actor ? 'agent' : 'human',
+                Actor::Agent === $command->actor ? 'agent' : 'human',
             );
 
             // A terminal column keeps no rank, so it reads no neighbour.

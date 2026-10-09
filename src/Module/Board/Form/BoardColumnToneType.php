@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Form;
 
-use App\Module\Board\Entity\LabelTone;
+use App\Module\Workflow\Contract\LabelTone;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
 use Symfony\Component\OptionsResolver\OptionsResolver;

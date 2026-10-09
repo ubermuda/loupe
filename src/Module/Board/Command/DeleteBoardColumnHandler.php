@@ -8,7 +8,6 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEvent;
 use App\Module\Board\Entity\CardEventKind;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\BoardColumnDeleted;
 use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
@@ -16,9 +15,10 @@ use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardColumns;
 use App\Module\Board\Service\CardEventActor;
-use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\CardMover;
 use App\Module\Bridge\Service\CardHolds;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardEventCause;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -100,7 +100,7 @@ final readonly class DeleteBoardColumnHandler
             if (null !== $target && [] !== $rows) {
                 $now = new \DateTimeImmutable();
                 $movedIds = $this->mover->moveAll($column, $target, $now);
-                if (CardReporter::Human === $command->actor) {
+                if (Actor::Human === $command->actor) {
                     $this->cardHolds->release($column->project, array_map(Uuid::fromString(...), $movedIds));
                 }
                 if (!$target->terminal) {

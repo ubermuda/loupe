@@ -8,13 +8,13 @@ use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardUpdateTool;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use App\Tests\Support\McpTokenScenario;
 use Mcp\Exception\ToolCallException;
@@ -181,7 +181,7 @@ final class CardChildDesignToolTest extends KernelTestCase
             body: 'Body',
             type: $type,
             column: $this->column($this->project, $slug),
-            reporter: CardReporter::Human,
+            reporter: Actor::Human,
             parentCardId: null === $parent ? null : (string) $parent->id,
         ));
     }

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Readiness\Mcp;
 
 use App\Module\Board\Entity\BoardAutomationSettings;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Project\Entity\Project;
 use App\Module\Readiness\Entity\DiscoveryRun;
@@ -15,6 +14,7 @@ use App\Module\Readiness\Mcp\DiscoveryStartTool;
 use App\Module\Readiness\Mcp\ReadinessGetTool;
 use App\Module\Readiness\Mcp\ReadinessReportSubmitTool;
 use App\Module\Review\Entity\Document;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Readiness\DiscoveryScenario;
 use App\Tests\Support\AgentCredential;
 use App\Tests\Support\McpRefusalMessages;
@@ -80,7 +80,7 @@ final class ReadinessToolsTest extends KernelTestCase
         $run = $this->em()->find(DiscoveryRun::class, $answer['runId']);
         self::assertNotNull($run);
         self::assertSame(['cardId' => (string) $run->card->id, 'cardNumber' => $run->card->number, 'runId' => (string) $run->id, 'state' => 'requested'], $answer);
-        self::assertSame(CardReporter::Agent, $run->card->reporter);
+        self::assertSame(Actor::Agent, $run->card->reporter);
     }
 
     public function test_discovery_start_with_no_live_bridge_names_the_fix(): void

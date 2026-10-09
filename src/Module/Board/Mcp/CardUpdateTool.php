@@ -13,8 +13,8 @@ use App\Module\Board\Command\ShowCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Service\ChildDesignChoices;
+use App\Module\Workflow\Contract\Actor;
 use App\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
@@ -83,7 +83,7 @@ final readonly class CardUpdateTool
 
             $update = fn (): Card => ($this->updateCard)(new UpdateCardCommand(
                 card: $card,
-                actor: CardReporter::Agent,
+                actor: Actor::Agent,
                 title: $title,
                 body: $body,
                 type: $this->subjects->optionalType($card->project, $type),
