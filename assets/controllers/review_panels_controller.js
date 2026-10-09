@@ -164,6 +164,14 @@ export default class extends Controller {
         }
         for (const count of this.openCountTargets) {
             count.textContent = counts.open;
+            const button = count.closest('[data-label-template]');
+            button?.setAttribute(
+                'aria-label',
+                button.dataset.labelTemplate.replace(
+                    '%count%',
+                    String(counts.open),
+                ),
+            );
         }
         const activeOption = this.optionTargets.find(
             (option) =>

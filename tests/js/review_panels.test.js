@@ -316,3 +316,38 @@ it('stores nothing when a comparison reveals the comments', async () => {
     expect(openPanels()).toEqual(['decisions', 'comments', 'outline']);
     expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
 });
+
+it('keeps the Comments button count, its label and the filter summary in step with the threads', async () => {
+    const element = await mount({ hideResolved: true });
+    const comments = buttonFor('comments');
+    comments.dataset.labelTemplate = 'Comments panel, %count% open';
+    comments.insertAdjacentHTML(
+        'beforeend',
+        '<span data-review-panels-target="openCount">9</span>',
+    );
+    for (const option of element.querySelectorAll(
+        '[data-review-panels-target="option"]',
+    )) {
+        option.dataset.filterLabel = option.dataset.reviewPanelsFilterParam;
+    }
+    element
+        .querySelector('[data-review-panels-target="filter"] summary')
+        .insertAdjacentHTML(
+            'beforeend',
+            '<span data-review-panels-target="filterLabel"></span>',
+        );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    element.querySelector('#open-thread').remove();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(
+        comments.querySelector('[data-review-panels-target="openCount"]')
+            .textContent,
+    ).toBe('1');
+    expect(comments.getAttribute('aria-label')).toBe('Comments panel, 1 open');
+    expect(
+        element.querySelector('[data-review-panels-target="filterLabel"]')
+            .textContent,
+    ).toBe('open · 1');
+});

@@ -17,6 +17,7 @@
                     {% if reason %}aria-disabled="true"{% endif %}
                     title="{{ reason ? reason|trans : ('review.document.panels.' ~ name)|trans }}"
                     aria-label="{{ name == 'comments' ? 'review.document.panels.comments_label'|trans({'%count%': openCommentCount}) : ('review.document.panels.' ~ name)|trans }}"
+                    {% if name == 'comments' %}data-label-template="{{ 'review.document.panels.comments_label'|trans }}"{% endif %}
                     data-review-panels-target="button"
                     data-review-panels-name-param="{{ name }}"
                     data-action="review-panels#toggle">

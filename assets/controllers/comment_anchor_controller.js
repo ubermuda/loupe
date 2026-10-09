@@ -1800,12 +1800,15 @@ export default class extends Controller {
             return;
         }
         const originBox = origin.getBoundingClientRect();
-        const left = Math.min(
+        const left =
             column.getBoundingClientRect().right -
-                originBox.left +
-                this.constructor.MARKER_GAP,
-            originBox.width - this.constructor.MARKER_HEIGHT * 2,
-        );
+            originBox.left +
+            this.constructor.MARKER_GAP;
+        // With no gutter beside the text, a marker would cover it. The
+        // highlight and the Comments panel still open each thread.
+        if (left + this.constructor.MARKER_HEIGHT * 2 > originBox.width) {
+            return;
+        }
         const hiddenRowIds = this.#hiddenRowIds();
         const lines = [];
         for (const thread of this.threadTargets) {
