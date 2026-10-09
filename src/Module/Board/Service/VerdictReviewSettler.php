@@ -68,10 +68,13 @@ final readonly class VerdictReviewSettler
             return $this->finish($delivery, CardVerdictDeliveryState::Skipped);
         }
         $pullRequest = $delivery->pullRequest;
-        // Before the state check, because the read can find the pull request closed.
+        if (PullRequestState::Open !== $pullRequest->state) {
+            return $this->finish($delivery, CardVerdictDeliveryState::Skipped, self::REASON_NOT_OPEN);
+        }
         if (!$this->authorIsRead($pullRequest)) {
             return self::AUTHOR_UNREAD;
         }
+        // The read can find the pull request closed.
         if (PullRequestState::Open !== $pullRequest->state) {
             return $this->finish($delivery, CardVerdictDeliveryState::Skipped, self::REASON_NOT_OPEN);
         }
