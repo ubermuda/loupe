@@ -1151,7 +1151,7 @@ final class ShowDocumentControllerTest extends WebTestCase
 
         $crawler = $client->request(Request::METHOD_GET, $base);
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('[role="switch"][data-controller="review-new-text"]:not([aria-disabled])'));
+        self::assertCount(1, $crawler->filter('.lp-btn--ghost.lp-btn--sm.lp-new-text-switch[role="switch"][aria-checked="false"][data-controller="review-new-text"]:not([aria-disabled])'));
         self::assertStringEndsWith(
             $base.'/new-text/2',
             (string) $crawler->filter('[role="switch"]')->attr('data-review-new-text-url-value'),

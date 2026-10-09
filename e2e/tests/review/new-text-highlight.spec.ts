@@ -137,7 +137,7 @@ test('the first version disables the switch and the comparison hides it', async 
     await page.goto(`${reviewUrl}/versions/1`);
     const newText = page.getByRole('switch', { name: /Highlight new text/ });
     await expect(newText).toHaveAttribute('aria-disabled', 'true');
-    await newText.click();
+    await newText.click({ force: true });
     await expect(newText).toHaveAttribute('aria-checked', 'false');
     expect(await paintedText(page)).toEqual([]);
 

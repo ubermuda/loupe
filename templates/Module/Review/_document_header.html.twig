@@ -26,8 +26,8 @@
                 {% endif %}
                 {% if showNewTextSwitch|default(false) %}
                 {% set newTextUnavailable = version.versionNumber == 1 ? 'review.document.new_text.no_previous'|trans : null %}
-                <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm lp-new-text-switch" role="switch" aria-checked="false"
-                        {%- if newTextUnavailable %} aria-disabled="true"{% endif %}
+                <twig:Ds:Button variant="ghost" size="sm" type="button" class="lp-new-text-switch" role="switch" aria-checked="false"
+                        :aria-disabled="newTextUnavailable ? 'true' : null"
                         title="{{ newTextUnavailable ?? 'review.document.new_text.label'|trans }}"
                         data-controller="review-new-text"
                         data-action="click->review-new-text#toggle review-new-text:paint->comment-anchor#paintNewText"
@@ -37,7 +37,7 @@
                         data-review-new-text-error-message-value="{{ 'review.document.new_text.error'|trans }}">
                     <twig:ux:icon name="lucide:eye" />
                     {{ 'review.document.new_text.label'|trans }}
-                </button>
+                </twig:Ds:Button>
                 {% endif %}
                 {% if canComment %}
                 <twig:Ds:Button variant="ghost" size="sm" type="button" data-action="comment-anchor#startUntargeted">
