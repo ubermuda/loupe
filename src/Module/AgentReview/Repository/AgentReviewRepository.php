@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\AgentReview\Repository;
 
 use App\Module\AgentReview\Entity\AgentReview;
+use App\Module\Board\Entity\Card;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -21,9 +22,9 @@ class AgentReviewRepository extends ServiceEntityRepository
     /**
      * @param list<ForgePullRequest> $pullRequests
      *
-     * @return list<AgentReview> the reviews of those pull requests that no check shows yet, oldest first
+     * @return list<AgentReview> the reviews of the card on those pull requests that no check shows yet, oldest first
      */
-    public function findUnpostedForPullRequests(array $pullRequests): array
+    public function findUnpostedOfCard(Card $card, array $pullRequests): array
     {
         if ([] === $pullRequests) {
             return [];
@@ -31,7 +32,8 @@ class AgentReviewRepository extends ServiceEntityRepository
 
         /** @var list<AgentReview> $reviews */
         $reviews = $this->createQueryBuilder('r')
-            ->where('r.pullRequest IN (:pullRequests) AND r.postedAt IS NULL')
+            ->where('r.card = :card AND r.pullRequest IN (:pullRequests) AND r.postedAt IS NULL')
+            ->setParameter('card', $card)
             ->setParameter('pullRequests', $pullRequests)
             ->orderBy('r.createdAt')
             ->addOrderBy('r.id')

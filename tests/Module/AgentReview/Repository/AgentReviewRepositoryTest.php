@@ -41,8 +41,8 @@ final class AgentReviewRepositoryTest extends KernelTestCase
         $elsewhere = $this->review($card, $other);
         $this->em->flush();
 
-        self::assertSame([$first], $this->reviews->findUnpostedForPullRequests([$named]));
-        $both = $this->reviews->findUnpostedForPullRequests([$named, $other]);
+        self::assertSame([$first], $this->reviews->findUnpostedOfCard($card, [$named]));
+        $both = $this->reviews->findUnpostedOfCard($card, [$named, $other]);
         self::assertCount(2, $both);
         self::assertContains($first, $both);
         self::assertContains($elsewhere, $both);
@@ -51,7 +51,20 @@ final class AgentReviewRepositoryTest extends KernelTestCase
 
     public function test_find_unposted_answers_nothing_for_no_pull_request(): void
     {
-        self::assertSame([], $this->reviews->findUnpostedForPullRequests([]));
+        $project = $this->makeProject('agent-review-unposted-none');
+        self::assertSame([], $this->reviews->findUnpostedOfCard($this->card($project), []));
+    }
+
+    public function test_find_unposted_leaves_out_the_reviews_of_another_card_on_the_same_pull_request(): void
+    {
+        $project = $this->makeProject('agent-review-unposted-card');
+        $card = $this->card($project);
+        $pullRequest = $this->pullRequest($project, 9);
+        $own = $this->review($card, $pullRequest);
+        $this->review($this->card($project, 2), $pullRequest);
+        $this->em->flush();
+
+        self::assertSame([$own], $this->reviews->findUnpostedOfCard($card, [$pullRequest]));
     }
 
     public function test_the_findings_survive_a_round_trip_through_the_database(): void

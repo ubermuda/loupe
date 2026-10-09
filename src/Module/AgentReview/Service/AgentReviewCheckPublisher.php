@@ -57,7 +57,7 @@ final readonly class AgentReviewCheckPublisher implements AgentReviewCheck
 
         $failure = null;
         $changed = false;
-        foreach ($this->agentReviews->findUnpostedForPullRequests($this->cardPullRequests->findOpenGitHubForCard($card)) as $review) {
+        foreach ($this->agentReviews->findUnpostedOfCard($card, $this->cardPullRequests->findOpenGitHubForCard($card)) as $review) {
             $writer = $this->writers->for($review->pullRequest->forge);
             if (null === $writer) {
                 continue;
