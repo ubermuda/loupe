@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Readiness\EventListener;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSourceKind;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
@@ -26,6 +25,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Event\ReviewSubmitted;
+use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
 use App\Tests\Module\Readiness\DiscoveryScenario;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -73,7 +73,7 @@ final class CreateTickedCardsOnReviewSubmittedTest extends KernelTestCase
         self::assertSame(['Add tests', 'Add a linter'], array_map(static fn (Card $card): string => $card->title, $created));
         foreach ($created as $card) {
             self::assertSame($this->column($this->project, 'next'), $card->column);
-            self::assertSame(CardReporter::Agent, $card->reporter);
+            self::assertSame(Actor::Agent, $card->reporter);
             self::assertSame(CardSourceKind::Loupe, $card->source->kind);
         }
         self::assertSame(['feature', 'tooling'], array_map(static fn (Card $card): string => $card->type, $created));
@@ -162,7 +162,7 @@ final class CreateTickedCardsOnReviewSubmittedTest extends KernelTestCase
         self::assertInstanceOf(WorkflowSlotLinkRepository::class, $links);
         $link = $links->findOneBy(['project' => $this->project, 'slotKey' => 'next']);
         self::assertNotNull($link);
-        $link->column = null;
+        $link->columnId = null;
         $this->em()->flush();
         $this->tick(1);
 

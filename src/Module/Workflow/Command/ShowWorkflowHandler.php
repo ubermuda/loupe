@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Command;
 
-use App\Module\Board\Entity\BoardColumn;
-use App\Module\Board\Repository\BoardColumnRepository;
+use App\Module\Workflow\Action\Actions;
+use App\Module\Workflow\Contract\BoardColumns;
+use App\Module\Workflow\Contract\ColumnView;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
-use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\AppRules;
-use App\Module\Workflow\Template\Rule;
 use App\Module\Workflow\Template\RuleOrigin;
 use App\Module\Workflow\Template\TemplateMissing;
 use App\Module\Workflow\Template\TemplateSource;
@@ -19,8 +18,9 @@ final readonly class ShowWorkflowHandler
     public function __construct(
         private TemplateSource $templates,
         private WorkflowSlotLinkRepository $workflowSlotLinks,
-        private BoardColumnRepository $boardColumns,
+        private BoardColumns $boardColumns,
         private AppRules $appRules,
+        private Actions $actions,
     ) {
     }
 
@@ -40,7 +40,7 @@ final readonly class ShowWorkflowHandler
         $kinds = [];
         foreach ([RuleOrigin::Template, RuleOrigin::App] as $origin) {
             foreach ($template->rules as $rule) {
-                $kind = $origin === $rule->origin ? self::kind($rule) : null;
+                $kind = $origin === $rule->origin ? $this->actions->get($rule->then->key)->workKind($rule->then->params) : null;
                 if (null === $kind) {
                     continue;
                 }
@@ -60,8 +60,8 @@ final readonly class ShowWorkflowHandler
             templateKey: $template->key,
             templateVersion: $template->version,
             columns: array_map(
-                static fn (BoardColumn $column): WorkflowColumnView => new WorkflowColumnView($column, $slots[(string) $column->id] ?? null),
-                $this->boardColumns->findForProject($project),
+                static fn (ColumnView $column): WorkflowColumnView => new WorkflowColumnView($column, $slots[(string) $column->id] ?? null),
+                $this->boardColumns->forProject($project->id ?? throw new \LogicException('The project is not persisted.')),
             ),
             kinds: array_map(
                 static fn (string $kind, array $entry): WorkflowKindView => new WorkflowKindView($kind, $entry['origin'], $entry['rules'], $entry['checks']),
@@ -69,17 +69,5 @@ final readonly class ShowWorkflowHandler
                 array_values($kinds),
             ),
         );
-    }
-
-    /** The kind of work a rule asks a bridge for: a request's kind, or a write's fallback. */
-    private static function kind(Rule $rule): ?string
-    {
-        $params = $rule->then->params;
-
-        return match ($rule->then->type) {
-            ActionType::Request => (string) $params['kind'],
-            ActionType::ForgeWrite => isset($params['fallback']) ? (string) $params['fallback'] : null,
-            default => null,
-        };
     }
 }

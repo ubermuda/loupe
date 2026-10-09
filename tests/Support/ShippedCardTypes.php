@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Support;
 
-use App\Module\Board\Entity\LabelTone;
-use App\Module\Board\Service\CardTypeCatalog;
-use App\Module\Board\Service\CardTypeDefinition;
-use App\Module\Board\Service\CardTypes;
-use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\CardTypeCatalog;
+use App\Module\Workflow\Contract\CardTypeDefinition;
+use App\Module\Workflow\Contract\CardTypes;
+use App\Module\Workflow\Contract\LabelTone;
+use Symfony\Component\Uid\Uuid;
 
 /** The card types both shipped workflow templates declare, for a test that builds its handlers by hand. */
 final class ShippedCardTypes implements CardTypeCatalog
@@ -27,7 +27,7 @@ final class ShippedCardTypes implements CardTypeCatalog
     }
 
     #[\Override]
-    public function forProject(Project $project): CardTypes
+    public function forProject(Uuid $projectId): CardTypes
     {
         return self::types();
     }

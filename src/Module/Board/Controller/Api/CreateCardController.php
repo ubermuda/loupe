@@ -7,11 +7,11 @@ namespace App\Module\Board\Controller\Api;
 use App\Controller\AppController;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSource;
 use App\Module\Board\Entity\CardSourceKind;
-use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
@@ -52,7 +52,7 @@ final class CreateCardController extends AppController
             throw new \LogicException('title required after validation');
         }
 
-        $types = $this->catalog->forProject($project);
+        $types = $this->catalog->forProject($project->requireId());
         $allowed = $payload->parent ? $types->withChildren() : $types->keys();
         $type = $payload->type ?? ($payload->parent ? ($allowed[0] ?? null) : $types->defaultKey);
         if (null === $type || !\in_array($type, $allowed, true)) {
@@ -65,7 +65,7 @@ final class CreateCardController extends AppController
             body: $payload->body,
             type: $type,
             // Not Human: nobody authenticated the person who typed this.
-            reporter: CardReporter::Reviewer,
+            reporter: Actor::Reviewer,
             source: new CardSource(CardSourceKind::Widget),
         ));
 

@@ -11,10 +11,10 @@ use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Command\ReleaseCardPauseHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Tests\Support\RecordingAuditor;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Clock\MockClock;
@@ -69,7 +69,7 @@ trait CardPauseScenario
         return $auditor;
     }
 
-    private function pause(Card $card, string $reason = 'review-failed', string $ruleId = 'fix-on-review', CardPauseKind $kind = CardPauseKind::Rule): ?CardPause
+    private function pause(Card $card, string $reason = 'review-failed', string $ruleId = 'fix-on-review', PauseKind $kind = PauseKind::Rule): ?CardPause
     {
         return $this->pauseHandler($this->silentAuditor())(new PauseCardCommand($card, $reason, $ruleId, $kind));
     }

@@ -6,13 +6,13 @@ namespace App\Module\Readiness\Controller;
 
 use App\Controller\AppController;
 use App\Exception\DomainErrors;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
 use App\Module\Readiness\Command\DiscoveryRunning;
 use App\Module\Readiness\Command\StartDiscoveryCommand;
 use App\Module\Readiness\Command\StartDiscoveryHandler;
 use App\Module\Readiness\Service\ReadinessChecklist;
+use App\Module\Workflow\Contract\Actor;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -37,7 +37,7 @@ final class StartDiscoveryController extends AppController
     public function __invoke(Project $project): Response
     {
         try {
-            ($this->startDiscovery)(new StartDiscoveryCommand($project, CardReporter::Human));
+            ($this->startDiscovery)(new StartDiscoveryCommand($project, Actor::Human));
         } catch (DomainErrors $e) {
             $this->addFlash('error', $this->translator->trans(array_first($e->errors)));
         } catch (DiscoveryRunning $e) {

@@ -9,10 +9,10 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEvent;
 use App\Module\Board\Entity\CardEventKind;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\View\CardHistoryEntry;
 use App\Module\Board\View\CardHistoryRun;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Translation\TranslatableMessage;
@@ -33,7 +33,7 @@ final class CardHistoryEntryTest extends TestCase
 
     public function test_a_creation_names_the_actor_and_the_column(): void
     {
-        $entry = CardHistoryEntry::of($this->event(CardEventKind::Created, CardReporter::Human, $this->user, ['column' => self::BACKLOG]));
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::Created, Actor::Human, $this->user, ['column' => self::BACKLOG]));
 
         self::assertSame('lucide:plus', $entry->icon);
         self::assertEquals(new TranslatableMessage('board.card.history.created', [
@@ -47,7 +47,7 @@ final class CardHistoryEntryTest extends TestCase
 
     public function test_a_move_names_both_columns_and_has_no_cause_line_without_a_cause(): void
     {
-        $entry = CardHistoryEntry::of($this->event(CardEventKind::Moved, CardReporter::Human, $this->user, ['from' => self::BACKLOG, 'to' => self::REVIEW, 'cause' => null]));
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::Moved, Actor::Human, $this->user, ['from' => self::BACKLOG, 'to' => self::REVIEW, 'cause' => null]));
 
         self::assertSame('lucide:arrow-right', $entry->icon);
         self::assertEquals(new TranslatableMessage('board.card.history.moved', [
@@ -62,7 +62,7 @@ final class CardHistoryEntryTest extends TestCase
     #[DataProvider('causes')]
     public function test_a_move_by_the_app_says_why(array $cause, ?TranslatableMessage $expected): void
     {
-        $entry = CardHistoryEntry::of($this->event(CardEventKind::Moved, CardReporter::System, null, ['from' => self::BACKLOG, 'to' => self::REVIEW, 'cause' => $cause]));
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::Moved, Actor::System, null, ['from' => self::BACKLOG, 'to' => self::REVIEW, 'cause' => $cause]));
 
         self::assertSame('board.card.history.moved', $entry->sentence->getMessage());
         self::assertEquals($expected, $entry->cause);
@@ -90,7 +90,7 @@ final class CardHistoryEntryTest extends TestCase
 
     public function test_the_app_asking_for_a_fix_gives_the_pull_request_and_the_reason(): void
     {
-        $entry = CardHistoryEntry::of($this->event(CardEventKind::FixRequested, CardReporter::System, null, ['reason' => 'checks-failed', 'pullRequest' => 42]));
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::FixRequested, Actor::System, null, ['reason' => 'checks-failed', 'pullRequest' => 42]));
 
         self::assertSame('lucide:wrench', $entry->icon);
         self::assertEquals(new TranslatableMessage('board.card.history.fix_requested', [
@@ -104,7 +104,7 @@ final class CardHistoryEntryTest extends TestCase
 
     public function test_a_stop_gives_the_pull_request_and_the_reason(): void
     {
-        $entry = CardHistoryEntry::of($this->event(CardEventKind::Stopped, CardReporter::System, null, ['reason' => 'conflict', 'pullRequest' => 42]));
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::Stopped, Actor::System, null, ['reason' => 'conflict', 'pullRequest' => 42]));
 
         self::assertSame('lucide:ban', $entry->icon);
         self::assertEquals(new TranslatableMessage('board.card.history.stopped', [
@@ -118,7 +118,7 @@ final class CardHistoryEntryTest extends TestCase
 
     public function test_a_changes_requested_reason_translates(): void
     {
-        $entry = CardHistoryEntry::of($this->event(CardEventKind::Stopped, CardReporter::System, null, ['reason' => 'changes-requested', 'pullRequest' => 42]));
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::Stopped, Actor::System, null, ['reason' => 'changes-requested', 'pullRequest' => 42]));
 
         self::assertEquals(new TranslatableMessage('board.card.history.reason', [
             '%reason%' => new TranslatableMessage('board.card.history.reason.changes_requested'),
@@ -127,7 +127,7 @@ final class CardHistoryEntryTest extends TestCase
 
     public function test_an_unknown_reason_leaves_no_reason_line(): void
     {
-        $entry = CardHistoryEntry::of($this->event(CardEventKind::FixRequested, CardReporter::System, null, ['reason' => 'solar-flare', 'pullRequest' => 42]));
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::FixRequested, Actor::System, null, ['reason' => 'solar-flare', 'pullRequest' => 42]));
 
         self::assertSame('board.card.history.fix_requested', $entry->sentence->getMessage());
         self::assertNull($entry->cause);
@@ -135,7 +135,7 @@ final class CardHistoryEntryTest extends TestCase
 
     public function test_a_ready_pull_request_names_its_number(): void
     {
-        $entry = CardHistoryEntry::of($this->event(CardEventKind::ReadyToMerge, CardReporter::System, null, ['pullRequest' => 42]));
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::ReadyToMerge, Actor::System, null, ['pullRequest' => 42]));
 
         self::assertSame('lucide:git-merge', $entry->icon);
         self::assertEquals(new TranslatableMessage('board.card.history.ready_to_merge', ['%pr%' => 42]), $entry->sentence);
@@ -143,7 +143,7 @@ final class CardHistoryEntryTest extends TestCase
 
     public function test_a_synced_pull_request_names_its_number(): void
     {
-        $entry = CardHistoryEntry::of($this->event(CardEventKind::Synced, CardReporter::System, null, ['pullRequest' => 42]));
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::Synced, Actor::System, null, ['pullRequest' => 42]));
 
         self::assertSame('lucide:git-compare', $entry->icon);
         self::assertEquals(new TranslatableMessage('board.card.history.synced', [
@@ -154,7 +154,7 @@ final class CardHistoryEntryTest extends TestCase
 
     public function test_a_finished_run_carries_its_work_kind_duration_and_result(): void
     {
-        $entry = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, CardReporter::Agent, $this->user, $this->runDetail('succeeded', 192)), true);
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, Actor::Agent, $this->user, $this->runDetail('succeeded', 192)), true);
 
         self::assertSame('lucide:bot', $entry->icon);
         self::assertEquals(new TranslatableMessage('board.card.history.run_finished', [
@@ -175,7 +175,7 @@ final class CardHistoryEntryTest extends TestCase
     {
         $detail = [...$this->runDetail('failed', 4), 'command' => true];
 
-        $entry = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, CardReporter::Agent, $this->user, $detail), true);
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, Actor::Agent, $this->user, $detail), true);
 
         self::assertTrue($entry->run?->command);
         self::assertFalse($entry->run->interactive);
@@ -184,7 +184,7 @@ final class CardHistoryEntryTest extends TestCase
     public function test_a_run_that_never_started_does_not_say_the_agent_ran_it(): void
     {
         foreach (['not-started', 'skipped', 'replaced', 'dropped'] as $state) {
-            $entry = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, CardReporter::Agent, $this->user, $this->runDetail($state, null)), true);
+            $entry = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, Actor::Agent, $this->user, $this->runDetail($state, null)), true);
 
             self::assertEquals(new TranslatableMessage('board.card.history.run_not_started', [
                 '%actor%' => new TranslatableMessage('board.card.history.actor.agent', ['%name%' => 'Riley Chen']),
@@ -199,7 +199,7 @@ final class CardHistoryEntryTest extends TestCase
         unset($detail['workKind']);
         $detail['ruleName'] = 'plan';
 
-        $entry = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, CardReporter::Agent, $this->user, $detail), true);
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, Actor::Agent, $this->user, $detail), true);
 
         self::assertSame('plan', $entry->sentence->getParameters()['%kind%']);
         self::assertSame('board.card.history.run_finished', $entry->sentence->getMessage());
@@ -207,8 +207,8 @@ final class CardHistoryEntryTest extends TestCase
 
     public function test_a_run_with_no_work_kind_names_none(): void
     {
-        $finished = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, CardReporter::Agent, $this->user, ['state' => 'succeeded']));
-        $notStarted = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, CardReporter::Agent, $this->user, ['state' => 'not-started']));
+        $finished = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, Actor::Agent, $this->user, ['state' => 'succeeded']));
+        $notStarted = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, Actor::Agent, $this->user, ['state' => 'not-started']));
 
         self::assertSame('board.card.history.run_finished_no_kind', $finished->sentence->getMessage());
         self::assertSame('board.card.history.run_not_started_no_kind', $notStarted->sentence->getMessage());
@@ -217,7 +217,7 @@ final class CardHistoryEntryTest extends TestCase
 
     public function test_a_purged_run_keeps_its_row_with_no_link(): void
     {
-        $entry = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, CardReporter::Agent, $this->user, $this->runDetail('failed', null)));
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, Actor::Agent, $this->user, $this->runDetail('failed', null)));
 
         self::assertNotNull($entry->run);
         self::assertNull($entry->run->runId);
@@ -227,7 +227,7 @@ final class CardHistoryEntryTest extends TestCase
 
     public function test_an_unknown_run_state_shows_a_neutral_chip(): void
     {
-        $entry = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, CardReporter::Agent, $this->user, $this->runDetail('evaporated', 5)), true);
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, Actor::Agent, $this->user, $this->runDetail('evaporated', 5)), true);
 
         self::assertNotNull($entry->run);
         self::assertSame('board.card.history.run_state_unknown', $entry->run->stateKey);
@@ -236,9 +236,9 @@ final class CardHistoryEntryTest extends TestCase
 
     public function test_the_run_id_is_read_only_when_it_is_a_uuid(): void
     {
-        self::assertSame(self::RUN_ID, CardHistoryEntry::runIdOf($this->event(CardEventKind::RunFinished, CardReporter::Agent, null, $this->runDetail('succeeded', 1))));
-        self::assertNull(CardHistoryEntry::runIdOf($this->event(CardEventKind::RunFinished, CardReporter::Agent, null, ['runId' => 'not-a-uuid'])));
-        self::assertNull(CardHistoryEntry::runIdOf($this->event(CardEventKind::Created, CardReporter::Human, null, ['column' => self::BACKLOG])));
+        self::assertSame(self::RUN_ID, CardHistoryEntry::runIdOf($this->event(CardEventKind::RunFinished, Actor::Agent, null, $this->runDetail('succeeded', 1))));
+        self::assertNull(CardHistoryEntry::runIdOf($this->event(CardEventKind::RunFinished, Actor::Agent, null, ['runId' => 'not-a-uuid'])));
+        self::assertNull(CardHistoryEntry::runIdOf($this->event(CardEventKind::Created, Actor::Human, null, ['column' => self::BACKLOG])));
     }
 
     /** @return iterable<string, array{string, string}> */
@@ -253,7 +253,7 @@ final class CardHistoryEntryTest extends TestCase
     #[DataProvider('pauseKinds')]
     public function test_a_pause_names_its_kind_and_its_rule(string $kind, string $kindKey): void
     {
-        $entry = CardHistoryEntry::of($this->event(CardEventKind::Paused, CardReporter::System, null, ['kind' => $kind, 'reason' => 'review-failed', 'ruleId' => 'fix-on-review']));
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::Paused, Actor::System, null, ['kind' => $kind, 'reason' => 'review-failed', 'ruleId' => 'fix-on-review']));
 
         self::assertSame('lucide:circle-pause', $entry->icon);
         self::assertEquals(new TranslatableMessage('board.card.history.paused', [
@@ -266,7 +266,7 @@ final class CardHistoryEntryTest extends TestCase
 
     public function test_a_release_names_the_person_and_the_kind_of_the_pause(): void
     {
-        $entry = CardHistoryEntry::of($this->event(CardEventKind::PauseReleased, CardReporter::Human, $this->user, ['kind' => 'retries', 'reason' => 'review-failed', 'ruleId' => 'fix-on-review']));
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::PauseReleased, Actor::Human, $this->user, ['kind' => 'retries', 'reason' => 'review-failed', 'ruleId' => 'fix-on-review']));
 
         self::assertSame('lucide:circle-play', $entry->icon);
         self::assertEquals(new TranslatableMessage('board.card.history.pause_released', [
@@ -278,7 +278,7 @@ final class CardHistoryEntryTest extends TestCase
 
     public function test_a_pause_with_no_rule_has_no_cause_line(): void
     {
-        $entry = CardHistoryEntry::of($this->event(CardEventKind::Paused, CardReporter::System, null, ['kind' => 'rule']));
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::Paused, Actor::System, null, ['kind' => 'rule']));
 
         self::assertSame('board.card.history.paused', $entry->sentence->getMessage());
         self::assertNull($entry->cause);
@@ -288,7 +288,7 @@ final class CardHistoryEntryTest extends TestCase
     #[DataProvider('malformedDetails')]
     public function test_a_row_with_unreadable_detail_falls_back_to_a_plain_sentence(CardEventKind $kind, array $detail): void
     {
-        $entry = CardHistoryEntry::of($this->event($kind, CardReporter::Human, $this->user, $detail));
+        $entry = CardHistoryEntry::of($this->event($kind, Actor::Human, $this->user, $detail));
 
         self::assertSame('lucide:history', $entry->icon);
         self::assertEquals(new TranslatableMessage('board.card.history.changed', ['%actor%' => 'Riley Chen']), $entry->sentence);
@@ -309,19 +309,19 @@ final class CardHistoryEntryTest extends TestCase
         yield 'a release with an unknown kind' => [CardEventKind::PauseReleased, ['kind' => 'gremlins', 'ruleId' => 'fix-on-review']];
     }
 
-    /** @return iterable<string, array{CardReporter, bool, string|TranslatableMessage}> */
+    /** @return iterable<string, array{Actor, bool, string|TranslatableMessage}> */
     public static function actors(): iterable
     {
-        yield 'a person' => [CardReporter::Human, true, 'Riley Chen'];
-        yield 'an agent' => [CardReporter::Agent, true, new TranslatableMessage('board.card.history.actor.agent', ['%name%' => 'Riley Chen'])];
-        yield 'the app' => [CardReporter::System, false, new TranslatableMessage('board.card.history.actor.system')];
-        yield 'a reviewer' => [CardReporter::Reviewer, false, new TranslatableMessage('board.card.history.actor.reviewer')];
-        yield 'a deleted person' => [CardReporter::Human, false, new TranslatableMessage('board.card.history.actor.deleted')];
-        yield 'an agent of a deleted person' => [CardReporter::Agent, false, new TranslatableMessage('board.card.history.actor.deleted')];
+        yield 'a person' => [Actor::Human, true, 'Riley Chen'];
+        yield 'an agent' => [Actor::Agent, true, new TranslatableMessage('board.card.history.actor.agent', ['%name%' => 'Riley Chen'])];
+        yield 'the app' => [Actor::System, false, new TranslatableMessage('board.card.history.actor.system')];
+        yield 'a reviewer' => [Actor::Reviewer, false, new TranslatableMessage('board.card.history.actor.reviewer')];
+        yield 'a deleted person' => [Actor::Human, false, new TranslatableMessage('board.card.history.actor.deleted')];
+        yield 'an agent of a deleted person' => [Actor::Agent, false, new TranslatableMessage('board.card.history.actor.deleted')];
     }
 
     #[DataProvider('actors')]
-    public function test_the_actor_label_follows_the_actor_kind(CardReporter $kind, bool $withUser, string|TranslatableMessage $expected): void
+    public function test_the_actor_label_follows_the_actor_kind(Actor $kind, bool $withUser, string|TranslatableMessage $expected): void
     {
         $entry = CardHistoryEntry::of($this->event(CardEventKind::Created, $kind, $withUser ? $this->user : null, ['column' => self::BACKLOG]));
 
@@ -345,7 +345,7 @@ final class CardHistoryEntryTest extends TestCase
     }
 
     /** @param array<string, mixed> $detail */
-    private function event(CardEventKind $kind, CardReporter $actorKind, ?User $actor, array $detail): CardEvent
+    private function event(CardEventKind $kind, Actor $actorKind, ?User $actor, array $detail): CardEvent
     {
         $project = new Project($this->user, 'history');
         $column = new BoardColumn($project, 'board.column.backlog', 'backlog', 0);

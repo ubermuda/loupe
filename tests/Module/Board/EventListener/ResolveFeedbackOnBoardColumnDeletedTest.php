@@ -6,7 +6,6 @@ namespace App\Tests\Module\Board\EventListener;
 
 use App\Module\Board\Command\DeleteBoardColumnCommand;
 use App\Module\Board\Command\DeleteBoardColumnHandler;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\BoardColumnDeleted;
 use App\Module\Board\EventListener\ResolveFeedbackOnBoardColumnDeleted;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
@@ -14,6 +13,7 @@ use App\Module\Board\Service\CardFeedbackResolver;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Command\ResolveSiteReviewCommentHandler;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Support\RecordingAuditor;
 use App\Tests\Support\RecordingLogger;
 use Doctrine\DBAL\Exception\InvalidArgumentException as DbalInvalidArgument;
@@ -88,7 +88,7 @@ final class ResolveFeedbackOnBoardColumnDeletedTest extends KernelTestCase
         $project = $this->feedbackProject('feedback-delete-failure');
         $resolve = self::getContainer()->get(ResolveSiteReviewCommentHandler::class);
         self::assertInstanceOf(ResolveSiteReviewCommentHandler::class, $resolve);
-        $event = new BoardColumnDeleted($project, 'column-id', 'in-progress', 'done', ['card-id'], CardReporter::Human, terminal: false, targetTerminal: true);
+        $event = new BoardColumnDeleted($project, 'column-id', 'in-progress', 'done', ['card-id'], Actor::Human, terminal: false, targetTerminal: true);
 
         $logger = new RecordingLogger();
         $failing = $this->createStub(CardSiteReviewCommentRepository::class);
@@ -107,6 +107,6 @@ final class ResolveFeedbackOnBoardColumnDeletedTest extends KernelTestCase
         $handler = self::getContainer()->get(DeleteBoardColumnHandler::class);
         self::assertInstanceOf(DeleteBoardColumnHandler::class, $handler);
 
-        $handler(new DeleteBoardColumnCommand($this->column($project, $slug), CardReporter::Human, $this->column($project, $target)));
+        $handler(new DeleteBoardColumnCommand($this->column($project, $slug), Actor::Human, $this->column($project, $target)));
     }
 }

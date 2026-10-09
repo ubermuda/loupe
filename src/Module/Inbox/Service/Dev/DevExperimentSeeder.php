@@ -7,7 +7,6 @@ namespace App\Module\Inbox\Service\Dev;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEventKind;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardRepository;
@@ -20,6 +19,7 @@ use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\Uid\Uuid;
@@ -94,10 +94,10 @@ final readonly class DevExperimentSeeder
                 $this->run($project, $card, $variant, $at, $minutes, $cost);
             }
             foreach ($fixReasons as $reason) {
-                $this->cardEvents->record($card, CardEventKind::FixRequested, CardReporter::System, null, ['reason' => $reason], $at->modify('+1 hour'));
+                $this->cardEvents->record($card, CardEventKind::FixRequested, Actor::System, null, ['reason' => $reason], $at->modify('+1 hour'));
             }
             if ($merged) {
-                $this->cardEvents->record($card, CardEventKind::Moved, CardReporter::System, null, ['from' => [], 'to' => [], 'cause' => ['type' => 'merged', 'pullRequest' => $card->number]], $at->modify('+2 hours'));
+                $this->cardEvents->record($card, CardEventKind::Moved, Actor::System, null, ['from' => [], 'to' => [], 'cause' => ['type' => 'merged', 'pullRequest' => $card->number]], $at->modify('+2 hours'));
             }
             if ($column->terminal) {
                 $card->completedAt = $at->modify('+2 hours');
@@ -113,7 +113,7 @@ final readonly class DevExperimentSeeder
         $card = new Card(project: $project, column: $column, title: $title, body: '', number: $number, type: $type, createdAt: $createdAt);
         $this->em->persist($card);
         $this->em->flush();
-        $this->cardEvents->record($card, CardEventKind::Created, CardReporter::Agent, null, [], $createdAt);
+        $this->cardEvents->record($card, CardEventKind::Created, Actor::Agent, null, [], $createdAt);
 
         return $card;
     }

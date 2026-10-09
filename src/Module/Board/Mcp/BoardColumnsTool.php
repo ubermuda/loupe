@@ -6,8 +6,8 @@ namespace App\Module\Board\Mcp;
 
 use App\Module\Board\Command\ListBoardColumnsCommand;
 use App\Module\Board\Command\ListBoardColumnsHandler;
-use App\Module\Board\Service\CardTypeCatalog;
-use App\Module\Board\Service\CardTypeDefinition;
+use App\Module\Workflow\Contract\CardTypeCatalog;
+use App\Module\Workflow\Contract\CardTypeDefinition;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -44,7 +44,7 @@ final readonly class BoardColumnsTool
         try {
             $project = $this->subjects->requireProject();
             $view = ($this->listColumns)(new ListBoardColumnsCommand($project));
-            $types = $this->catalog->forProject($project);
+            $types = $this->catalog->forProject($project->requireId());
 
             return [
                 'columns' => $this->columns->forColumns($view->columns),

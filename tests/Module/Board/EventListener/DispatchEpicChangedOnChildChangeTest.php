@@ -11,9 +11,9 @@ use App\Module\Board\Command\DeleteCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -102,7 +102,7 @@ final class DispatchEpicChangedOnChildChangeTest extends KernelTestCase
         $child = $this->card($project, parent: $epic);
         $this->changes = [];
 
-        ($this->deleteCard)(new DeleteCardCommand($this->reload($child), CardReporter::Human));
+        ($this->deleteCard)(new DeleteCardCommand($this->reload($child), Actor::Human));
         $this->em->clear();
 
         self::assertTrue($this->epicChanged($epic));
@@ -221,7 +221,7 @@ final class DispatchEpicChangedOnChildChangeTest extends KernelTestCase
         $fresh = $this->reload($card);
         ($this->updateCard)(new UpdateCardCommand(
             $fresh,
-            CardReporter::Human,
+            Actor::Human,
             column: null === $column ? null : $this->column($fresh->project, $column),
             position: $position,
             parentCardId: $parentCardId,

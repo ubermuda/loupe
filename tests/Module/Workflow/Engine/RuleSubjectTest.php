@@ -4,15 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Engine;
 
-use App\Module\Workflow\Condition\CardHasType;
-use App\Module\Workflow\Condition\PullRequestChecksFailed;
+use App\Module\Board\Workflow\Condition\CardHasType;
+use App\Module\Board\Workflow\Condition\PullRequestChecksFailed;
 use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Contract\PullRequestState;
 use App\Module\Workflow\Engine\RuleSubject;
 use App\Module\Workflow\Expression\ConditionLeaf;
 use App\Module\Workflow\Expression\Expression;
 use App\Module\Workflow\Template\ActionCall;
-use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\Rule;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use PHPUnit\Framework\TestCase;
@@ -33,7 +32,7 @@ final class RuleSubjectTest extends TestCase
         self::assertTrue($bound->binds);
         self::assertSame($red, $bound->facts->pullRequest);
         self::assertSame($red->id, $bound->subject);
-        self::assertSame([$merged, $green, $red], $bound->facts->pullRequests);
+        self::assertSame([$merged, $green, $red], $bound->facts->pullRequests());
     }
 
     public function test_a_rule_that_no_open_pull_request_makes_true_binds_the_first_open_one(): void
@@ -78,6 +77,6 @@ final class RuleSubjectTest extends TestCase
 
     private static function rule(Expression $when): Rule
     {
-        return new Rule('rule', null, $when, new ActionCall(ActionType::Request, ['kind' => 'fix']));
+        return new Rule('rule', null, $when, new ActionCall('request', ['kind' => 'fix']));
     }
 }

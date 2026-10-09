@@ -4,38 +4,71 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Action;
 
-use App\Module\Board\Command\ReleaseCardPauseCommand;
-use App\Module\Board\Command\ReleaseCardPauseHandler;
-use App\Module\Board\Entity\Card;
-use App\Module\Board\Repository\CardPauseRepository;
-use App\Module\Workflow\Contract\Facts;
-use App\Module\Workflow\Entity\WorkflowRuleState;
-use App\Module\Workflow\Template\ActionType;
-use App\Module\Workflow\Template\Rule;
+use App\Module\Workflow\Contract\Action;
+use App\Module\Workflow\Contract\ActionContext;
+use App\Module\Workflow\Contract\ActionDescription;
+use App\Module\Workflow\Contract\ActionOutcome;
+use App\Module\Workflow\Contract\ActionTraits;
+use App\Module\Workflow\Contract\CardPauses;
+use App\Module\Workflow\Contract\Parameter;
+use App\Module\Workflow\Contract\ParameterType;
 
 /** Lifts the active pause of a card when its reason is the reason of the rule. */
 final readonly class ReleasePause implements Action
 {
     public const string RELEASE_REASON = 'released-by-rule';
 
+    public const string KEY = 'release';
+
     public function __construct(
-        private CardPauseRepository $cardPauses,
-        private ReleaseCardPauseHandler $releaseCardPause,
+        private CardPauses $cardPauses,
     ) {
     }
 
     #[\Override]
-    public static function type(): ActionType
+    public static function key(): string
     {
-        return ActionType::Release;
+        return self::KEY;
     }
 
     #[\Override]
-    public function run(Rule $rule, Card $card, Facts $facts, WorkflowRuleState $state): ActionOutcome
+    public static function source(): string
     {
-        $pause = $this->cardPauses->findActiveForCard($card);
-        if (null !== $pause && $pause->reason === ActionOutcome::code(ActionParams::string($rule, 'reason'))) {
-            ($this->releaseCardPause)(new ReleaseCardPauseCommand($pause, self::RELEASE_REASON));
+        return 'workflow.source.board';
+    }
+
+    #[\Override]
+    public static function parameters(): array
+    {
+        return [
+            new Parameter('reason', ParameterType::String),
+        ];
+    }
+
+    #[\Override]
+    public static function traits(): ActionTraits
+    {
+        return new ActionTraits();
+    }
+
+    #[\Override]
+    public function describe(array $params): ActionDescription
+    {
+        return new ActionDescription('workflow.settings.action.release', 'workflow.panel.action.release');
+    }
+
+    #[\Override]
+    public function workKind(array $params): ?string
+    {
+        return null;
+    }
+
+    #[\Override]
+    public function run(ActionContext $context): ActionOutcome
+    {
+        $pause = $this->cardPauses->findActive($context->card->id);
+        if (null !== $pause && $pause->reason === ActionOutcome::code($context->string('reason'))) {
+            $this->cardPauses->release($pause, self::RELEASE_REASON);
         }
 
         return ActionOutcome::done();

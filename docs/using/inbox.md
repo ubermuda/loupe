@@ -189,10 +189,15 @@ The item has the kind **Waiting**, and it is always blocking.
 
 A card has at most one open automatic item. Its title is the card number and
 the card title. The item links the card and each document that it waits on.
-Its panel lists each current wait. A document wait links to the review page of
-the document. A run wait shows the first line of the run output, and it links
-to the worker runs page for that run. The waits that ended show below them, in
-grey.
+Its panel lists each current wait as one plain sentence. The sentence says why
+Loupe opened the item, such as "The document "Tech design", version 1, of card
+635 waits for your review." A link beside it opens the page that closes the
+wait: the document review, the pull request, the worker run, or the card for a
+pause. A run wait shows the whole output of the run below the sentence, with the
+stage protocol text removed. The waits that ended show below them, in grey, with
+a sentence that says how they closed, such as "Closed when you acted on it."
+**Dismiss** hides the item. The card still waits until you act on it, and the
+panel says so beside the button.
 
 The row and the panel name **Loupe** as the sender, with a magnifier icon. They
 show no bridge dot and no session, because no agent session asked for the item.
@@ -256,8 +261,7 @@ a new commit whose checks did not pass yet, a merge and a close. A pull request
 with changes requested waits again after a new commit with passing checks.
 
 An approved pull request waits again when it gets new commits after the
-approval. The wait says "Pull request #N has new commits after your approval",
-with the short SHA of the newest commit. A merge from the base branch does not
+approval. The wait says "Pull request #N of card C changed after you approved it". A merge from the base branch does not
 count, with or without a conflict resolution. A force push, such as a rebase,
 counts, so you approve the rewritten branch again. A new approval of the newest
 commit ends the wait.

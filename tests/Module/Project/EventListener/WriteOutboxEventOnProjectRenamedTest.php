@@ -8,13 +8,13 @@ use App\Doctrine\SearchLanguage;
 use App\Exception\DomainErrors;
 use App\Mercure\ProjectTopicBuilder;
 use App\Module\Account\Entity\User;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Project\Command\UpdateProjectCommand;
 use App\Module\Project\Command\UpdateProjectHandler;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Event\ProjectRenamed;
 use App\Module\Project\ProjectEventType;
 use App\Module\Project\Repository\ProjectRepository;
+use App\Module\Workflow\Contract\Actor;
 use App\Outbox\Entity\OutboxEvent;
 use App\Outbox\Repository\OutboxEventRepository;
 use App\Tests\Module\Project\Command\RivalBeforeFlush;
@@ -86,12 +86,12 @@ final class WriteOutboxEventOnProjectRenamedTest extends KernelTestCase
 
     public function test_the_human_actor_is_the_value_the_board_writes(): void
     {
-        self::assertSame(CardReporter::Human->value, ProjectEventType::ACTOR_HUMAN);
+        self::assertSame(Actor::Human->value, ProjectEventType::ACTOR_HUMAN);
     }
 
     public function test_the_agent_actor_is_the_value_the_board_writes(): void
     {
-        self::assertSame(CardReporter::Agent->value, ProjectEventType::ACTOR_AGENT);
+        self::assertSame(Actor::Agent->value, ProjectEventType::ACTOR_AGENT);
     }
 
     /** The rename proves the listener runs, so the unchanged count proves the second save wrote nothing. */

@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Board\Event;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\CardMove;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardEventCause;
 
 /**
  * Dispatched inside UpdateCardHandler's transaction, after its flush, so a
@@ -20,7 +20,7 @@ final readonly class CardMoved
     public function __construct(
         public Card $card,
         public CardMove $move,
-        public CardReporter $actor,
+        public Actor $actor,
         public ?CardEventCause $cause = null,
     ) {
     }

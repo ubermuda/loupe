@@ -6,11 +6,11 @@ namespace App\Module\Readiness\Mcp;
 
 use App\Exception\DomainErrors;
 use App\Mcp\ResolvesBoundProject;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Readiness\Command\DiscoveryRunning;
 use App\Module\Readiness\Command\StartDiscoveryCommand;
 use App\Module\Readiness\Command\StartDiscoveryHandler;
+use App\Module\Workflow\Contract\Actor;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 
@@ -31,7 +31,7 @@ final readonly class DiscoveryStartTool
     public function __invoke(): array
     {
         try {
-            $run = ($this->startDiscovery)(new StartDiscoveryCommand($this->requireBoundProject($this->projectResolver), CardReporter::Agent));
+            $run = ($this->startDiscovery)(new StartDiscoveryCommand($this->requireBoundProject($this->projectResolver), Actor::Agent));
 
             return [
                 'cardId' => (string) $run->card->id,

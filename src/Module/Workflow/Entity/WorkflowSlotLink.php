@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Entity;
 
-use App\Module\Board\Entity\BoardColumn;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
 use Doctrine\ORM\Mapping as ORM;
@@ -31,10 +30,9 @@ class WorkflowSlotLink
         #[ORM\Column(length: 100)]
         public string $slotKey,
 
-        /** Null once the column is deleted, so the slot stays and shows as unlinked. */
-        #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
-        #[ORM\ManyToOne(targetEntity: BoardColumn::class)]
-        public ?BoardColumn $column,
+        /** Null once the column is deleted, so the slot stays and shows as unlinked. No foreign key; WorkflowRowCleanup clears it. */
+        #[ORM\Column(type: UuidType::NAME, nullable: true)]
+        public ?Uuid $columnId,
     ) {
     }
 }

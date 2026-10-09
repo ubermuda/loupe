@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Board\Mcp;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Service\CardEventCause;
 use App\Module\Bridge\Repository\WorkerRunRepository;
+use App\Module\Workflow\Contract\CardEventCause;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Uid\Uuid;
 

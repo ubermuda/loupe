@@ -11,10 +11,10 @@ use App\Module\Board\Command\DeleteCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -161,7 +161,7 @@ final class CardLaneReloadTest extends KernelTestCase
         );
         ($this->updateCard)(new UpdateCardCommand(
             $loaded,
-            CardReporter::Human,
+            Actor::Human,
             column: $this->column($loaded->project, 'backlog'),
         ));
 
@@ -213,7 +213,7 @@ final class CardLaneReloadTest extends KernelTestCase
         $fresh = $this->reload($card);
         ($this->updateCard)(new UpdateCardCommand(
             $fresh,
-            CardReporter::Human,
+            Actor::Human,
             title: $title,
             type: $type,
             column: null === $column ? null : $this->column($fresh->project, $column),
@@ -224,7 +224,7 @@ final class CardLaneReloadTest extends KernelTestCase
 
     private function delete(Card $card): void
     {
-        ($this->deleteCard)(new DeleteCardCommand($this->reload($card), CardReporter::Human));
+        ($this->deleteCard)(new DeleteCardCommand($this->reload($card), Actor::Human));
         $this->em->clear();
     }
 

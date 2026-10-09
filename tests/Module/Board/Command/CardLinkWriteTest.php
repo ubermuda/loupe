@@ -12,9 +12,9 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardLinkKind;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
@@ -169,7 +169,7 @@ final class CardLinkWriteTest extends KernelTestCase
     /** @param list<CardLinkInput>|null $relatedCards */
     private function update(Card $card, ?array $relatedCards, ?string $title = null): void
     {
-        ($this->updateCard)(new UpdateCardCommand($this->reload($card), CardReporter::Agent, title: $title, relatedCards: $relatedCards));
+        ($this->updateCard)(new UpdateCardCommand($this->reload($card), Actor::Agent, title: $title, relatedCards: $relatedCards));
     }
 
     private function cardIn(Project $project): Card

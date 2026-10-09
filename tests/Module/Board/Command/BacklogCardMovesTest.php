@@ -18,8 +18,8 @@ use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardLinkKind;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
@@ -268,7 +268,7 @@ final class BacklogCardMovesTest extends KernelTestCase
     {
         $handler = self::getContainer()->get(MoveBacklogCardHandler::class);
         self::assertInstanceOf(MoveBacklogCardHandler::class, $handler);
-        $handler(new MoveBacklogCardCommand($card, CardReporter::Human, $this->column($this->project, $slug)));
+        $handler(new MoveBacklogCardCommand($card, Actor::Human, $this->column($this->project, $slug)));
     }
 
     /**
@@ -284,7 +284,7 @@ final class BacklogCardMovesTest extends KernelTestCase
         return $handler(new BulkMoveBacklogCardsCommand(
             $this->column($this->project, 'backlog'),
             $ids,
-            CardReporter::Human,
+            Actor::Human,
             $this->column($this->project, $slug),
         ));
     }

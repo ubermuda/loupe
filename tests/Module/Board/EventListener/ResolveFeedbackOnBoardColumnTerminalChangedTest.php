@@ -7,7 +7,6 @@ namespace App\Tests\Module\Board\EventListener;
 use App\Module\Board\Command\ConfigureBoardColumnCommand;
 use App\Module\Board\Command\ConfigureBoardColumnHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\BoardColumnTerminalChanged;
 use App\Module\Board\EventListener\ResolveFeedbackOnBoardColumnTerminalChanged;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
@@ -15,6 +14,7 @@ use App\Module\Board\Service\CardFeedbackResolver;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Command\ResolveSiteReviewCommentHandler;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Support\RecordingAuditor;
 use App\Tests\Support\RecordingLogger;
 use Doctrine\DBAL\Exception\InvalidArgumentException as DbalInvalidArgument;
@@ -82,7 +82,7 @@ final class ResolveFeedbackOnBoardColumnTerminalChangedTest extends KernelTestCa
         $project = $this->feedbackProject('feedback-terminal-failure');
         $resolve = self::getContainer()->get(ResolveSiteReviewCommentHandler::class);
         self::assertInstanceOf(ResolveSiteReviewCommentHandler::class, $resolve);
-        $event = new BoardColumnTerminalChanged($project, 'column-id', true, ['card-id'], CardReporter::Human);
+        $event = new BoardColumnTerminalChanged($project, 'column-id', true, ['card-id'], Actor::Human);
 
         $logger = new RecordingLogger();
         $failing = $this->createStub(CardSiteReviewCommentRepository::class);
@@ -104,6 +104,6 @@ final class ResolveFeedbackOnBoardColumnTerminalChangedTest extends KernelTestCa
         self::assertInstanceOf(TranslatorInterface::class, $translator);
 
         $column = $this->column($project, $slug);
-        $handler(new ConfigureBoardColumnCommand($column, CardReporter::Human, $translator->trans($column->label), $terminal, $column->label, $column->terminal));
+        $handler(new ConfigureBoardColumnCommand($column, Actor::Human, $translator->trans($column->label), $terminal, $column->label, $column->terminal));
     }
 }

@@ -11,9 +11,9 @@ use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\DeleteBoardColumnCommand;
 use App\Module\Board\Command\DeleteBoardColumnHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\BoardColumnDeleted;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Outbox\Entity\OutboxEvent;
 use App\Outbox\Repository\OutboxEventRepository;
 use App\Tests\Module\Board\BoardColumnFixtures;
@@ -60,7 +60,7 @@ final class WriteOutboxEventOnBoardColumnDeletedTest extends KernelTestCase
         $next = $this->column($this->project, 'next');
         $nextId = (string) $next->id;
 
-        ($this->delete)(new DeleteBoardColumnCommand($next, CardReporter::Human));
+        ($this->delete)(new DeleteBoardColumnCommand($next, Actor::Human));
 
         $row = $this->onlyRow();
         self::assertSame([
@@ -82,7 +82,7 @@ final class WriteOutboxEventOnBoardColumnDeletedTest extends KernelTestCase
 
     public function test_an_empty_column_sends_no_target_even_when_one_is_given(): void
     {
-        ($this->delete)(new DeleteBoardColumnCommand($this->column($this->project, 'next'), CardReporter::Human, $this->column($this->project, 'in-progress')));
+        ($this->delete)(new DeleteBoardColumnCommand($this->column($this->project, 'next'), Actor::Human, $this->column($this->project, 'in-progress')));
 
         $payload = $this->decode($this->onlyRow());
         self::assertSame('next', $payload['slug']);
@@ -98,7 +98,7 @@ final class WriteOutboxEventOnBoardColumnDeletedTest extends KernelTestCase
         $next = $this->column($this->project, 'next');
         $nextId = (string) $next->id;
 
-        ($this->delete)(new DeleteBoardColumnCommand($next, CardReporter::Human, $this->column($this->project, 'in-progress')));
+        ($this->delete)(new DeleteBoardColumnCommand($next, Actor::Human, $this->column($this->project, 'in-progress')));
 
         self::assertSame([
             'type' => 'board.column_deleted',
@@ -132,7 +132,7 @@ final class WriteOutboxEventOnBoardColumnDeletedTest extends KernelTestCase
         }, -10);
 
         try {
-            ($this->delete)(new DeleteBoardColumnCommand($next, CardReporter::Human, $this->column($this->project, 'backlog')));
+            ($this->delete)(new DeleteBoardColumnCommand($next, Actor::Human, $this->column($this->project, 'backlog')));
             self::fail('a failed transaction must propagate');
         } catch (\RuntimeException $e) {
             self::assertSame('the transaction failed after the delete', $e->getMessage());
@@ -160,7 +160,7 @@ final class WriteOutboxEventOnBoardColumnDeletedTest extends KernelTestCase
             body: 'Body',
             type: 'bug',
             column: $this->column($this->project, 'next'),
-            reporter: CardReporter::Agent,
+            reporter: Actor::Agent,
         ));
     }
 
