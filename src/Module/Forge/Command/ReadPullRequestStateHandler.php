@@ -94,7 +94,7 @@ final readonly class ReadPullRequestStateHandler
             $pullRequest->apply($current);
             $pullRequest->refreshedAt = $readStartedAt;
             $this->judgeCoverage($pullRequest);
-            $pullRequest->settleReadyToMerge($current->readyToMerge);
+            $pullRequest->settleReadyToMerge($current->readyToMerge, $readStartedAt);
             $settled = $pullRequest->snapshot();
             $this->retryUnknownMergeability($pullRequest);
 

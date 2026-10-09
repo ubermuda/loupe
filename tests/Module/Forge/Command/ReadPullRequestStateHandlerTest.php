@@ -544,6 +544,7 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
 
         self::assertSame(0, $this->coverage->reads);
         self::assertTrue($this->reload($row)->readyToMerge);
+        self::assertEquals(new \DateTimeImmutable(self::NOW), $this->reload($row)->readySince);
         self::assertTrue($this->changes[0]->current->readyToMerge);
     }
 
