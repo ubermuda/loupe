@@ -1800,13 +1800,20 @@ export default class extends Controller {
             return;
         }
         const originBox = origin.getBoundingClientRect();
-        const left =
-            column.getBoundingClientRect().right -
-            originBox.left +
-            this.constructor.MARKER_GAP;
-        // With no gutter beside the text, a marker would cover it. The
-        // highlight and the Comments panel still open each thread.
-        if (left + this.constructor.MARKER_HEIGHT * 2 > originBox.width) {
+        const width = this.constructor.MARKER_HEIGHT * 2;
+        // Past the text column when there is room, else in the gap the
+        // narrower prose leaves inside it. With neither, a marker would cover
+        // the text, and the highlight and the Comments panel still open each
+        // thread.
+        const left = [column, this.docTarget]
+            .map(
+                (edge) =>
+                    edge.getBoundingClientRect().right -
+                    originBox.left +
+                    this.constructor.MARKER_GAP,
+            )
+            .find((candidate) => candidate + width <= originBox.width);
+        if (left === undefined) {
             return;
         }
         const hiddenRowIds = this.#hiddenRowIds();
