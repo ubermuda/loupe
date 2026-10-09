@@ -16,6 +16,7 @@ import {
 } from '../fixtures';
 import { submitRedirectingForm } from '../helpers';
 import { coverageScaled } from '../timeouts';
+import { showPanel } from './panels';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eReviewLoop1!';
@@ -29,6 +30,7 @@ const COMMENT_BODY = 'This is an e2e test comment on the selected text.';
 const REPLY_BODY = 'This is an e2e reply to the comment.';
 
 const DOC = '[data-comment-anchor-target="doc"]';
+const ROW = '#comment-rows .lp-comment-row';
 const TOOLBAR = '[data-comment-anchor-target="toolbar"]';
 const COMPOSER = '[data-comment-anchor-target="composer"]';
 const COMPOSER_BODY = '[data-comment-anchor-target="composerBody"]';
@@ -433,17 +435,23 @@ async function postComment(page: Page): Promise<void> {
     await expect(page.locator(COMPOSER)).toBeHidden({
         timeout: coverageScaled(10000),
     });
-    await expect(
-        page.locator('.lp-comment-thread__detail').first(),
-    ).toBeVisible({
+    await expect(page.locator(ROW).first()).toBeVisible({
         timeout: coverageScaled(10000),
     });
 }
 
+/** Opens the thread of a row in the Comments panel, unless it is open. */
 async function expectThreadVisible(page: Page, index = 0): Promise<void> {
-    await expect(
-        page.locator('.lp-comment-thread__detail').nth(index),
-    ).toBeVisible({ timeout: coverageScaled(10000) });
+    await showPanel(page, 'Comments');
+    const row = page.locator(ROW).nth(index);
+    await expect(row).toBeVisible({ timeout: coverageScaled(10000) });
+    if ((await row.getAttribute('aria-expanded')) !== 'true') {
+        await row.click();
+    }
+    const thread = page.locator(`#${await row.getAttribute('aria-controls')}`);
+    await expect(thread.locator('.lp-comment-thread__detail')).toBeVisible({
+        timeout: coverageScaled(10000),
+    });
 }
 
 for (const width of [1440, 390]) {
@@ -499,9 +507,7 @@ for (const width of [1440, 390]) {
 
         await selectKnownPhrase(page, KNOWN_PHRASE);
         await toolbar.getByRole('button', { name: /^Strike/ }).click();
-        await expect(
-            page.locator('.lp-comment-thread[data-anchor-kind="strike"]'),
-        ).toBeVisible();
+        await expect(page.locator(`${ROW}:has(del)`)).toBeVisible();
         await expect(page.locator(COMPOSER)).toBeHidden();
         await expect(
             page.locator('[data-comment-anchor-target="suggestComposer"]'),
@@ -642,9 +648,7 @@ test('posting a comment disables the submitter and renders the thread in the sid
     await expect(commentBody).toBeVisible({ timeout: coverageScaled(10000) });
     await expect(commentBody).toContainText(COMMENT_BODY);
 
-    // The thread carries the anchored document text. The rail hides the quote,
-    // because the passage is highlighted level with the card, so this reads the
-    // markup rather than the screen.
+    // The thread carries the anchored document text.
     await expect(page.locator('.lp-comment-quote').first()).toContainText(
         KNOWN_PHRASE,
     );
@@ -1116,6 +1120,7 @@ for (const width of [1440, 390]) {
 
         // The undo notice is the only recovery surface, so a second delete that
         // the reader walks away from leaves the thread gone for good.
+        await expectThreadVisible(page);
         await page.getByRole('button', { name: 'Delete', exact: true }).click();
         await expect(page.locator('.lp-comment-thread')).toHaveCount(0);
         await page.goto(review.reviewUrl);
@@ -1183,10 +1188,11 @@ test('hovering an anchored passage activates its comment card', async ({
 }) => {
     await postComment(page);
 
+    // The card is a closed popover, so this reads its class, not the screen.
     const thread = page
         .locator('[data-comment-anchor-target="thread"]')
         .first();
-    await expect(thread).toBeVisible({ timeout: coverageScaled(10000) });
+    await expect(thread).toHaveCount(1);
     await expect(thread).not.toHaveClass(/lp-comment-thread--active/);
 
     // Aim at the middle of the anchored phrase and move the real pointer there,
@@ -1225,4 +1231,21 @@ test('hovering an anchored passage activates its comment card', async ({
     await expect(thread).not.toHaveClass(/lp-comment-thread--active/, {
         timeout: coverageScaled(5000),
     });
+});
+
+/** A restored thread links back with its card id as the URL fragment. */
+test('a link to a thread opens it as a popover', async ({ page, review }) => {
+    await postComment(page);
+    const threadId = await page
+        .locator('.lp-comment-thread')
+        .getAttribute('id');
+
+    // A hash change alone does not load the page again.
+    await page.goto('about:blank');
+    await page.goto(`${review.reviewUrl}#${threadId}`);
+    const thread = page.locator(`#${threadId}`);
+    await expect(thread).toBeVisible({ timeout: coverageScaled(10000) });
+    await expect(thread.locator('.lp-comment-body')).toContainText(
+        COMMENT_BODY,
+    );
 });
