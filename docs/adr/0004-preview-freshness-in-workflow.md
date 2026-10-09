@@ -56,7 +56,7 @@ Better:
 Worse:
 
 - The engine needs a new condition, with its own state and tests.
-- The `epic-preview` rule moves from the child card to the epic card. The "Refresh the epic preview" section of `loupe-stage-merge` loses its refresh step, and ADR 0003 asks for that removal in the same piece of work. The section also writes the preview links of each child into the epic pull request body. That part needs the child merge, so it can stay where it is.
+- The `epic-preview` rule moves from the child card to the epic card. The "Refresh the epic preview" section of `loupe-stage-merge` loses its refresh step, and ADR 0003 asks for that removal in the same piece of work. The section also writes the preview links of each child into the epic pull request body. That step proves each link on the preview, so it must run after a refresh that reached the merge commit of the child. Otherwise a new page reads "not proved", and no later refresh proves it again.
 - A refresh on every push runs `just worktree-up` more often. Each run takes about a minute on the owner's machine.
 
 Watch for a second kind of preview that the workflow does not keep current. A card preview stays current today, because the fix round pushes from inside the card worktree. Apply this record if that changes.
