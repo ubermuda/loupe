@@ -754,12 +754,15 @@ final readonly class Engine
         $state->reset();
     }
 
-    /** Withdraws the ask of a rule that the template no longer has, because no pass reaches its state. */
+    /** Withdraws the ask and ends the blocker hold of a rule that the template no longer has, because no pass reaches its state. */
     private function withdrawRemovedAsks(Evaluation $run): void
     {
         foreach ($run->states as $ruleId => $state) {
-            if (null !== $state->askItemId && null === $run->rule($ruleId)) {
-                $this->write($run, $state, fn (WorkflowRuleState $state) => $this->withdrawAsk($state, self::RULE_REMOVED));
+            if ((null !== $state->askItemId || null !== $state->heldByBlockerSince) && null === $run->rule($ruleId)) {
+                $this->write($run, $state, function (WorkflowRuleState $state): void {
+                    $this->withdrawAsk($state, self::RULE_REMOVED);
+                    $state->heldByBlockerSince = null;
+                });
             }
         }
     }

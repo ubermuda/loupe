@@ -2324,6 +2324,23 @@ final class EngineTest extends KernelTestCase
         self::assertNull($this->ruleState($card, 'approved')->heldByBlockerSince);
     }
 
+    public function test_the_hold_ends_when_the_template_no_longer_has_the_rule(): void
+    {
+        $card = $this->heldCard();
+        $this->document($card, 'design');
+        $this->block($card);
+        $this->evaluate($card);
+        $binding = $this->service(WorkflowBindingRepository::class)->findOneByProjectId($card->project->id ?? throw new \LogicException('A stored project has an id.'));
+        self::assertNotNull($binding);
+        $binding->definition = [...$binding->definition, 'rules' => [self::requestRule('work', self::ALWAYS)]];
+        $this->em()->flush();
+
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        self::assertNull($this->ruleState($card, 'approved')->heldByBlockerSince);
+        self::assertCount(2, $this->changed);
+    }
+
     public function test_a_request_rule_is_never_a_blocker_hold(): void
     {
         $card = $this->boundCard([['id' => 'work', 'slot' => 'one', 'when' => ['not' => ['card.blocker.open' => []]], 'then' => ['request' => ['kind' => 'work']]]]);
