@@ -6,10 +6,10 @@ namespace App\Module\Board\View;
 
 use App\Module\Board\Entity\CardEvent;
 use App\Module\Board\Entity\CardEventKind;
-use App\Module\Board\Entity\CardPauseKind;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\View\WorkerRunListItem;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\PauseKind;
 use Symfony\Component\Translation\TranslatableMessage;
 use Symfony\Component\Uid\Uuid;
 
@@ -75,10 +75,10 @@ final readonly class CardHistoryEntry
         $user = $event->actorUser;
 
         return match ($event->actorKind) {
-            CardReporter::System => new TranslatableMessage('board.card.history.actor.system'),
-            CardReporter::Reviewer => new TranslatableMessage('board.card.history.actor.reviewer'),
-            CardReporter::Human => $user->fullName ?? new TranslatableMessage('board.card.history.actor.deleted'),
-            CardReporter::Agent => null === $user
+            Actor::System => new TranslatableMessage('board.card.history.actor.system'),
+            Actor::Reviewer => new TranslatableMessage('board.card.history.actor.reviewer'),
+            Actor::Human => $user->fullName ?? new TranslatableMessage('board.card.history.actor.deleted'),
+            Actor::Agent => null === $user
                 ? new TranslatableMessage('board.card.history.actor.deleted')
                 : new TranslatableMessage('board.card.history.actor.agent', ['%name%' => $user->fullName]),
         };
@@ -133,7 +133,7 @@ final readonly class CardHistoryEntry
     /** @param array<string, mixed> $detail */
     private static function pause(CardEvent $event, string|TranslatableMessage $actor, array $detail, string $icon, string $key): ?self
     {
-        $kind = \is_string($detail['kind'] ?? null) ? CardPauseKind::tryFrom($detail['kind']) : null;
+        $kind = \is_string($detail['kind'] ?? null) ? PauseKind::tryFrom($detail['kind']) : null;
         if (null === $kind) {
             return null;
         }
@@ -144,11 +144,11 @@ final readonly class CardHistoryEntry
             $event->occurredAt,
             $actor,
             new TranslatableMessage($key, ['%actor%' => $actor, '%kind%' => new TranslatableMessage(match ($kind) {
-                CardPauseKind::Rule => 'board.card.history.pause_kind.rule',
-                CardPauseKind::Retries => 'board.card.history.pause_kind.retries',
-                CardPauseKind::WorkLimit => 'board.card.history.pause_kind.work_limit',
-                CardPauseKind::WorkTimeout => 'board.card.history.pause_kind.work_timeout',
-                CardPauseKind::WorkStopped => 'board.card.history.pause_kind.work_stopped',
+                PauseKind::Rule => 'board.card.history.pause_kind.rule',
+                PauseKind::Retries => 'board.card.history.pause_kind.retries',
+                PauseKind::WorkLimit => 'board.card.history.pause_kind.work_limit',
+                PauseKind::WorkTimeout => 'board.card.history.pause_kind.work_timeout',
+                PauseKind::WorkStopped => 'board.card.history.pause_kind.work_stopped',
             })]),
             \is_string($ruleId) && '' !== $ruleId ? new TranslatableMessage('board.card.history.cause.workflow_rule', ['%rule%' => $ruleId]) : null,
         );

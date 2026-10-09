@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Service;
 
-use App\Module\Board\Entity\BoardColumn;
-use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Service\CardEventCause;
-use App\Module\Board\Service\CardMoveGuard;
-use App\Module\Bridge\Repository\WorkerRunRepository;
-use App\Module\Bridge\Service\CardHolds;
-use App\Module\Bridge\ValueObject\WorkerRunKind;
+use App\Module\Project\Repository\ProjectRepository;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardEventCause;
+use App\Module\Workflow\Contract\CardMoveGuard;
+use App\Module\Workflow\Contract\CardSnapshot;
+use App\Module\Workflow\Contract\ColumnRef;
+use App\Module\Workflow\Contract\WorkLedger;
 use App\Module\Workflow\Template\TemplateMissing;
 use App\Module\Workflow\Template\TemplateSource;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
@@ -24,36 +23,35 @@ final readonly class WorkflowCardMoveGuard implements CardMoveGuard
 
     public function __construct(
         private WorkflowAutomation $automation,
-        private CardHolds $cardHolds,
+        private WorkLedger $ledger,
         private TemplateSource $templates,
         private FactsBuilder $facts,
-        private WorkerRunRepository $workerRuns,
+        private ProjectRepository $projects,
     ) {
     }
 
     #[\Override]
-    public function allows(Card $card, BoardColumn $to, CardReporter $actor, ?CardEventCause $cause): bool
+    public function allows(CardSnapshot $card, ColumnRef $to, Actor $actor, ?CardEventCause $cause): bool
     {
-        if (!$this->automation->runsFor($card->project)
-            || CardReporter::System === $actor
-            || $to === $card->column) {
+        $project = $this->projects->find($card->projectId) ?? throw new \LogicException('A stored card has a project.');
+        if (!$this->automation->runsFor($project)
+            || Actor::System === $actor
+            || $to->id->equals($card->column->id)) {
             return true;
         }
 
-        $projectId = $card->project->id ?? throw new \LogicException('A stored project has an id.');
         try {
-            $template = $this->templates->forProject($projectId);
+            $template = $this->templates->forProject($card->projectId);
         } catch (TemplateMissing) {
             return true;
         }
 
-        $cardId = $card->id ?? throw new \LogicException('A stored card has an id.');
-        if ($this->cardHolds->isHeld($card->project, $cardId)) {
+        if ($this->ledger->isHeld($card->projectId, $card->id)) {
             return true;
         }
 
-        $from = $this->facts->slotOf($card->column);
-        $target = $this->facts->slotOf($to);
+        $from = $this->facts->slotOfRef($project, $card->column);
+        $target = $this->facts->slotOfRef($project, $to);
 
         $isParentRun = null;
         foreach ($template->manualMoves as $move) {
@@ -73,23 +71,14 @@ final readonly class WorkflowCardMoveGuard implements CardMoveGuard
     }
 
     /** An interactive run takes any name, so only an open stored worker run counts. */
-    private function isParentRun(Card $card, ?CardEventCause $cause): bool
+    private function isParentRun(CardSnapshot $card, ?CardEventCause $cause): bool
     {
-        $parentId = $card->parent?->id;
+        $parentId = $card->parentId;
         if ('run' !== $cause?->type || null === $parentId) {
             return false;
         }
-        $run = $this->workerRuns->findOneByIdAndProjectId((string) ($cause->fields['run'] ?? ''), (string) $card->project->id);
-        if (null === $run) {
-            return false;
-        }
-        if (WorkerRunKind::Worker === $run->kind && $run->state->isOpen() && true === $run->cardId()?->equals($parentId)) {
-            return true;
-        }
 
-        // The cause prefers a run on the child, so a resumed session can name an older child run.
-        return null !== $run->sessionId
-            && $this->workerRuns->hasOpenWorkerOfSessionOnCard($card->project, $run->sessionId, $parentId);
+        return $this->ledger->isOpenWorkerOnCard((string) ($cause->fields['run'] ?? ''), $card->projectId, $parentId);
     }
 
     /** A column no slot links matches the wildcard alone. */

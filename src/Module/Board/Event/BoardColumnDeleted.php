@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Event;
 
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 
 /**
  * Dispatched inside DeleteBoardColumnHandler's transaction, after the flush that
@@ -25,7 +25,7 @@ final readonly class BoardColumnDeleted
         public string $slug,
         public ?string $targetSlug,
         public array $movedCardIds,
-        public CardReporter $actor,
+        public Actor $actor,
         public bool $terminal,
         /** Whether the column that received the cards is terminal; false when it received none. */
         public bool $targetTerminal,

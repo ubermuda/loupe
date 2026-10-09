@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Readiness\Workflow;
 
 use App\Module\Readiness\Repository\DiscoveryRunRepository;
+use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Contract\FactProvider;
-use Symfony\Component\Uid\Uuid;
 
 final readonly class DiscoveryFactProvider implements FactProvider
 {
@@ -28,9 +28,9 @@ final readonly class DiscoveryFactProvider implements FactProvider
     }
 
     #[\Override]
-    public function build(Uuid $cardId): object
+    public function build(CardSnapshot $card): object
     {
-        $run = $this->discoveryRuns->latestForCard($cardId);
+        $run = $this->discoveryRuns->latestForCard($card->id);
 
         return new DiscoveryFacts(null === $run?->id ? null : (string) $run->id, $run?->state);
     }

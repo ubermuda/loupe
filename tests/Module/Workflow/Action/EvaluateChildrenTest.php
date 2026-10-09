@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace App\Tests\Module\Workflow\Action;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Repository\CardRepository;
-use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\EvaluateChildren;
+use App\Module\Workflow\Contract\ActionOutcome;
+use App\Module\Workflow\Contract\CardDirectory;
 use App\Module\Workflow\Contract\CardEvaluations;
-use App\Module\Workflow\Template\ActionType;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use PHPUnit\Framework\MockObject\MockObject;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -53,9 +52,9 @@ final class EvaluateChildrenTest extends KernelTestCase
 
     private function evaluateChildren(CardEvaluations&MockObject $evaluations, Card $card): ActionOutcome
     {
-        $action = new EvaluateChildren($this->service(CardRepository::class), $evaluations);
+        $action = new EvaluateChildren($this->service(CardDirectory::class), $evaluations);
 
-        return $action->run($this->rule(ActionType::Evaluate, ['cards' => 'children']), $card, FactsMother::facts(), $this->state($card));
+        return $this->runAction($action, $this->rule('evaluate', ['cards' => 'children']), $card->snapshot(), FactsMother::facts(), $this->state($card));
     }
 
     /**

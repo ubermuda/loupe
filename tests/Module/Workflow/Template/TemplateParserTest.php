@@ -4,17 +4,29 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Template;
 
-use App\Module\Board\Entity\LabelTone;
-use App\Module\Workflow\Condition\CardChildrenFinished;
-use App\Module\Workflow\Condition\CardDocument;
-use App\Module\Workflow\Condition\CardDocumentApproved;
-use App\Module\Workflow\Condition\CardHasOpenBlocker;
-use App\Module\Workflow\Condition\CardHasType;
+use App\Module\Board\Workflow\Condition\CardChildrenFinished;
+use App\Module\Board\Workflow\Condition\CardDocument;
+use App\Module\Board\Workflow\Condition\CardDocumentApproved;
+use App\Module\Board\Workflow\Condition\CardHasOpenBlocker;
+use App\Module\Board\Workflow\Condition\CardHasType;
+use App\Module\Board\Workflow\Condition\PullRequestApprovalCoversHead;
+use App\Module\Board\Workflow\Condition\PullRequestOpen;
+use App\Module\Board\Workflow\Detach;
+use App\Module\Board\Workflow\ForgeWrite;
+use App\Module\Board\Workflow\LinkDocument;
+use App\Module\Board\Workflow\MoveCard;
+use App\Module\Board\Workflow\RequestWork;
+use App\Module\Bridge\Workflow\Condition\RunWorkActive;
+use App\Module\Workflow\Action\Actions;
+use App\Module\Workflow\Action\Ask;
+use App\Module\Workflow\Action\EvaluateChildren;
+use App\Module\Workflow\Action\MissingAction;
+use App\Module\Workflow\Action\PauseCard;
+use App\Module\Workflow\Action\ReleasePause;
 use App\Module\Workflow\Condition\CardInSlot;
 use App\Module\Workflow\Condition\Conditions;
-use App\Module\Workflow\Condition\PullRequestApprovalCoversHead;
-use App\Module\Workflow\Condition\PullRequestOpen;
-use App\Module\Workflow\Condition\RunWorkActive;
+use App\Module\Workflow\Contract\Action;
+use App\Module\Workflow\Contract\LabelTone;
 use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
 use App\Module\Workflow\Expression\AllOf;
@@ -23,14 +35,14 @@ use App\Module\Workflow\Expression\ConditionLeaf;
 use App\Module\Workflow\Expression\MissingActionLeaf;
 use App\Module\Workflow\Expression\MissingConditionLeaf;
 use App\Module\Workflow\Expression\Not;
-use App\Module\Workflow\Template\ActionCall;
-use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\AppRequest;
 use App\Module\Workflow\Template\AskOption;
 use App\Module\Workflow\Template\InvalidTemplate;
 use App\Module\Workflow\Template\ManualMoveActor;
 use App\Module\Workflow\Template\RuleOrigin;
 use App\Module\Workflow\Template\TemplateParser;
+use App\Tests\Module\Workflow\Action\ExpressionPluggedAction;
+use App\Tests\Module\Workflow\Action\PluggedAction;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -39,9 +51,15 @@ final class TemplateParserTest extends TestCase
 {
     private TemplateParser $parser;
 
+    private Actions $actions;
+
     #[\Override]
     protected function setUp(): void
     {
+        $this->actions = new Actions(array_map(
+            static fn (string $class): Action => new \ReflectionClass($class)->newInstanceWithoutConstructor(),
+            [MoveCard::class, RequestWork::class, ForgeWrite::class, PauseCard::class, ReleasePause::class, EvaluateChildren::class, Ask::class, LinkDocument::class, Detach::class, MissingAction::class],
+        ));
         $this->parser = new TemplateParser(new Conditions([
             new CardChildrenFinished(),
             new CardDocument(),
@@ -52,7 +70,7 @@ final class TemplateParserTest extends TestCase
             new PullRequestApprovalCoversHead(),
             new PullRequestOpen(),
             new RunWorkActive(),
-        ]));
+        ]), $this->actions);
     }
 
     /** @return array<string, mixed> */
@@ -84,7 +102,7 @@ final class TemplateParserTest extends TestCase
                     'slot' => 'build',
                     'when' => ['all' => [
                         ['card.type' => ['type' => 'feature']],
-                        ['not' => ['card.has_open_blocker' => []]],
+                        ['not' => ['card.blocker.open' => []]],
                     ]],
                     'then' => ['request' => ['kind' => 'implement', 'capability' => 'interactive', 'limit' => 3]],
                 ],
@@ -105,13 +123,13 @@ final class TemplateParserTest extends TestCase
                 ],
                 [
                     'id' => 'wait',
-                    'when' => ['run.work_active' => []],
-                    'then' => ['pause' => ['reason' => 'busy', 'until' => ['not' => ['run.work_active' => []]]]],
+                    'when' => ['card.run.work_active' => []],
+                    'then' => ['pause' => ['reason' => 'busy', 'until' => ['not' => ['card.run.work_active' => []]]]],
                 ],
                 [
                     'id' => 'done',
                     'slot' => '@terminal',
-                    'when' => ['card.document_approved' => ['tag' => 'design']],
+                    'when' => ['card.document.approved' => ['tag' => 'design']],
                     'then' => ['release' => ['reason' => 'busy']],
                 ],
             ],
@@ -140,13 +158,13 @@ final class TemplateParserTest extends TestCase
         self::assertSame(['wait'], $ids($template->rulesFor(null)));
 
         $start = $template->rulesFor('build')[0];
-        self::assertSame(ActionType::Request, $start->then->type);
+        self::assertSame('request', $start->then->key);
         self::assertSame(['kind' => 'implement', 'capability' => 'interactive', 'limit' => 3], $start->then->params);
         self::assertNull($start->then->until);
         self::assertNull($start->then->refill);
 
         $wait = $template->rulesFor(null)[0];
-        self::assertSame(ActionType::Pause, $wait->then->type);
+        self::assertSame('pause', $wait->then->key);
         self::assertSame(['reason' => 'busy'], $wait->then->params);
         self::assertInstanceOf(Not::class, $wait->then->until);
     }
@@ -172,7 +190,7 @@ final class TemplateParserTest extends TestCase
     public function test_a_type_with_children_may_have_a_rule_that_reads_them(): void
     {
         $template = self::valid();
-        $template['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'epic']], ['card.children_finished' => []]]];
+        $template['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'epic']], ['card.children.finished' => []]]];
         $template['rules'][4]['when'] = ['card.type' => ['type' => 'epic']];
         $template['rules'][4]['then'] = ['evaluate' => ['cards' => 'children']];
 
@@ -184,7 +202,7 @@ final class TemplateParserTest extends TestCase
         $template = self::valid();
         $template['rules'][0]['when'] = ['all' => [
             ['not' => ['card.type' => ['type' => 'bug']]],
-            ['any' => [['card.type' => ['type' => 'bug']], ['card.children_finished' => []]]],
+            ['any' => [['card.type' => ['type' => 'bug']], ['card.children.finished' => []]]],
         ]];
         $template['rules'][4]['when'] = ['all' => [['not' => ['card.type' => ['type' => 'bug']]]]];
         $template['rules'][4]['then'] = ['evaluate' => ['cards' => 'children']];
@@ -197,7 +215,7 @@ final class TemplateParserTest extends TestCase
         $template = self::valid();
         $template['rules'][0]['when'] = ['all' => [
             ['card.type' => ['type' => 'epic']],
-            ['card.children_finished' => []],
+            ['card.children.finished' => []],
             ...array_fill(0, 30, ['any' => [['pr.open' => []], ['card.type' => ['type' => 'epic']]]]),
         ]];
 
@@ -208,7 +226,7 @@ final class TemplateParserTest extends TestCase
     {
         $template = self::valid();
         $template['rules'][3]['when'] = ['any' => [['card.type' => ['type' => 'bug']], ['card.type' => ['type' => 'epic']]]];
-        $template['rules'][3]['then']['pause']['until'] = ['all' => [['card.type' => ['type' => 'epic']], ['card.children_finished' => []]]];
+        $template['rules'][3]['then']['pause']['until'] = ['all' => [['card.type' => ['type' => 'epic']], ['card.children.finished' => []]]];
 
         self::assertCount(5, $this->parser->parse($template)->rules);
     }
@@ -218,7 +236,7 @@ final class TemplateParserTest extends TestCase
         $template = self::valid();
         $template['rules'][0]['when'] = ['all' => [
             ['card.type' => ['type' => 'bug']],
-            ['any' => [['pr.open' => []], ['all' => [['card.type' => ['type' => 'epic']], ['card.children_finished' => []]]]]],
+            ['any' => [['pr.open' => []], ['all' => [['card.type' => ['type' => 'epic']], ['card.children.finished' => []]]]]],
         ]];
 
         self::assertCount(5, $this->parser->parse($template)->rules);
@@ -251,7 +269,7 @@ final class TemplateParserTest extends TestCase
         $template['rules'][4]['then'] = ['evaluate' => ['cards' => 'children']];
 
         $then = $this->parser->parse($template)->rulesFor('@terminal')[1]->then;
-        self::assertSame(ActionType::Evaluate, $then->type);
+        self::assertSame('evaluate', $then->key);
         self::assertSame(['cards' => 'children'], $then->params);
     }
 
@@ -263,6 +281,74 @@ final class TemplateParserTest extends TestCase
 
             self::assertSame(['write' => $write], $this->parser->parse($template)->rulesFor('review')[0]->then->params);
         }
+    }
+
+    public function test_the_parameters_of_an_action_come_from_its_declarations(): void
+    {
+        $parser = new TemplateParser(new Conditions([new CardInSlot()]), new Actions([new PluggedAction()]));
+        $template = self::valid();
+        $template['rules'] = [['id' => 'plugged', 'when' => ['card.in_slot' => ['slot' => 'build']], 'then' => ['plugged' => ['from' => 'review', 'times' => 2, 'mode' => 'fast']]]];
+
+        $parsed = $parser->parse($template);
+        $call = $parsed->rules[0]->then;
+
+        self::assertSame('plugged', $call->key);
+        self::assertSame(['from' => 'review', 'times' => 2, 'mode' => 'fast'], $call->params);
+        self::assertSame('review', $call->from);
+        self::assertTrue($call->traits->endsPass);
+        self::assertSame([], $parsed->rulesFor('build'), 'A rule that acts from another slot is not a rule of this slot.');
+        self::assertCount(1, $parsed->rulesFor('review'));
+    }
+
+    public function test_an_action_cannot_declare_an_expression_parameter_that_a_call_drops(): void
+    {
+        $parser = new TemplateParser(new Conditions([new CardInSlot()]), new Actions([new ExpressionPluggedAction()]));
+        $template = self::valid();
+        $template['rules'] = [['id' => 'expressive', 'when' => ['card.in_slot' => ['slot' => 'build']], 'then' => ['expressive' => ['from' => 'review']]]];
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('declares the expression parameter "only"');
+        $parser->parse($template);
+    }
+
+    /** @param array<string, mixed> $then */
+    #[DataProvider('pluggedActionErrors')]
+    public function test_the_declared_parameters_of_an_action_are_checked(array $then, string $error): void
+    {
+        $parser = new TemplateParser(new Conditions([new CardInSlot()]), new Actions([new PluggedAction()]));
+        $template = self::valid();
+        $template['rules'] = [['id' => 'plugged', 'when' => ['card.in_slot' => ['slot' => 'build']], 'then' => ['plugged' => $then]]];
+
+        try {
+            $parser->parse($template);
+            self::fail('The template must be refused.');
+        } catch (InvalidTemplate $e) {
+            self::assertSame([$error], $e->errors);
+        }
+    }
+
+    /** @return iterable<string, array{array<string, mixed>, string}> */
+    public static function pluggedActionErrors(): iterable
+    {
+        yield 'a missing required parameter' => [['from' => 'review'], 'rules[0] (plugged) then.plugged: missing parameter "times"'];
+        yield 'a slot that is not declared' => [['from' => 'shipping', 'times' => 2], 'rules[0] (plugged) then.plugged.from: unknown slot "shipping"'];
+        yield 'an int under its minimum' => [['from' => 'review', 'times' => 1], 'rules[0] (plugged) then.plugged: parameter "times" must be an integer of at least 2'];
+        yield 'a value outside the choices' => [['from' => 'review', 'times' => 2, 'mode' => 'slow'], 'rules[0] (plugged) then.plugged: parameter "mode" must be one of fast, safe'];
+        yield 'a parameter the action does not declare' => [['from' => 'review', 'times' => 2, 'speed' => 1], 'rules[0] (plugged) then.plugged: unknown parameter "speed"'];
+        yield 'a rule on the parameters as a whole' => [['from' => 'review', 'times' => 2, 'mode' => 'safe'], 'rules[0] (plugged) then.plugged: safe mode needs the slot build'];
+    }
+
+    public function test_the_prompt_is_a_parameter_of_an_app_rule_only(): void
+    {
+        $rules = [['id' => 'groom', 'slot' => '@backlog', 'when' => ['card.in_slot' => ['slot' => '@backlog']], 'then' => ['request' => ['kind' => 'groom', 'prompt' => 'groom-card']]]];
+
+        self::assertSame('groom-card', $this->parser->parseAppRules(['rules' => $rules])[0]->then->params['prompt']);
+        $template = self::valid();
+        $template['rules'] = $rules;
+        $this->expectException(InvalidTemplate::class);
+        $this->expectExceptionMessage('unknown parameter "prompt"');
+
+        $this->parser->parse($template);
     }
 
     public function test_a_request_can_expire_with_no_pause(): void
@@ -366,8 +452,8 @@ final class TemplateParserTest extends TestCase
     {
         $template = self::valid();
         $template['rules'][2]['when'] = ['all' => [
-            ['card.document' => ['tag' => 'design']],
-            ['card.document' => ['tag' => 'design', 'status' => 'in-review']],
+            ['card.document.linked' => ['tag' => 'design']],
+            ['card.document.linked' => ['tag' => 'design', 'status' => 'in-review']],
         ]];
 
         $leaves = $this->parser->parse($template)->rules[2]->when->leaves();
@@ -378,7 +464,7 @@ final class TemplateParserTest extends TestCase
     public function test_a_slot_reads_the_tag_of_a_document_condition(): void
     {
         $template = self::valid();
-        $template['rules'][0]['when'] = ['not' => ['card.document' => ['tag' => 'plan']]];
+        $template['rules'][0]['when'] = ['not' => ['card.document.linked' => ['tag' => 'plan']]];
 
         self::assertSame(['plan'], $this->parser->parse($template)->documentTagsFor('build'));
     }
@@ -495,51 +581,51 @@ final class TemplateParserTest extends TestCase
             return $t;
         }, 'rules[0] (start) then.request.refill: card.type: unknown type "chore"'];
         yield 'rule reading the children of a type without children' => [static function (array $t): array {
-            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['card.children_finished' => []]]];
+            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['card.children.finished' => []]]];
 
             return $t;
         }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
         yield 'nested all reading the children of a type without children' => [static function (array $t): array {
-            $t['rules'][1]['when']['any'][] = ['all' => [['card.children_finished' => []], ['card.type' => ['type' => 'feature']]]];
+            $t['rules'][1]['when']['any'][] = ['all' => [['card.children.finished' => []], ['card.type' => ['type' => 'feature']]]];
 
             return $t;
         }, 'rules[1] (to-review): the type "feature" may not have children, but the rule reads them'];
         yield 'all inside all reading the children of a type without children' => [static function (array $t): array {
-            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['all' => [['card.children_finished' => []]]]]];
+            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['all' => [['card.children.finished' => []]]]]];
 
             return $t;
         }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
         yield 'any branch reading the children of the type around it' => [static function (array $t): array {
-            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['any' => [['card.children_finished' => []], ['pr.open' => []]]]]];
+            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['any' => [['card.children.finished' => []], ['pr.open' => []]]]]];
 
             return $t;
         }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
         yield 'any branch naming a type that the list around it reads the children of' => [static function (array $t): array {
-            $t['rules'][0]['when'] = ['all' => [['card.children_finished' => []], ['any' => [['card.type' => ['type' => 'bug']], ['pr.open' => []]]]]];
+            $t['rules'][0]['when'] = ['all' => [['card.children.finished' => []], ['any' => [['card.type' => ['type' => 'bug']], ['pr.open' => []]]]]];
 
             return $t;
         }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
         yield 'two sibling any lists, one naming the type and one reading the children' => [static function (array $t): array {
             $t['rules'][0]['when'] = ['all' => [
                 ['any' => [['card.type' => ['type' => 'bug']], ['pr.open' => []]]],
-                ['any' => [['card.children_finished' => []], ['pr.open' => []]]],
+                ['any' => [['card.children.finished' => []], ['pr.open' => []]]],
             ]];
 
             return $t;
         }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
         yield 'negated child read beside a type without children' => [static function (array $t): array {
-            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['not' => ['card.children_finished' => []]]]];
+            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['not' => ['card.children.finished' => []]]]];
 
             return $t;
         }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
         yield 'pause until reading the children of a type without children' => [static function (array $t): array {
             $t['rules'][3]['when'] = ['card.type' => ['type' => 'bug']];
-            $t['rules'][3]['then']['pause']['until'] = ['card.children_finished' => []];
+            $t['rules'][3]['then']['pause']['until'] = ['card.children.finished' => []];
 
             return $t;
         }, 'rules[3] (wait): the type "bug" may not have children, but the rule reads them'];
         yield 'when reading the children of a type without children beside an until for another type' => [static function (array $t): array {
-            $t['rules'][3]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['card.children_finished' => []]]];
+            $t['rules'][3]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['card.children.finished' => []]]];
             $t['rules'][3]['then']['pause']['until'] = ['card.type' => ['type' => 'epic']];
 
             return $t;
@@ -626,7 +712,7 @@ final class TemplateParserTest extends TestCase
         }, 'rules[0] (start) slot: unknown slot "*"'];
 
         yield 'node with two keys' => [static function (array $t): array {
-            $t['rules'][2]['when'] = ['pr.open' => [], 'card.has_open_blocker' => []];
+            $t['rules'][2]['when'] = ['pr.open' => [], 'card.blocker.open' => []];
 
             return $t;
         }, 'rules[2] (merge) when: a node must have exactly one key'];
@@ -646,6 +732,11 @@ final class TemplateParserTest extends TestCase
 
             return $t;
         }, 'rules[2] (merge) when: unknown condition "pr.foo"'];
+        yield 'old condition key' => [static function (array $t): array {
+            $t['rules'][2]['when'] = ['card.is_child' => []];
+
+            return $t;
+        }, 'rules[2] (merge) when: unknown condition "card.is_child"'];
 
         yield 'missing parameter' => [static function (array $t): array {
             $t['rules'][2]['when'] = ['pr.approval_covers_head' => []];
@@ -653,10 +744,10 @@ final class TemplateParserTest extends TestCase
             return $t;
         }, 'rules[2] (merge) when: pr.approval_covers_head: missing parameter "min"'];
         yield 'unknown parameter' => [static function (array $t): array {
-            $t['rules'][0]['when']['all'][1]['not'] = ['card.has_open_blocker' => ['strict' => true]];
+            $t['rules'][0]['when']['all'][1]['not'] = ['card.blocker.open' => ['strict' => true]];
 
             return $t;
-        }, 'rules[0] (start) when.all[1].not: card.has_open_blocker: unknown parameter "strict"'];
+        }, 'rules[0] (start) when.all[1].not: card.blocker.open: unknown parameter "strict"'];
         yield 'wrongly typed parameter' => [static function (array $t): array {
             $t['rules'][2]['when'] = ['pr.approval_covers_head' => ['min' => '1']];
 
@@ -786,10 +877,10 @@ final class TemplateParserTest extends TestCase
         }, 'rules[4] (done) then.release: unknown parameter "until"'];
 
         yield 'document status outside the statuses' => [static function (array $t): array {
-            $t['rules'][2]['when'] = ['card.document' => ['tag' => 'design', 'status' => 'rejected']];
+            $t['rules'][2]['when'] = ['card.document.linked' => ['tag' => 'design', 'status' => 'rejected']];
 
             return $t;
-        }, 'rules[2] (merge) when: card.document: parameter "status" must be one of: in-review, approved, changes-requested, draft'];
+        }, 'rules[2] (merge) when: card.document.linked: parameter "status" must be one of: in-review, approved, changes-requested, draft'];
         yield 'evaluate of other cards' => [static function (array $t): array {
             $t['rules'][4]['then'] = ['evaluate' => ['cards' => 'siblings']];
 
@@ -890,12 +981,12 @@ final class TemplateParserTest extends TestCase
 
         $then = $this->parser->parse($template)->rules[5]->then;
 
-        self::assertSame(ActionType::Ask, $then->type);
+        self::assertSame('ask', $then->key);
         self::assertSame(['question' => 'workflow.ask.unplanned_child'], $then->params);
         self::assertEquals([
-            new AskOption('workflow.ask.unplanned_child.link', [new ActionCall(ActionType::LinkDocument, ['from' => 'parent', 'tag' => 'tech-design'])]),
-            new AskOption('workflow.ask.unplanned_child.design', [new ActionCall(ActionType::Move, ['to' => 'build'])]),
-            new AskOption('workflow.ask.unplanned_child.detach', [new ActionCall(ActionType::Detach, []), new ActionCall(ActionType::Move, ['to' => '@backlog'])]),
+            new AskOption('workflow.ask.unplanned_child.link', [$this->actions->call('link-document', ['from' => 'parent', 'tag' => 'tech-design'])]),
+            new AskOption('workflow.ask.unplanned_child.design', [$this->actions->call('move', ['to' => 'build'])]),
+            new AskOption('workflow.ask.unplanned_child.detach', [$this->actions->call('detach', []), $this->actions->call('move', ['to' => '@backlog'])]),
         ], $then->options);
     }
 
@@ -967,7 +1058,7 @@ final class TemplateParserTest extends TestCase
 
         $rule = $this->parser->parseStored($template)->rules[1];
 
-        self::assertSame(ActionType::Missing, $rule->then->type);
+        self::assertSame(MissingAction::KEY, $rule->then->key);
         self::assertSame('jump', $rule->then->params['name']);
         self::assertInstanceOf(AllOf::class, $rule->when);
         self::assertEquals(new MissingActionLeaf('jump'), $rule->when->children[0]);
@@ -983,14 +1074,14 @@ final class TemplateParserTest extends TestCase
 
         $rule = $this->parser->parseStored($template)->rules[5];
 
-        self::assertSame(ActionType::Missing, $rule->then->type);
+        self::assertSame(MissingAction::KEY, $rule->then->key);
         self::assertSame('jump', $rule->then->params['name']);
         self::assertSame([], $rule->then->options);
     }
 
     public function test_strict_mode_refuses_an_unknown_action_and_the_placeholder_value(): void
     {
-        foreach (['jump', ActionType::Missing->value] as $name) {
+        foreach (['jump', MissingAction::KEY] as $name) {
             $template = self::valid();
             $template['rules'][1]['then'] = [$name => []];
             try {
@@ -1022,7 +1113,7 @@ final class TemplateParserTest extends TestCase
     public function test_app_rules_accept_a_request_with_a_prompt_in_the_backlog(): void
     {
         $rules = $this->parser->parseAppRules(['rules' => [
-            ['id' => 'app-groom', 'slot' => '@backlog', 'when' => ['card.has_open_blocker' => []], 'then' => ['request' => ['kind' => 'groom', 'prompt' => 'groom-card']]],
+            ['id' => 'app-groom', 'slot' => '@backlog', 'when' => ['card.blocker.open' => []], 'then' => ['request' => ['kind' => 'groom', 'prompt' => 'groom-card']]],
             ['id' => 'app-done', 'slot' => '@terminal', 'when' => ['all' => []], 'then' => ['request' => ['kind' => 'teardown']]],
         ]]);
 

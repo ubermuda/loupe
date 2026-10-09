@@ -79,7 +79,7 @@ final class DiscoveryRuleTest extends KernelTestCase
         self::assertSame([WorkRequestState::Cancelled, WorkRequestState::Open], array_map(static fn (WorkRequest $request): WorkRequestState => $request->state, $requests));
         $ruleStates = self::getContainer()->get(WorkflowRuleStateRepository::class);
         self::assertInstanceOf(WorkflowRuleStateRepository::class, $ruleStates);
-        self::assertSame(2, $ruleStates->findForCard($card)['discovery']->fires);
+        self::assertSame(2, $ruleStates->findForCard($card->snapshot()->id)['discovery']->fires);
     }
 
     public function test_a_requested_run_outside_the_backlog_opens_no_request(): void

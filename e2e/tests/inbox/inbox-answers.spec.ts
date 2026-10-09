@@ -4,13 +4,12 @@
  * and declines a to-do. Both are read back after the redirect.
  */
 
+import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import {
-    test as base,
-    expect,
-    type APIRequestContext,
-    type Page,
-} from '@playwright/test';
-import { suppressToolbar, suppressWidget } from '../fixtures';
+    hubStubbedTest as base,
+    suppressToolbar,
+    suppressWidget,
+} from '../fixtures';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eInboxAnswers1!';

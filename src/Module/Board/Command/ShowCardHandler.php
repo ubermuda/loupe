@@ -11,9 +11,9 @@ use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardPullRequestStates;
-use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Board\Service\SyncLine;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use Psr\Clock\ClockInterface;
 
 final readonly class ShowCardHandler
@@ -35,7 +35,7 @@ final readonly class ShowCardHandler
     {
         $children = [];
         $progress = null;
-        if ($this->catalog->forProject($command->card->project)->get($command->card->type)->children) {
+        if ($this->catalog->forProject($command->card->project->requireId())->get($command->card->type)->children) {
             $children = $this->cards->findChildren($command->card);
             $progress = new CardProgress(
                 \count(array_filter($children, static fn (Card $child): bool => $child->column->terminal)),

@@ -15,12 +15,12 @@ use App\Module\Board\Command\ListBacklogPageIdsHandler;
 use App\Module\Board\Command\MoveBacklogCardCommand;
 use App\Module\Board\Command\MoveBacklogCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Form\MoveBacklogCardFormType;
 use App\Module\Board\Form\MoveBacklogCardRequest;
 use App\Module\Board\Security\CardVoter;
 use App\Module\Board\View\BacklogListQuery;
 use App\Module\Board\View\BacklogPageChange;
+use App\Module\Workflow\Contract\Actor;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -77,7 +77,7 @@ final class MoveBacklogCardController extends AppController
             try {
                 ($this->moveCard)(new MoveBacklogCardCommand(
                     $card,
-                    CardReporter::Human,
+                    Actor::Human,
                     $data->column ?? throw new \LogicException('column required after validation'),
                 ));
             } catch (DomainErrors $e) {

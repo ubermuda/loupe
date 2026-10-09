@@ -9,17 +9,20 @@ use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\PauseCardCommand;
 use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
-use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Project\Entity\Project;
+use App\Module\Project\Repository\ProjectRepository;
+use App\Module\Workflow\Action\Actions;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardPauses;
+use App\Module\Workflow\Contract\PauseKind;
+use App\Module\Workflow\Contract\WorkLedger;
 use App\Module\Workflow\Engine\RuleSubject;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
@@ -58,7 +61,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         $this->refusal($card, 'tech-design-approved', 'move-refused', '2026-10-02 09:00', 2);
         $this->refusal($card, 'tech-design-write', 'invalid-work-request', '2026-10-02 08:00', 1);
 
-        $panel = $this->builder()->build($card);
+        $panel = $this->builder()->build($card->snapshot());
 
         self::assertNull($panel->pause);
         $progress = $panel->progress ?? self::fail('The automation is on, so the panel shows the progress.');
@@ -85,7 +88,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         $card = $this->card('tech-design');
         $this->refusal($card, 'tech-design-revise', $code, '2026-10-02 09:00', 1);
 
-        $refusal = ($this->builder()->build($card)->progress ?? self::fail('The automation is on.'))->lastRefusal ?? self::fail('The card has a refusal.');
+        $refusal = ($this->builder()->build($card->snapshot())->progress ?? self::fail('The automation is on.'))->lastRefusal ?? self::fail('The card has a refusal.');
 
         self::assertSame($text, $refusal->reason);
     }
@@ -94,7 +97,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
     {
         $card = $this->card('backlog');
 
-        $progress = $this->builder()->build($card)->progress ?? self::fail('The automation is on.');
+        $progress = $this->builder()->build($card->snapshot())->progress ?? self::fail('The automation is on.');
 
         self::assertSame('Backlog', $progress->slot);
         self::assertSame('Waiting: the pull request is not open.', $progress->waiting);
@@ -108,7 +111,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         $this->service(BoardAutomation::class)->settingsForUpdate($this->project)->enabled = false;
         $this->em()->flush();
 
-        self::assertTrue($this->builder()->build($card)->isEmpty());
+        self::assertTrue($this->builder()->build($card->snapshot())->isEmpty());
     }
 
     public function test_a_held_card_shows_no_progress(): void
@@ -118,7 +121,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         self::assertInstanceOf(CardHolds::class, $holds);
         $holds->hold($this->project, $card->id ?? throw new \LogicException('A created card has an id.'), null);
 
-        $panel = $this->builder()->build($card);
+        $panel = $this->builder()->build($card->snapshot());
 
         self::assertTrue($panel->isEmpty());
     }
@@ -128,9 +131,9 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         $card = $this->card('tech-design');
         $pause = self::getContainer()->get(PauseCardHandler::class);
         self::assertInstanceOf(PauseCardHandler::class, $pause);
-        $pause(new PauseCardCommand($card, 'move-refused', 'tech-design-approved', CardPauseKind::Retries));
+        $pause(new PauseCardCommand($card, 'move-refused', 'tech-design-approved', PauseKind::Retries));
 
-        $shown = $this->builder()->build($card)->pause ?? self::fail('The card is paused.');
+        $shown = $this->builder()->build($card->snapshot())->pause ?? self::fail('The card is paused.');
 
         self::assertSame('move-refused', $shown->code);
         self::assertSame('too many attempts were refused', $shown->kind);
@@ -141,9 +144,9 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
     public function test_a_retries_pause_of_a_managed_card_is_releasable_and_names_its_id(): void
     {
         $card = $this->card('tech-design');
-        $pause = $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'move-refused', 'tech-design-approved', CardPauseKind::Retries));
+        $pause = $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'move-refused', 'tech-design-approved', PauseKind::Retries));
 
-        $shown = $this->builder()->build($card)->pause ?? self::fail('The card is paused.');
+        $shown = $this->builder()->build($card->snapshot())->pause ?? self::fail('The card is paused.');
 
         self::assertSame((string) $pause?->id, $shown->id);
         self::assertTrue($shown->releasable);
@@ -152,18 +155,18 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
     public function test_a_rule_pause_is_not_releasable(): void
     {
         $card = $this->card('tech-design');
-        $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'on-hold', 'tech-design-approved', CardPauseKind::Rule));
+        $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'on-hold', 'tech-design-approved', PauseKind::Rule));
 
-        self::assertFalse(($this->builder()->build($card)->pause ?? self::fail('The card is paused.'))->releasable);
+        self::assertFalse(($this->builder()->build($card->snapshot())->pause ?? self::fail('The card is paused.'))->releasable);
     }
 
     public function test_a_pause_of_a_held_card_is_not_releasable(): void
     {
         $card = $this->card('tech-design');
-        $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'move-refused', 'tech-design-approved', CardPauseKind::Retries));
+        $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'move-refused', 'tech-design-approved', PauseKind::Retries));
         $this->service(CardHolds::class)->hold($this->project, $card->id ?? throw new \LogicException('A created card has an id.'), null);
 
-        self::assertFalse(($this->builder()->build($card)->pause ?? self::fail('The card is paused.'))->releasable);
+        self::assertFalse(($this->builder()->build($card->snapshot())->pause ?? self::fail('The card is paused.'))->releasable);
     }
 
     public function test_a_template_that_cannot_be_read_still_shows_the_pause(): void
@@ -171,11 +174,11 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         $card = $this->card('tech-design');
         $pause = self::getContainer()->get(PauseCardHandler::class);
         self::assertInstanceOf(PauseCardHandler::class, $pause);
-        $pause(new PauseCardCommand($card, 'move-refused', 'tech-design-approved', CardPauseKind::Retries));
+        $pause(new PauseCardCommand($card, 'move-refused', 'tech-design-approved', PauseKind::Retries));
         $templates = $this->createStub(TemplateSource::class);
         $templates->method('forProject')->willThrowException(new \RuntimeException('broken'));
 
-        $panel = $this->builder($templates)->build($card);
+        $panel = $this->builder($templates)->build($card->snapshot());
 
         self::assertSame('move-refused', $panel->pause?->code);
         self::assertNull($panel->progress);
@@ -211,11 +214,11 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
             ],
         ];
         $this->em()->flush();
-        $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'on-hold', 'hold', CardPauseKind::Rule));
+        $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'on-hold', 'hold', PauseKind::Rule));
         $this->service(ProvidedFactsProvider::class)->failure = new \RuntimeException('The source is down.');
         $logger = new RecordingLogger();
 
-        $panel = $this->builder(logger: $logger)->build($card);
+        $panel = $this->builder(logger: $logger)->build($card->snapshot());
 
         $progress = $panel->progress ?? self::fail('The automation is on, so the panel shows the progress.');
         self::assertSame('Tech design', $progress->slot);
@@ -254,7 +257,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         $this->em()->flush();
         $this->service(ProvidedFactsProvider::class)->failure = new \RuntimeException('The source is down.');
 
-        $progress = $this->builder()->build($card)->progress ?? self::fail('The automation is on, so the panel shows the progress.');
+        $progress = $this->builder()->build($card->snapshot())->progress ?? self::fail('The automation is on, so the panel shows the progress.');
 
         self::assertSame('Waiting: could not read Board.', $progress->waiting);
         self::assertSame('Pause the card', $progress->nextAction);
@@ -269,7 +272,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         $this->service(ProvidedFactsProvider::class)->on = false;
         $logger = new RecordingLogger();
 
-        $progress = $this->builder(logger: $logger)->build($card)->progress ?? self::fail('The automation is on, so the panel shows the progress.');
+        $progress = $this->builder(logger: $logger)->build($card->snapshot())->progress ?? self::fail('The automation is on, so the panel shows the progress.');
 
         self::assertSame('Waiting: Board is off on this instance.', $progress->waiting);
         self::assertSame('Move the card to Implementation', $progress->nextAction);
@@ -283,7 +286,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
             ['id' => 'missing', 'slot' => 'tech-design', 'when' => ['all' => [['card.gone' => []]]], 'then' => ['move' => ['to' => 'implementation']]],
         ]);
 
-        $progress = $this->builder()->build($card)->progress ?? self::fail('The automation is on, so the panel shows the progress.');
+        $progress = $this->builder()->build($card->snapshot())->progress ?? self::fail('The automation is on, so the panel shows the progress.');
 
         self::assertSame('Waiting: the condition card.gone no longer exists.', $progress->waiting);
         self::assertSame('Move the card to Implementation', $progress->nextAction);
@@ -296,7 +299,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
             ['id' => 'unknown', 'slot' => 'tech-design', 'when' => ['all' => []], 'then' => ['jump' => []]],
         ]);
 
-        $progress = $this->builder()->build($card)->progress ?? self::fail('The automation is on, so the panel shows the progress.');
+        $progress = $this->builder()->build($card->snapshot())->progress ?? self::fail('The automation is on, so the panel shows the progress.');
 
         self::assertSame('Waiting: this version does not know the action jump.', $progress->waiting);
         self::assertSame('An action this version does not know', $progress->nextAction);
@@ -307,11 +310,11 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         $card = $this->card('tech-design');
         $this->define([
             ['id' => 'provided', 'slot' => 'tech-design', 'when' => [ProvidedFactsReady::KEY => []], 'then' => ['request' => ['kind' => 'provided']]],
-            ['id' => 'approved', 'slot' => 'tech-design', 'when' => ['card.document_approved' => ['tag' => 'design']], 'then' => ['move' => ['to' => 'implementation']]],
+            ['id' => 'approved', 'slot' => 'tech-design', 'when' => ['card.document.approved' => ['tag' => 'design']], 'then' => ['move' => ['to' => 'implementation']]],
         ]);
         $this->service(ProvidedFactsProvider::class)->failure = new \RuntimeException('The source is down.');
 
-        $progress = $this->builder()->build($card)->progress ?? self::fail('The automation is on, so the panel shows the progress.');
+        $progress = $this->builder()->build($card->snapshot())->progress ?? self::fail('The automation is on, so the panel shows the progress.');
 
         self::assertSame('Waiting: no design document is approved.', $progress->waiting);
         self::assertSame('Move the card to Implementation', $progress->nextAction);
@@ -321,11 +324,11 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
     {
         $card = $this->card('tech-design');
         $this->define([
-            ['id' => 'hold', 'slot' => 'tech-design', 'when' => ['card.document_approved' => ['tag' => 'design']], 'then' => ['pause' => ['reason' => 'on-hold', 'until' => [ProvidedFactsReady::KEY => []]]]],
+            ['id' => 'hold', 'slot' => 'tech-design', 'when' => ['card.document.approved' => ['tag' => 'design']], 'then' => ['pause' => ['reason' => 'on-hold', 'until' => [ProvidedFactsReady::KEY => []]]]],
         ]);
         $this->service(ProvidedFactsProvider::class)->failure = new \RuntimeException('The source is down.');
 
-        $progress = $this->builder()->build($card)->progress ?? self::fail('The automation is on, so the panel shows the progress.');
+        $progress = $this->builder()->build($card->snapshot())->progress ?? self::fail('The automation is on, so the panel shows the progress.');
 
         self::assertSame('Waiting: no design document is approved.', $progress->waiting);
         self::assertSame('Pause the card', $progress->nextAction);
@@ -339,14 +342,14 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         $card = $this->card('tech-design');
         $base = $this->linkedPullRequest($card, 4, 'main', 'base-branch', PullRequestChecks::Passed, '2026-10-01 09:00');
         $this->linkedPullRequest($card, 5, 'base-branch', 'upper-branch', PullRequestChecks::Failed, '2026-10-01 10:00');
-        $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'red', 'hold', CardPauseKind::Rule));
-        $state = new WorkflowRuleState($card, $this->project, 'hold');
+        $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'red', 'hold', PauseKind::Rule));
+        $state = new WorkflowRuleState($card->id ?? throw new \LogicException('The card is persisted.'), $this->project, 'hold');
         $state->truth = true;
         $state->subjectPullRequestId = $base->id;
         $this->em()->persist($state);
         $this->em()->flush();
 
-        $pause = $this->builder()->build($card)->pause ?? self::fail('The card is paused.');
+        $pause = $this->builder()->build($card->snapshot())->pause ?? self::fail('The card is paused.');
 
         self::assertSame($this->service(TranslatorInterface::class)->trans('workflow.panel.release.met'), $pause->release);
     }
@@ -382,8 +385,9 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
     {
         return new CardWorkflowPanelBuilder(
             $this->service(WorkflowAutomation::class),
-            $this->service(CardHolds::class),
-            $this->service(CardPauseRepository::class),
+            $this->service(WorkLedger::class),
+            $this->service(CardPauses::class),
+            $this->service(ProjectRepository::class),
             $templates ?? $this->service(TemplateSource::class),
             $this->service(FactsBuilder::class),
             $this->service(WorkflowRuleStateRepository::class),
@@ -391,6 +395,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
             new MockClock('2026-10-02 12:00'),
             $logger,
             new RuleSubject(),
+            $this->service(Actions::class),
         );
     }
 
@@ -411,7 +416,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
 
     private function refusal(Card $card, string $ruleId, string $code, string $at, int $attempts): void
     {
-        $state = new WorkflowRuleState($card, $this->project, $ruleId);
+        $state = new WorkflowRuleState($card->id ?? throw new \LogicException('The card is persisted.'), $this->project, $ruleId);
         $state->truth = true;
         $state->lastRefusal = $code;
         $state->lastRefusalAt = new \DateTimeImmutable($at);
@@ -428,7 +433,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
             body: 'Body',
             type: 'feature',
             column: $this->column($this->project, $column),
-            reporter: CardReporter::Human,
+            reporter: Actor::Human,
         ));
     }
 

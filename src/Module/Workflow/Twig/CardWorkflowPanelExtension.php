@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Twig;
 
-use App\Module\Board\Entity\Card;
+use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Project\Security\ProjectVoter;
+use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Service\CardWorkflowPanelBuilder;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Twig\Environment;
@@ -18,6 +19,7 @@ final class CardWorkflowPanelExtension extends AbstractExtension
     public function __construct(
         private readonly CardWorkflowPanelBuilder $panels,
         private readonly AuthorizationCheckerInterface $authorization,
+        private readonly ProjectRepository $projects,
     ) {
     }
 
@@ -29,14 +31,15 @@ final class CardWorkflowPanelExtension extends AbstractExtension
         ];
     }
 
-    public function cardPanel(Environment $twig, Card $card): string
+    public function cardPanel(Environment $twig, CardSnapshot $card): string
     {
-        if (null === $card->id || !$this->authorization->isGranted(ProjectVoter::VIEW, $card->project)) {
+        $project = $this->projects->find($card->projectId);
+        if (null === $project || !$this->authorization->isGranted(ProjectVoter::VIEW, $project)) {
             return '';
         }
 
         $panel = $this->panels->build($card);
 
-        return $panel->isEmpty() ? '' : $twig->render('@Workflow/_card_workflow_panel.html.twig', ['panel' => $panel, 'card' => $card]);
+        return $panel->isEmpty() ? '' : $twig->render('@Workflow/_card_workflow_panel.html.twig', ['panel' => $panel, 'card' => $card, 'project' => $project]);
     }
 }

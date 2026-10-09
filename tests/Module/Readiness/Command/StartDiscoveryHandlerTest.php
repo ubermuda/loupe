@@ -6,7 +6,6 @@ namespace App\Tests\Module\Readiness\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\BoardAutomationSettings;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSourceKind;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkRequest;
@@ -19,6 +18,7 @@ use App\Module\Readiness\Command\StartDiscoveryHandler;
 use App\Module\Readiness\Entity\DiscoveryRun;
 use App\Module\Readiness\Entity\DiscoveryRunState;
 use App\Module\Readiness\Repository\DiscoveryRunRepository;
+use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Engine\Engine;
 use App\Module\Workflow\Messenger\EvaluateCard;
 use App\Tests\Module\Readiness\DiscoveryScenario;
@@ -45,7 +45,7 @@ final class StartDiscoveryHandlerTest extends KernelTestCase
     {
         $project = $this->liveProject();
 
-        $run = $this->handler()(new StartDiscoveryCommand($project, CardReporter::Human));
+        $run = $this->handler()(new StartDiscoveryCommand($project, Actor::Human));
 
         self::assertSame(DiscoveryRunState::Requested, $run->state);
         self::assertSame($project, $run->project);
@@ -53,7 +53,7 @@ final class StartDiscoveryHandlerTest extends KernelTestCase
         self::assertSame('Discover what '.$project->name.' needs for agents', $card->title);
         self::assertSame('tooling', $card->type);
         self::assertTrue($card->column->backlog);
-        self::assertSame(CardReporter::Human, $card->reporter);
+        self::assertSame(Actor::Human, $card->reporter);
         self::assertSame(CardSourceKind::Person, $card->source->kind);
         self::assertNotSame('', $card->body);
         self::assertSame([(string) $card->id], $this->evaluatedCardIds());
@@ -65,9 +65,9 @@ final class StartDiscoveryHandlerTest extends KernelTestCase
 
     public function test_an_agent_start_records_the_agent_as_reporter(): void
     {
-        $run = $this->handler()(new StartDiscoveryCommand($this->liveProject(), CardReporter::Agent));
+        $run = $this->handler()(new StartDiscoveryCommand($this->liveProject(), Actor::Agent));
 
-        self::assertSame(CardReporter::Agent, $run->card->reporter);
+        self::assertSame(Actor::Agent, $run->card->reporter);
         self::assertSame(CardSourceKind::Agent, $run->card->source->kind);
     }
 
@@ -75,7 +75,7 @@ final class StartDiscoveryHandlerTest extends KernelTestCase
     {
         $project = $this->liveProject();
 
-        $run = $this->handler()(new StartDiscoveryCommand($project, CardReporter::Human));
+        $run = $this->handler()(new StartDiscoveryCommand($project, Actor::Human));
         $engine = self::getContainer()->get(Engine::class);
         self::assertInstanceOf(Engine::class, $engine);
         foreach ($this->evaluatedCardIds() as $cardId) {
@@ -93,7 +93,7 @@ final class StartDiscoveryHandlerTest extends KernelTestCase
         $this->bridge($project, new \DateTimeImmutable('-1 day'));
 
         try {
-            $this->handler()(new StartDiscoveryCommand($project, CardReporter::Human));
+            $this->handler()(new StartDiscoveryCommand($project, Actor::Human));
             self::fail('A start with no live bridge must be refused.');
         } catch (DomainErrors $e) {
             self::assertSame(['bridge' => StartDiscoveryHandler::NO_LIVE_BRIDGE], $e->errors);
@@ -123,10 +123,10 @@ final class StartDiscoveryHandlerTest extends KernelTestCase
     public function test_a_second_start_while_a_run_is_requested_names_its_card(): void
     {
         $project = $this->liveProject();
-        $first = $this->handler()(new StartDiscoveryCommand($project, CardReporter::Human));
+        $first = $this->handler()(new StartDiscoveryCommand($project, Actor::Human));
 
         try {
-            $this->handler()(new StartDiscoveryCommand($project, CardReporter::Human));
+            $this->handler()(new StartDiscoveryCommand($project, Actor::Human));
             self::fail('A second start must be refused while a run is requested.');
         } catch (DiscoveryRunning $e) {
             self::assertSame($first->card->number, $e->cardNumber);
@@ -138,11 +138,11 @@ final class StartDiscoveryHandlerTest extends KernelTestCase
     public function test_a_start_after_a_failed_run_makes_a_new_card(): void
     {
         $project = $this->liveProject();
-        $first = $this->handler()(new StartDiscoveryCommand($project, CardReporter::Human));
+        $first = $this->handler()(new StartDiscoveryCommand($project, Actor::Human));
         $first->fail('lost', new \DateTimeImmutable());
         $this->em()->flush();
 
-        $second = $this->handler()(new StartDiscoveryCommand($project, CardReporter::Human));
+        $second = $this->handler()(new StartDiscoveryCommand($project, Actor::Human));
 
         self::assertNotSame($first->card->id, $second->card->id);
         self::assertSame(DiscoveryRunState::Requested, $second->state);
@@ -162,7 +162,7 @@ final class StartDiscoveryHandlerTest extends KernelTestCase
     private function assertRefused(Project $project, array $errors): void
     {
         try {
-            $this->handler()(new StartDiscoveryCommand($project, CardReporter::Human));
+            $this->handler()(new StartDiscoveryCommand($project, Actor::Human));
             self::fail('The start must be refused.');
         } catch (DomainErrors $e) {
             self::assertSame($errors, $e->errors);

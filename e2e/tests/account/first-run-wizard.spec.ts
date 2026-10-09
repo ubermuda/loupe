@@ -4,7 +4,8 @@
  * project and connecting an agent, and can skip out at any step.
  */
 
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { hubStubbedTest as test } from '../fixtures';
 import { registerFreshUser, submitRedirectingForm } from '../helpers';
 
 test.describe('first-run wizard', () => {

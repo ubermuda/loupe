@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Board\Service;
 
 use App\Module\Board\Entity\BoardColumn;
-use App\Module\Board\Entity\LabelTone;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\LabelTone;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**

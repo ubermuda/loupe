@@ -4,23 +4,55 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Action;
 
-use App\Module\Board\Entity\Card;
-use App\Module\Workflow\Contract\Facts;
-use App\Module\Workflow\Entity\WorkflowRuleState;
-use App\Module\Workflow\Template\ActionType;
-use App\Module\Workflow\Template\Rule;
+use App\Module\Workflow\Contract\Action;
+use App\Module\Workflow\Contract\ActionContext;
+use App\Module\Workflow\Contract\ActionDescription;
+use App\Module\Workflow\Contract\ActionOutcome;
+use App\Module\Workflow\Contract\ActionTraits;
 
-/** Does nothing. The rule of an action that this version does not know never reaches it, because the rule never fires. */
+/** Stands for an action this version does not know, so it does nothing. The parser refuses its key in a template, and its rule never fires. */
 final readonly class MissingAction implements Action
 {
+    public const string KEY = 'missing-action';
+
     #[\Override]
-    public static function type(): ActionType
+    public static function key(): string
     {
-        return ActionType::Missing;
+        return self::KEY;
     }
 
     #[\Override]
-    public function run(Rule $rule, Card $card, Facts $facts, WorkflowRuleState $state): ActionOutcome
+    public static function source(): string
+    {
+        return 'workflow.source.board';
+    }
+
+    #[\Override]
+    public static function parameters(): array
+    {
+        return [];
+    }
+
+    #[\Override]
+    public static function traits(): ActionTraits
+    {
+        return new ActionTraits(option: true);
+    }
+
+    #[\Override]
+    public function describe(array $params): ActionDescription
+    {
+        return new ActionDescription('workflow.settings.action.missing', 'workflow.panel.action.missing');
+    }
+
+    #[\Override]
+    public function workKind(array $params): ?string
+    {
+        return null;
+    }
+
+    #[\Override]
+    public function run(ActionContext $context): ActionOutcome
     {
         return ActionOutcome::done();
     }

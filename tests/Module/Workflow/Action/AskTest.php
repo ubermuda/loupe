@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Action;
 
-use App\Module\Board\Entity\CardPauseKind;
-use App\Module\Workflow\Action\ActionOutcome;
+use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Action\Ask;
+use App\Module\Workflow\Contract\ActionOutcome;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Expression\AllOf;
-use App\Module\Workflow\Template\ActionCall;
-use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\AskOption;
 use App\Module\Workflow\Template\Rule;
 use App\Module\Workflow\Template\RuleOrigin;
@@ -36,17 +35,17 @@ final class AskTest extends KernelTestCase
         $card = $this->card($project, 'next');
         $state = $this->state($card, 'unplanned-child');
 
-        $outcome = $this->action()->run($this->askRule(), $card, FactsMother::facts(), $state);
+        $outcome = $this->runAction($this->action(), $this->askRule(), $card->snapshot(), FactsMother::facts(), $state);
 
-        self::assertEquals(ActionOutcome::done(), $outcome);
         self::assertCount(1, $this->asks->opened);
         $opened = $this->asks->opened[0];
+        self::assertEquals(ActionOutcome::done(askItemId: $opened['itemId']), $outcome);
         self::assertTrue($project->id?->equals($opened['projectId']));
         self::assertTrue($card->id?->equals($opened['cardId']));
         self::assertSame('unplanned-child', $opened['ruleId']);
         self::assertSame('q', $opened['question']);
         self::assertSame(['first', 'second'], $opened['options']);
-        self::assertSame($opened['itemId'], $state->askItemId);
+        self::assertNull($state->askItemId, 'The engine writes the item id, the action only reports it.');
     }
 
     public function test_it_translates_the_text_with_the_default_locale_and_the_card_numbers(): void
@@ -70,7 +69,7 @@ final class AskTest extends KernelTestCase
             }
         };
 
-        new Ask($this->asks, $translator, 'fr')->run($this->askRule(), $card, FactsMother::facts(), $this->state($card, 'unplanned-child'));
+        $this->runAction(new Ask($this->asks, $translator, 'fr'), $this->askRule(), $card->snapshot(), FactsMother::facts(), $this->state($card, 'unplanned-child'));
 
         $number = $card->number;
         $parentNumber = $parent->number;
@@ -85,9 +84,9 @@ final class AskTest extends KernelTestCase
         $state = $this->state($card, 'unplanned-child');
         $this->asks->on = false;
 
-        $outcome = $this->action()->run($this->askRule(), $card, FactsMother::facts(), $state);
+        $outcome = $this->runAction($this->action(), $this->askRule(), $card->snapshot(), FactsMother::facts(), $state);
 
-        self::assertEquals(ActionOutcome::pause(CardPauseKind::Rule, 'inbox-off'), $outcome);
+        self::assertEquals(ActionOutcome::pause(PauseKind::Rule, 'inbox-off'), $outcome);
         self::assertSame([], $this->asks->opened);
         self::assertNull($state->askItemId);
     }
@@ -99,12 +98,14 @@ final class AskTest extends KernelTestCase
 
     private function askRule(): Rule
     {
-        return new Rule('unplanned-child', null, new AllOf([]), new ActionCall(
-            ActionType::Ask,
+        $actions = $this->service(Actions::class);
+
+        return new Rule('unplanned-child', null, new AllOf([]), $actions->call(
+            'ask',
             ['question' => 'q'],
             options: [
-                new AskOption('first', [new ActionCall(ActionType::Detach, [])]),
-                new AskOption('second', [new ActionCall(ActionType::Detach, [])]),
+                new AskOption('first', [$actions->call('detach', [])]),
+                new AskOption('second', [$actions->call('detach', [])]),
             ],
         ), RuleOrigin::Template);
     }

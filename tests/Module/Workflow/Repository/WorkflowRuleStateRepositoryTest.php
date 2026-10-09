@@ -6,9 +6,9 @@ namespace App\Tests\Module\Workflow\Repository;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
-use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Bridge\Entity\CardHold;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Tests\Module\Workflow\WorkflowProjects;
@@ -33,10 +33,10 @@ final class WorkflowRuleStateRepositoryTest extends KernelTestCase
         $this->state($other, 'start-design');
         $this->em()->clear();
 
-        $states = $this->repository()->findForCard($this->em()->find(Card::class, $card->id) ?? throw new \LogicException('The card exists.'));
+        $states = $this->repository()->findForCard($card->snapshot()->id);
 
         self::assertSame(['open-review', 'start-design'], $this->sortedKeys($states));
-        self::assertSame((string) $card->id, (string) $states['start-design']->card->id);
+        self::assertSame((string) $card->id, (string) $states['start-design']->cardId);
     }
 
     public function test_find_one_by_ask_item_id_gives_the_state_that_holds_the_item(): void
@@ -118,7 +118,7 @@ final class WorkflowRuleStateRepositoryTest extends KernelTestCase
         $free = $this->card($project);
         $this->state($paused, 'a', $now->modify('-2 hours'));
         $this->state($free, 'a', $now->modify('-1 hour'));
-        $pause = new CardPause($paused, $project, 'on-hold', 'hold', CardPauseKind::Rule, $now);
+        $pause = new CardPause($paused, $project, 'on-hold', 'hold', PauseKind::Rule, $now);
         $this->em()->persist($pause);
         $this->em()->flush();
 
@@ -149,7 +149,7 @@ final class WorkflowRuleStateRepositoryTest extends KernelTestCase
 
     public function test_reset_clears_the_memory_of_a_rule(): void
     {
-        $state = new WorkflowRuleState($this->createStub(Card::class), $this->createStub(Project::class), 'start-design');
+        $state = new WorkflowRuleState(Uuid::v7(), $this->createStub(Project::class), 'start-design');
         $state->truth = true;
         $state->attempts = 3;
         $state->fires = 2;
@@ -180,7 +180,7 @@ final class WorkflowRuleStateRepositoryTest extends KernelTestCase
 
     private function state(Card $card, string $ruleId, ?\DateTimeImmutable $dueAt = null, ?Uuid $askItemId = null): void
     {
-        $state = new WorkflowRuleState($card, $card->project, $ruleId);
+        $state = new WorkflowRuleState($card->id ?? throw new \LogicException('The card is persisted.'), $card->project, $ruleId);
         $state->dueAt = $dueAt;
         $state->askItemId = $askItemId;
         $this->em()->persist($state);

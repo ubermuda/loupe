@@ -15,10 +15,10 @@ use App\Module\Board\Command\MoveCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Service\CardEventCause;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Service\ProjectDeleter;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardEventCause;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -52,7 +52,7 @@ final class CardHistoryTest extends KernelTestCase
     {
         $this->signIn($this->owner);
 
-        $card = $this->create(CardReporter::Human);
+        $card = $this->create(Actor::Human);
 
         self::assertEquals([[
             'kind' => 'created',
@@ -66,7 +66,7 @@ final class CardHistoryTest extends KernelTestCase
     {
         $this->signIn($this->owner);
 
-        $card = $this->create(CardReporter::Reviewer);
+        $card = $this->create(Actor::Reviewer);
 
         $rows = $this->history($card);
         self::assertCount(1, $rows);
@@ -78,9 +78,9 @@ final class CardHistoryTest extends KernelTestCase
     public function test_a_move_to_another_column_records_both_ends_and_the_person(): void
     {
         $this->signIn($this->owner);
-        $card = $this->create(CardReporter::Human);
+        $card = $this->create(Actor::Human);
 
-        $this->move($card, CardReporter::Human, 'next');
+        $this->move($card, Actor::Human, 'next');
 
         self::assertEquals([
             'kind' => 'moved',
@@ -96,10 +96,10 @@ final class CardHistoryTest extends KernelTestCase
 
     public function test_a_new_rank_in_the_same_column_records_nothing(): void
     {
-        $card = $this->create(CardReporter::Agent);
-        $this->create(CardReporter::Agent);
+        $card = $this->create(Actor::Agent);
+        $this->create(Actor::Agent);
 
-        $this->move($card, CardReporter::Human, 'backlog', position: 1);
+        $this->move($card, Actor::Human, 'backlog', position: 1);
 
         // Guard: the rank did change, so the absence below is not a move that never ran.
         self::assertSame(1, (int) $this->em->getConnection()->fetchOne('SELECT position FROM board_cards WHERE id = :id', ['id' => (string) $card->id]));
@@ -109,11 +109,11 @@ final class CardHistoryTest extends KernelTestCase
     public function test_a_move_by_the_app_names_no_account_and_records_its_cause(): void
     {
         $this->signIn($this->owner);
-        $card = $this->create(CardReporter::Agent);
+        $card = $this->create(Actor::Agent);
 
         $update = self::getContainer()->get(UpdateCardHandler::class);
         self::assertInstanceOf(UpdateCardHandler::class, $update);
-        $update(new UpdateCardCommand(card: $card, actor: CardReporter::System, column: $this->column($this->project, 'done'), cause: CardEventCause::merged(42)));
+        $update(new UpdateCardCommand(card: $card, actor: Actor::System, column: $this->column($this->project, 'done'), cause: CardEventCause::merged(42)));
 
         $row = $this->history($card)[1];
         self::assertSame('system', $row['actor_kind']);
@@ -125,13 +125,13 @@ final class CardHistoryTest extends KernelTestCase
     public function test_a_column_delete_records_a_move_for_each_card_it_carried(): void
     {
         $this->signIn($this->owner);
-        $first = $this->create(CardReporter::Agent, 'next');
-        $second = $this->create(CardReporter::Agent, 'next');
+        $first = $this->create(Actor::Agent, 'next');
+        $second = $this->create(Actor::Agent, 'next');
         $deletedId = (string) $this->column($this->project, 'next')->id;
 
         $delete = self::getContainer()->get(DeleteBoardColumnHandler::class);
         self::assertInstanceOf(DeleteBoardColumnHandler::class, $delete);
-        $delete(new DeleteBoardColumnCommand($this->column($this->project, 'next'), CardReporter::Human, $this->column($this->project, 'in-progress')));
+        $delete(new DeleteBoardColumnCommand($this->column($this->project, 'next'), Actor::Human, $this->column($this->project, 'in-progress')));
 
         foreach ([$first, $second] as $card) {
             self::assertEquals([
@@ -152,7 +152,7 @@ final class CardHistoryTest extends KernelTestCase
         $collaborator = $this->user('history-collaborator');
         $this->em->flush();
         $this->signIn($collaborator);
-        $card = $this->create(CardReporter::Human);
+        $card = $this->create(Actor::Human);
         self::assertSame((string) $collaborator->id, $this->history($card)[0]['actor_user_id']);
 
         $purger = self::getContainer()->get(AccountPurger::class);
@@ -167,7 +167,7 @@ final class CardHistoryTest extends KernelTestCase
 
     public function test_a_deleted_card_takes_its_rows_with_it(): void
     {
-        $card = $this->create(CardReporter::Agent);
+        $card = $this->create(Actor::Agent);
         $cardId = (string) $card->id;
         self::assertSame(1, $this->rowCount('card_id', $cardId));
 
@@ -179,7 +179,7 @@ final class CardHistoryTest extends KernelTestCase
 
     public function test_a_deleted_project_takes_its_rows_with_it(): void
     {
-        $this->create(CardReporter::Agent);
+        $this->create(Actor::Agent);
         $projectId = (string) $this->project->id;
         self::assertSame(1, $this->rowCount('project_id', $projectId));
 
@@ -191,7 +191,7 @@ final class CardHistoryTest extends KernelTestCase
         self::assertSame(0, $this->rowCount('project_id', $projectId));
     }
 
-    private function create(CardReporter $reporter, ?string $slug = null): Card
+    private function create(Actor $reporter, ?string $slug = null): Card
     {
         $create = self::getContainer()->get(CreateCardHandler::class);
         self::assertInstanceOf(CreateCardHandler::class, $create);
@@ -206,7 +206,7 @@ final class CardHistoryTest extends KernelTestCase
         ));
     }
 
-    private function move(Card $card, CardReporter $actor, string $slug, ?int $position = null): void
+    private function move(Card $card, Actor $actor, string $slug, ?int $position = null): void
     {
         $move = self::getContainer()->get(MoveCardHandler::class);
         self::assertInstanceOf(MoveCardHandler::class, $move);

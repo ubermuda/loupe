@@ -4,8 +4,12 @@
  * a reload, because the server is what decides.
  */
 
-import { test, expect, type Page } from '@playwright/test';
-import { suppressToolbar, suppressWidget } from '../fixtures';
+import { expect, type Page } from '@playwright/test';
+import {
+    hubStubbedTest as test,
+    suppressToolbar,
+    suppressWidget,
+} from '../fixtures';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eBoardAutomation1!';

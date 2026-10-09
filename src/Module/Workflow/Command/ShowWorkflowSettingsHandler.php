@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Command;
 
+use App\Module\Workflow\Action\Actions;
+use App\Module\Workflow\Action\MissingAction;
 use App\Module\Workflow\Expression\AllOf;
 use App\Module\Workflow\Expression\AnyOf;
 use App\Module\Workflow\Expression\ConditionLeaf;
@@ -13,7 +15,6 @@ use App\Module\Workflow\Expression\MissingConditionLeaf;
 use App\Module\Workflow\Expression\Not;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
-use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\ManualMove;
 use App\Module\Workflow\Template\ManualMoveActor;
 use App\Module\Workflow\Template\Rule;
@@ -29,6 +30,7 @@ final readonly class ShowWorkflowSettingsHandler
         private WorkflowBindingRepository $workflowBindings,
         private WorkflowSlotLinkRepository $workflowSlotLinks,
         private TemplateSource $templates,
+        private Actions $actions,
     ) {
     }
 
@@ -42,8 +44,8 @@ final readonly class ShowWorkflowSettingsHandler
         }
 
         $template = $this->templates->forProject($projectId);
-        $rules = static fn (RuleOrigin $origin): array => array_map(
-            static fn (Rule $rule): WorkflowRuleView => self::rule($template, $rule),
+        $rules = fn (RuleOrigin $origin): array => array_map(
+            fn (Rule $rule): WorkflowRuleView => $this->rule($template, $rule),
             array_values(array_filter($template->rules, static fn (Rule $rule): bool => $origin === $rule->origin)),
         );
         $columns = $this->workflowSlotLinks->findColumnsBySlot($project);
@@ -81,39 +83,23 @@ final readonly class ShowWorkflowSettingsHandler
         ));
     }
 
-    private static function rule(Template $template, Rule $rule): WorkflowRuleView
+    private function rule(Template $template, Rule $rule): WorkflowRuleView
     {
-        $params = $rule->then->params;
-        $type = $rule->then->type;
+        $description = $this->actions->get($rule->then->key)->describe($rule->then->params);
         $expressions = array_values(array_filter([$rule->when, $rule->then->until, $rule->then->refill]));
         $missing = array_merge(...array_map(static fn (Expression $expression): array => $expression->missingKeys(), $expressions));
 
         return new WorkflowRuleView(
             id: $rule->id,
             appliesToKey: self::placeKey($template, $rule->slot ?? '*'),
-            actionKey: match ($type) {
-                ActionType::Move => 'workflow.settings.action.move',
-                ActionType::Request => 'workflow.settings.action.request',
-                ActionType::ForgeWrite => 'workflow.settings.action.forge_write',
-                ActionType::Pause => 'workflow.settings.action.pause',
-                ActionType::Release => 'workflow.settings.action.release',
-                ActionType::Evaluate => 'workflow.settings.action.evaluate',
-                ActionType::Ask => 'workflow.settings.action.ask',
-                ActionType::LinkDocument => 'workflow.settings.action.link_document',
-                ActionType::Detach => 'workflow.settings.action.detach',
-                ActionType::Missing => 'workflow.settings.action.missing',
-            },
-            targetKey: ActionType::Move === $type ? self::placeKey($template, (string) $params['to']) : null,
-            kind: match ($type) {
-                ActionType::Request => (string) $params['kind'],
-                ActionType::ForgeWrite => (string) $params['write'],
-                default => null,
-            },
+            actionKey: $description->settingsKey,
+            targetKey: null === $description->settingsTarget ? null : self::placeKey($template, $description->settingsTarget),
+            kind: $description->settingsDetail,
             whenGroups: self::groups($rule->when),
             untilGroups: null === $rule->then->until ? [] : self::groups($rule->then->until),
             refillGroups: null === $rule->then->refill ? [] : self::groups($rule->then->refill),
             missingConditions: array_values(array_unique($missing)),
-            missingAction: ActionType::Missing === $type ? (string) $params['name'] : null,
+            missingAction: MissingAction::KEY === $rule->then->key ? (string) $rule->then->params['name'] : null,
         );
     }
 

@@ -25,6 +25,12 @@ runs:
         docker compose exec -T php-fpm bin/console league:oauth2-server:generate-keypair --skip-if-exists
         docker compose exec -T php-fpm bin/console app:dev:seed
 
+    # Without this the app builds each of about 73 script files on the first
+    # request. With the files on disk, nginx sends them and PHP is skipped.
+    - name: Compile the assets
+      shell: bash
+      run: docker compose exec -T php-fpm bin/console asset-map:compile
+
     # Everything above runs as root in the container; php-fpm serves requests
     # as www-data, and var/ is owned by the runner. Without this the first
     # request that writes a log line dies on a 500 instead — three specs deep
