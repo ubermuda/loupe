@@ -14,7 +14,7 @@ use App\Tests\Module\Workflow\Action\ActionScenario;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
-final class EvaluateCardsOnSiteReviewCheckTurnedOnTest extends KernelTestCase
+final class EvaluateCardsOnReviewCheckTurnedOnTest extends KernelTestCase
 {
     use ActionScenario;
 
@@ -63,7 +63,35 @@ final class EvaluateCardsOnSiteReviewCheckTurnedOnTest extends KernelTestCase
         self::assertSame([], $this->queued());
     }
 
-    private function save(Project $project, bool $siteReviewCheck): void
+    public function test_turning_the_agent_review_on_evaluates_the_active_cards_with_an_open_pull_request(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('agent-review-turned-on');
+        $withOpen = $this->card($project, 'in-review');
+        $this->pullRequest($withOpen);
+        $this->card($project, 'in-review');
+        $this->transport()->reset();
+
+        $this->save($project, siteReviewCheck: false, agentReview: true);
+
+        self::assertEquals([new EvaluateCard((string) $withOpen->id)], $this->queued());
+    }
+
+    public function test_a_save_that_keeps_the_agent_review_on_evaluates_nothing(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('agent-review-kept-on');
+        $card = $this->card($project, 'in-review');
+        $this->pullRequest($card);
+        $this->save($project, siteReviewCheck: false, agentReview: true);
+        $this->transport()->reset();
+
+        $this->save($project, siteReviewCheck: false, agentReview: true);
+
+        self::assertSame([], $this->queued());
+    }
+
+    private function save(Project $project, bool $siteReviewCheck, bool $agentReview = false): void
     {
         $settings = $this->service(BoardAutomation::class)->settingsOf($project);
         $this->service(SaveBoardAutomationSettingsHandler::class)(new SaveBoardAutomationSettingsCommand(
@@ -77,6 +105,7 @@ final class EvaluateCardsOnSiteReviewCheckTurnedOnTest extends KernelTestCase
             postWidgetReviews: $settings->postWidgetReviews,
             siteReviewCheck: $siteReviewCheck,
             openEpicPullRequests: $settings->openEpicPullRequests,
+            agentReview: $agentReview,
         ));
     }
 

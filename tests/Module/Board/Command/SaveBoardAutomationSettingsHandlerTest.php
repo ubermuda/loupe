@@ -295,6 +295,23 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
         self::assertEquals($this->project->id, $settles[0]->projectId);
     }
 
+    public function test_only_turning_the_agent_review_on_flags_the_saved_event(): void
+    {
+        $saved = [];
+        $dispatcher = self::getContainer()->get('event_dispatcher');
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+        $dispatcher->addListener(BoardAutomationSettingsSaved::class, static function (BoardAutomationSettingsSaved $event) use (&$saved): void {
+            $saved[] = $event->agentReviewTurnedOn;
+        });
+
+        $this->save(enabled: true, syncBehind: false);
+        $this->save(enabled: true, syncBehind: false, agentReview: true);
+        $this->save(enabled: true, syncBehind: false, agentReview: true);
+        $this->save(enabled: true, syncBehind: false);
+
+        self::assertSame([false, true, false, false], $saved);
+    }
+
     /** @return list<SettleSiteReviewChecks> */
     private function settles(): array
     {

@@ -51,6 +51,7 @@ final readonly class SaveBoardAutomationSettingsHandler
         $wasSyncing = $settings->enabled && $settings->syncBehind;
         $wasOpeningEpics = $settings->openEpicPullRequests;
         $wasChecking = $settings->siteReviewCheck;
+        $wasReviewing = $settings->agentReview;
         $settings->enabled = $command->enabled;
         $settings->commentOnFixQueued = $command->commentOnFixQueued;
         $settings->commentOnStaleApproval = $command->commentOnStaleApproval;
@@ -71,6 +72,7 @@ final readonly class SaveBoardAutomationSettingsHandler
             !$wasEnabled && $command->enabled,
             !$wasOpeningEpics && $command->openEpicPullRequests,
             !$wasChecking && $command->siteReviewCheck,
+            !$wasReviewing && $command->agentReview,
         ));
 
         if ($wasChecking && !$command->siteReviewCheck) {

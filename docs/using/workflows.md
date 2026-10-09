@@ -170,8 +170,9 @@ of the card gets a new check named `loupe/agent-review` on the commit it
 reviewed. The check fails when a finding has a severity that the project counts
 as failing. Each finding shows as a note on its lines. The write has no
 fallback. It does nothing while **Ask an agent to review each pull request** is
-off on the **Automation** tab. A review stays stored while the switch is off,
-and the next write after the owner turns it on posts it.
+off on the **Automation** tab. A review stays stored while the switch is off.
+When the owner turns the switch on, Loupe evaluates each active card with an
+open pull request, so the next write posts the stored reviews.
 
 ## The Lifecycle template
 
