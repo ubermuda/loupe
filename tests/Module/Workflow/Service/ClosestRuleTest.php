@@ -7,8 +7,12 @@ namespace App\Tests\Module\Workflow\Service;
 use App\Module\Workflow\Condition\CardHasOpenBlocker;
 use App\Module\Workflow\Condition\CardHasType;
 use App\Module\Workflow\Condition\CardIsChild;
+use App\Module\Workflow\Condition\PullRequestApprovalCoversHead;
+use App\Module\Workflow\Condition\PullRequestBaseIsEpicBranch;
+use App\Module\Workflow\Condition\PullRequestBehind;
 use App\Module\Workflow\Condition\PullRequestChecksPassed;
 use App\Module\Workflow\Condition\PullRequestDraft;
+use App\Module\Workflow\Condition\PullRequestOpen;
 use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Contract\Condition;
 use App\Module\Workflow\Contract\PullRequestState;
@@ -39,20 +43,33 @@ final class ClosestRuleTest extends TestCase
         self::assertSame($near, new ClosestRule()->find([$far, $near], FactsMother::facts())?->rule);
     }
 
-    public function test_a_tie_goes_to_the_rule_with_more_conditions(): void
+    public function test_a_tie_goes_to_the_earlier_rule_whatever_its_size(): void
     {
         $small = self::rule('small', self::leaf(new CardIsChild()));
         $large = self::rule('large', new AllOf([self::leaf(new CardIsChild()), new Not(self::leaf(new CardHasOpenBlocker()))]));
 
-        self::assertSame($large, new ClosestRule()->find([$small, $large], FactsMother::facts())?->rule);
+        self::assertSame($small, new ClosestRule()->find([$small, $large], FactsMother::facts())?->rule);
+        self::assertSame($large, new ClosestRule()->find([$large, $small], FactsMother::facts())?->rule);
     }
 
-    public function test_an_equal_count_and_size_goes_to_the_first_rule(): void
+    public function test_an_epic_child_merge_rule_one_condition_away_wins_over_an_earlier_merge_rule_two_away(): void
     {
-        $first = self::rule('first', self::leaf(new CardIsChild()));
-        $second = self::rule('second', self::leaf(new CardHasOpenBlocker()));
+        $pullRequest = FactsMother::pullRequest(behind: true, baseIsEpicBranch: true, id: Uuid::v7());
+        $facts = FactsMother::facts(pullRequest: $pullRequest, pullRequests: [$pullRequest]);
+        $mergeReady = self::rule('merge-ready', new AllOf([
+            self::leaf(new PullRequestOpen()),
+            new Not(self::leaf(new PullRequestDraft())),
+            self::leaf(new PullRequestApprovalCoversHead(), ['min' => 1]),
+            new Not(self::leaf(new PullRequestBaseIsEpicBranch())),
+        ]));
+        $epicChild = self::rule('merge-ready-epic-child', new AllOf([
+            self::leaf(new PullRequestOpen()),
+            new Not(self::leaf(new PullRequestDraft())),
+            self::leaf(new PullRequestBaseIsEpicBranch()),
+            new Not(self::leaf(new PullRequestBehind())),
+        ]));
 
-        self::assertSame($first, new ClosestRule()->find([$first, $second], FactsMother::facts())?->rule);
+        self::assertSame($epicChild, new ClosestRule()->find([$mergeReady, $epicChild], $facts)?->rule);
     }
 
     public function test_a_pull_request_rule_binds_the_open_pull_request_with_the_fewest_false_conditions(): void

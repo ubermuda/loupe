@@ -65,8 +65,8 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         self::assertNull($panel->pause);
         $progress = $panel->progress ?? self::fail('The automation is on, so the panel shows the progress.');
         self::assertSame('Tech design', $progress->slot);
-        self::assertSame('Waiting: a pull request is still open, or none is merged.', $progress->waiting);
-        self::assertSame('Move the card to a terminal column', $progress->nextAction);
+        self::assertSame('Waiting: no reviewer asked for changes on a tech-design document.', $progress->waiting);
+        self::assertSame('Request tech-design-revise work from a bridge', $progress->nextAction);
         $refusal = $progress->lastRefusal ?? self::fail('The card has a refusal.');
         self::assertSame('move-refused', $refusal->code);
         self::assertSame('The board refused the move.', $refusal->reason);
@@ -92,15 +92,15 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         self::assertSame($text, $refusal->reason);
     }
 
-    public function test_a_slot_with_no_rule_of_its_own_shows_the_closest_global_rule(): void
+    public function test_a_slot_with_no_rule_of_its_own_shows_the_first_closest_global_rule(): void
     {
         $card = $this->card('backlog');
 
         $progress = $this->builder()->build($card)->progress ?? self::fail('The automation is on.');
 
         self::assertSame('Backlog', $progress->slot);
-        self::assertSame('Waiting: a pull request is still open, or none is merged.', $progress->waiting);
-        self::assertSame('Move the card to a terminal column', $progress->nextAction);
+        self::assertSame('Waiting: the card type is not epic.', $progress->waiting);
+        self::assertSame('Evaluate the children of the card again', $progress->nextAction);
         self::assertNull($progress->lastRefusal);
     }
 
@@ -340,10 +340,26 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         self::assertSame($this->service(TranslatorInterface::class)->trans('workflow.panel.release.met'), $pause->release);
     }
 
-    public function test_an_epic_child_whose_pull_request_waits_for_its_checks_names_the_epic_child_merge_rule(): void
+    public function test_an_epic_child_merge_rule_one_condition_away_wins_over_an_earlier_merge_rule(): void
     {
+        $merge = ['forge-write' => ['write' => 'merge', 'fallback' => 'merge']];
+        $this->define([
+            ['id' => 'merge-ready', 'slot' => 'tech-design', 'when' => ['all' => [
+                ['pr.open' => []],
+                ['not' => ['pr.draft' => []]],
+                ['pr.approval_covers_head' => ['min' => 1]],
+                ['not' => ['pr.base_is_epic_branch' => []]],
+            ]], 'then' => $merge],
+            ['id' => 'merge-ready-epic-child', 'slot' => 'tech-design', 'when' => ['all' => [
+                ['pr.open' => []],
+                ['not' => ['pr.draft' => []]],
+                ['pr.checks_passed' => []],
+                ['pr.base_is_epic_branch' => []],
+                ['not' => ['parent.work_active' => []]],
+            ]], 'then' => $merge],
+        ]);
         $epic = $this->card('in-progress', 'epic');
-        $card = $this->card('in-review');
+        $card = $this->card('tech-design');
         $card->parent = $epic;
         $pullRequest = $this->linkedPullRequest($card, 7, 'epic/'.$epic->number, 'child-branch', PullRequestChecks::Pending, '2026-10-01 09:00');
         $pullRequest->mergeability = PullRequestMergeability::Mergeable;
@@ -351,7 +367,6 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
 
         $progress = $this->builder()->build($card)->progress ?? self::fail('The automation is on, so the panel shows the progress.');
 
-        self::assertSame('In review', $progress->slot);
         self::assertSame('Waiting: the required checks have not passed.', $progress->waiting);
         self::assertSame('Write merge to the pull request', $progress->nextAction);
     }

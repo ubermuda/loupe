@@ -10,10 +10,7 @@ use App\Module\Workflow\Contract\PullRequestFacts;
 use App\Module\Workflow\Contract\PullRequestState;
 use App\Module\Workflow\Template\Rule;
 
-/**
- * Picks the rule with the fewest conditions left to change. A tie goes to the rule with more
- * conditions, then to the earlier rule.
- */
+/** Picks the rule with the fewest conditions left to change. A tie goes to the earlier rule. */
 final readonly class ClosestRule
 {
     /** @param list<Rule> $rules */
@@ -21,14 +18,11 @@ final readonly class ClosestRule
     {
         $closest = null;
         $closestCount = 0;
-        $closestSize = 0;
         foreach ($rules as $rule) {
             [$bound, $count] = $this->bind($rule, $facts);
-            $size = \count($rule->when->leaves());
-            if (null === $closest || $count < $closestCount || ($count === $closestCount && $size > $closestSize)) {
+            if (null === $closest || $count < $closestCount) {
                 $closest = new ClosestRuleMatch($rule, $bound);
                 $closestCount = $count;
-                $closestSize = $size;
             }
         }
 
