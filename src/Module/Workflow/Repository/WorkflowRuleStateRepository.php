@@ -51,6 +51,15 @@ class WorkflowRuleStateRepository extends ServiceEntityRepository
         );
     }
 
+    /** One statement, so it joins a caller's transaction. */
+    public function deleteForCard(Uuid $cardId): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'DELETE FROM workflow_rule_states WHERE card_id = :card',
+            ['card' => $cardId->toRfc4122()],
+        );
+    }
+
     public function findOneByAskItemId(Uuid $itemId): ?WorkflowRuleState
     {
         return $this->findOneBy(['askItemId' => $itemId]);
@@ -60,7 +69,7 @@ class WorkflowRuleStateRepository extends ServiceEntityRepository
     public function findForCard(Card $card): array
     {
         $states = [];
-        foreach ($this->findBy(['card' => $card]) as $state) {
+        foreach ($this->findBy(['cardId' => $card->id]) as $state) {
             $states[$state->ruleId] = $state;
         }
 

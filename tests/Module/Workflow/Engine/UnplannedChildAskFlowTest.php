@@ -40,7 +40,7 @@ final class UnplannedChildAskFlowTest extends KernelTestCase
         $this->service(Engine::class)->evaluate($child->id ?? throw new \LogicException('Flushed.'), new \DateTimeImmutable());
 
         $this->em()->clear();
-        $state = $this->service(WorkflowRuleStateRepository::class)->findOneBy(['card' => $child->id, 'ruleId' => 'unplanned-child']);
+        $state = $this->service(WorkflowRuleStateRepository::class)->findOneBy(['cardId' => $child->id, 'ruleId' => 'unplanned-child']);
         self::assertNotNull($state?->askItemId);
         $item = $this->em()->find(InboxItem::class, $state->askItemId) ?? throw new \LogicException('The item exists.');
         self::assertSame(InboxItemKind::Workflow, $item->kind);

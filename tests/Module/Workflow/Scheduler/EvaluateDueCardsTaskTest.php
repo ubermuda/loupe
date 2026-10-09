@@ -48,7 +48,7 @@ final class EvaluateDueCardsTaskTest extends KernelTestCase
         $due = $this->card($project, 'next');
         $later = $this->card($project, 'next');
         foreach ([[$due, '2026-10-02 11:59:00'], [$later, '2026-10-02 12:01:00']] as [$card, $dueAt]) {
-            $state = new WorkflowRuleState($card, $project, 'rule');
+            $state = new WorkflowRuleState($card->id ?? throw new \LogicException('The card is persisted.'), $project, 'rule');
             $state->dueAt = new \DateTimeImmutable($dueAt);
             $this->em()->persist($state);
         }

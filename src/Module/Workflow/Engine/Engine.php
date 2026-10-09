@@ -755,7 +755,7 @@ final readonly class Engine
     private function state(Evaluation $run, Rule $rule): WorkflowRuleState
     {
         if (!isset($run->states[$rule->id])) {
-            $state = new WorkflowRuleState($run->card, $run->card->project, $rule->id, $run->now);
+            $state = new WorkflowRuleState($run->card->id ?? throw new \LogicException('A persisted card has an id.'), $run->card->project, $rule->id, $run->now);
             $this->em->persist($state);
             $run->states[$rule->id] = $state;
         }

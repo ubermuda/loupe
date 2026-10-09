@@ -62,7 +62,7 @@ final readonly class BindTemplateOnProjectCreating
 
             foreach ($columns as $column) {
                 if (null !== $template->slot($column->slug)) {
-                    $this->em->persist(new WorkflowSlotLink($project, $column->slug, $column));
+                    $this->em->persist(new WorkflowSlotLink($project, $column->slug, $column->id));
                 }
             }
         }

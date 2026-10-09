@@ -110,7 +110,7 @@ trait ActionScenario
 
     private function state(Card $card, string $ruleId = 'test-rule'): WorkflowRuleState
     {
-        return new WorkflowRuleState($card, $card->project, $ruleId);
+        return new WorkflowRuleState($card->id ?? throw new \LogicException('The card is persisted.'), $card->project, $ruleId);
     }
 
     private function pullRequest(

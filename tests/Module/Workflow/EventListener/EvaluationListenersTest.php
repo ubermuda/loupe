@@ -254,7 +254,7 @@ final class EvaluationListenersTest extends KernelTestCase
     public function test_a_release_resets_the_rules_restarts_the_clock_of_the_open_requests_and_asks_for_the_cards(): void
     {
         [$one, $two, $other] = [$this->card($this->project, 'next'), $this->card($this->project, 'next'), $this->card($this->project, 'next')];
-        $state = new WorkflowRuleState($one, $this->project, 'work', new \DateTimeImmutable('2026-10-02 09:00:00'));
+        $state = new WorkflowRuleState($one->id ?? throw new \LogicException('The card is persisted.'), $this->project, 'work', new \DateTimeImmutable('2026-10-02 09:00:00'));
         $state->truth = true;
         $state->attempts = 2;
         $state->fires = 3;
@@ -264,7 +264,7 @@ final class EvaluationListenersTest extends KernelTestCase
         $state->lastRefusalAt = new \DateTimeImmutable('2026-10-02 11:00:00');
         $subject = Uuid::v7();
         $state->subjectPullRequestId = $subject;
-        $untouched = new WorkflowRuleState($other, $this->project, 'work', new \DateTimeImmutable('2026-10-02 09:00:00'));
+        $untouched = new WorkflowRuleState($other->id ?? throw new \LogicException('The card is persisted.'), $this->project, 'work', new \DateTimeImmutable('2026-10-02 09:00:00'));
         $untouched->truth = true;
         $open = $this->workRequest($one, 'open');
         $claimed = $this->workRequest($two, 'claimed');

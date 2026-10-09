@@ -47,8 +47,11 @@ final class WorkflowSlotLinkRepositoryTest extends KernelTestCase
         $other = $this->workflowProject('slot-link-all-other');
         $this->bindLifecycle($project);
         $this->bindLifecycle($other);
-        $this->em()->remove($this->column($project, 'tech-design'));
+        $deleted = $this->column($project, 'tech-design');
+        $deletedId = $deleted->id ?? throw new \LogicException();
+        $this->em()->remove($deleted);
         $this->em()->flush();
+        $this->repository()->clearColumn($deletedId);
         $this->em()->clear();
         $project = $this->em()->find(Project::class, $project->id) ?? throw new \LogicException();
 

@@ -102,7 +102,7 @@ final class ReconcileCardWaitsTriggersTest extends KernelTestCase
 
     public function test_a_column_delete_asks_for_the_moved_cards(): void
     {
-        $this->dispatch(new BoardColumnDeleted($this->project, 'column', 'review', 'backlog', [(string) $this->card->id], CardReporter::Human, false, false));
+        $this->dispatch(new BoardColumnDeleted($this->project, Uuid::v7()->toRfc4122(), 'review', 'backlog', [(string) $this->card->id], CardReporter::Human, false, false));
 
         self::assertSame([[(string) $this->projectId(), [(string) $this->card->id]]], $this->sent());
     }
@@ -110,7 +110,7 @@ final class ReconcileCardWaitsTriggersTest extends KernelTestCase
     public function test_a_column_event_with_no_cards_asks_for_nothing(): void
     {
         $this->dispatch(new BoardColumnTerminalChanged($this->project, 'column', true, [], CardReporter::Human));
-        $this->dispatch(new BoardColumnDeleted($this->project, 'column', 'review', null, [], CardReporter::Human, false, false));
+        $this->dispatch(new BoardColumnDeleted($this->project, Uuid::v7()->toRfc4122(), 'review', null, [], CardReporter::Human, false, false));
 
         self::assertSame([], $this->sent());
     }

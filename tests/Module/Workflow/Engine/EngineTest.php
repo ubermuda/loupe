@@ -1381,7 +1381,7 @@ final class EngineTest extends KernelTestCase
         $card = $this->boundCard([self::requestRule('fix', ['pr.checks_failed' => []], limit: 3)]);
         $pullRequest = $this->pullRequest($card);
         $pullRequest->checks = PullRequestChecks::Failed;
-        $state = new WorkflowRuleState($card, $card->project, 'fix', new \DateTimeImmutable(self::NOON));
+        $state = new WorkflowRuleState($card->id ?? throw new \LogicException('The card is persisted.'), $card->project, 'fix', new \DateTimeImmutable(self::NOON));
         $state->truth = true;
         $state->fires = 2;
         $this->em()->persist($state);
@@ -1567,10 +1567,10 @@ final class EngineTest extends KernelTestCase
             self::moveRule('stuck', 'three', self::NOT_EPIC),
         ]);
         $this->hold($card);
-        $work = new WorkflowRuleState($card, $card->project, 'work');
+        $work = new WorkflowRuleState($card->id ?? throw new \LogicException('The card is persisted.'), $card->project, 'work');
         $work->truth = true;
         $work->fires = 1;
-        $stuck = new WorkflowRuleState($card, $card->project, 'stuck');
+        $stuck = new WorkflowRuleState($card->id ?? throw new \LogicException('The card is persisted.'), $card->project, 'stuck');
         $stuck->truth = true;
         $stuck->attempts = 2;
         $stuck->dueAt = new \DateTimeImmutable('2026-10-02 18:00:00');
@@ -1665,7 +1665,7 @@ final class EngineTest extends KernelTestCase
             self::requestRule('work', self::ALWAYS),
         ]);
         $this->hold($card);
-        $advance = new WorkflowRuleState($card, $card->project, 'advance');
+        $advance = new WorkflowRuleState($card->id ?? throw new \LogicException('The card is persisted.'), $card->project, 'advance');
         $advance->truth = true;
         $this->em()->persist($advance);
         $this->em()->flush();
@@ -2935,8 +2935,8 @@ final class EngineTest extends KernelTestCase
             ...([] === $onWorkFailed ? [] : ['onWorkFailed' => $onWorkFailed]),
             'rules' => $rules,
         ]));
-        $this->em()->persist(new WorkflowSlotLink($project, 'one', $this->column($project, 'next')));
-        $this->em()->persist(new WorkflowSlotLink($project, 'two', $this->column($project, 'in-progress')));
+        $this->em()->persist(new WorkflowSlotLink($project, 'one', $this->column($project, 'next')->id));
+        $this->em()->persist(new WorkflowSlotLink($project, 'two', $this->column($project, 'in-progress')->id));
         $this->em()->flush();
 
         return $this->card($project, 'next');

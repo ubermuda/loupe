@@ -327,7 +327,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         $base = $this->linkedPullRequest($card, 4, 'main', 'base-branch', PullRequestChecks::Passed, '2026-10-01 09:00');
         $this->linkedPullRequest($card, 5, 'base-branch', 'upper-branch', PullRequestChecks::Failed, '2026-10-01 10:00');
         $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'red', 'hold', CardPauseKind::Rule));
-        $state = new WorkflowRuleState($card, $this->project, 'hold');
+        $state = new WorkflowRuleState($card->id ?? throw new \LogicException('The card is persisted.'), $this->project, 'hold');
         $state->truth = true;
         $state->subjectPullRequestId = $base->id;
         $this->em()->persist($state);
@@ -398,7 +398,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
 
     private function refusal(Card $card, string $ruleId, string $code, string $at, int $attempts): void
     {
-        $state = new WorkflowRuleState($card, $this->project, $ruleId);
+        $state = new WorkflowRuleState($card->id ?? throw new \LogicException('The card is persisted.'), $this->project, $ruleId);
         $state->truth = true;
         $state->lastRefusal = $code;
         $state->lastRefusalAt = new \DateTimeImmutable($at);

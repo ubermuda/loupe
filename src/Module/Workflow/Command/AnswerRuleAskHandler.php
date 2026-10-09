@@ -77,7 +77,7 @@ final readonly class AnswerRuleAskHandler
         if (null === $held) {
             return $this->skip('no-rule-state', $itemId);
         }
-        $this->workflowRuleStates->lockCard($held->card->id ?? throw new \LogicException('A persisted card has an id.'));
+        $this->workflowRuleStates->lockCard($held->cardId);
         // Read again under the lock: a withdrawal may have cleared the item while this message waited.
         $state = $this->workflowRuleStates->findOneByAskItemId($itemId);
         if (null === $state) {
@@ -85,8 +85,8 @@ final readonly class AnswerRuleAskHandler
         }
         $this->em->refresh($state);
 
-        $card = $state->card;
-        $cardId = $card->id ?? throw new \LogicException('A persisted card has an id.');
+        $cardId = $state->cardId;
+        $card = $this->cards->find($cardId) ?? throw new \LogicException('A rule state belongs to a card that exists.');
         $projectId = $card->project->id ?? throw new \LogicException('A persisted project has an id.');
         if ($this->cardHolds->isHeld($card->project, $cardId) || !$this->automation->runsFor($card->project)) {
             return $this->skip('card-unmanaged', $itemId);
