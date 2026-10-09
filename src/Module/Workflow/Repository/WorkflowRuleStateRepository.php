@@ -41,7 +41,7 @@ class WorkflowRuleStateRepository extends ServiceEntityRepository
     {
         $this->getEntityManager()->getConnection()->executeStatement(
             'UPDATE workflow_rule_states SET truth = false, attempts = 0, fires = 0, due_at = NULL, last_refusal = NULL,
-             last_refusal_at = NULL, work_request_id = NULL, repaired = false, ask_item_id = NULL, updated_at = :now
+             last_refusal_at = NULL, work_request_id = NULL, repaired = false, ask_item_id = NULL, held_by_blocker_since = NULL, updated_at = :now
              WHERE card_id IN (:cardIds)',
             [
                 'now' => $now,
