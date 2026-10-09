@@ -149,6 +149,13 @@ final readonly class SiteReviewCheckPublisher
         if (null === $writer) {
             return null;
         }
+
+        // A locked untrack leaves the state, and a card that links the pull request again can rewrite that run before this write.
+        $retained = $this->siteReviewCheckStates->findPostedRunByKey($project->requireId(), $forge, $repository, $number);
+        if (null !== $retained && $retained->checkRunId === $runId && CheckWanted::FAILURE !== $retained->conclusion) {
+            return null;
+        }
+
         try {
             $writer->publish(
                 new ForgePullRequest($project, $forge, $repository, $number),
@@ -163,8 +170,6 @@ final readonly class SiteReviewCheckPublisher
             return $e;
         }
 
-        // The untrack skips a locked row and leaves its state, which now misdescribes the run.
-        $retained = $this->siteReviewCheckStates->findPostedFailureByKey($project->requireId(), $forge, $repository, $number);
         if (null !== $retained && $retained->checkRunId === $runId) {
             $this->em->remove($retained);
             $this->em->flush();

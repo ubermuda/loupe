@@ -307,6 +307,19 @@ final class SiteReviewCheckPublisherTest extends KernelTestCase
         self::assertNull($this->stateRowOf($pullRequest));
     }
 
+    public function test_neutralizing_leaves_a_run_that_a_relink_rewrote_as_passing(): void
+    {
+        $card = $this->card($this->project);
+        $pullRequest = $this->openPullRequest($card, 7, 'sha-1');
+        $this->publish($card);
+        $this->writer->published = [];
+
+        self::assertNull($this->publisher(true)->neutralizeUnlinked($this->project, 'github', 'acme/widgets', 7, 'sha-1', 101));
+
+        self::assertSame([], $this->writer->published);
+        self::assertSame('success', $this->stateOf($pullRequest)->conclusion);
+    }
+
     public function test_a_refused_neutral_write_for_an_unlinked_pull_request_returns_the_refusal(): void
     {
         $this->writer->failingNumbers = [7];
