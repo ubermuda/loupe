@@ -467,6 +467,10 @@ export default class extends Controller {
 
             return;
         }
+        const box = this.anchorRanges?.get(card)?.getBoundingClientRect();
+        if (box && (box.top < 0 || box.bottom > window.innerHeight)) {
+            this.#scrollToPassage(card);
+        }
         this.#openThread(card);
     }
 
@@ -1612,7 +1616,11 @@ export default class extends Controller {
         // sweep of the whole document plus a TreeWalker — re-locating here put
         // that cost on every frame on the longest documents. General comments
         // never enter the map, which is the set the old loop skipped by hand.
+        const hiddenRowIds = this.#hiddenRowIds();
         for (const [thread, range] of this.anchorRanges ?? []) {
+            if (this.#isFilteredOut(thread, hiddenRowIds)) {
+                continue;
+            }
             for (const rect of range.getClientRects()) {
                 if (
                     clientX >= rect.left &&
@@ -1769,17 +1777,25 @@ export default class extends Controller {
         if (card === undefined || !card.hasAttribute('popover')) {
             return;
         }
-        const passage = this.anchorRanges.get(card)?.startContainer;
-        if (passage === undefined) {
+        if (!this.#scrollToPassage(card)) {
             this.#revealThread(card);
-        } else {
-            const element =
-                passage.nodeType === Node.ELEMENT_NODE
-                    ? passage
-                    : passage.parentElement;
-            element?.scrollIntoView({ block: 'center', behavior: 'auto' });
         }
         this.#openThread(card);
+    }
+
+    /** Returns false when the thread has no passage to scroll to. */
+    #scrollToPassage(card) {
+        const passage = this.anchorRanges?.get(card)?.startContainer;
+        if (passage === undefined) {
+            return false;
+        }
+        const element =
+            passage.nodeType === Node.ELEMENT_NODE
+                ? passage
+                : passage.parentElement;
+        element?.scrollIntoView({ block: 'center', behavior: 'auto' });
+
+        return true;
     }
 
     /**
@@ -2040,6 +2056,24 @@ export default class extends Controller {
         }
     }
 
+    // The panel filter hides rows, and a hidden row hides its passage too.
+    #hiddenRowIds() {
+        return new Set(
+            this.rowTargets
+                .filter((row) => row.hidden)
+                .map((row) => row.dataset.threadId),
+        );
+    }
+
+    #isFilteredOut(thread, hiddenRowIds) {
+        return (
+            thread.hidden ||
+            hiddenRowIds.has(thread.id) ||
+            (this.hideResolvedValue &&
+                (thread.dataset.anchorStatus ?? 'pending') === 'resolved')
+        );
+    }
+
     /**
      * Repaints the per-status anchor highlights. Each thread's resolved range is
      * added to the Highlight matching its data-anchor-status (pending / addressed
@@ -2056,19 +2090,10 @@ export default class extends Controller {
         }
         this.struckHighlight?.clear();
         this.suggestionHighlight?.clear();
-        // The panel filter hides rows, and a hidden row hides its passage too.
-        const hiddenRows = new Set(
-            this.rowTargets
-                .filter((row) => row.hidden)
-                .map((row) => row.dataset.threadId),
-        );
+        const hiddenRowIds = this.#hiddenRowIds();
         for (const thread of this.threadTargets) {
             const status = thread.dataset.anchorStatus ?? 'pending';
-            if (
-                thread.hidden ||
-                hiddenRows.has(thread.id) ||
-                (this.hideResolvedValue && status === 'resolved')
-            ) {
+            if (this.#isFilteredOut(thread, hiddenRowIds)) {
                 continue;
             }
             const highlight =

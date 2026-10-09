@@ -5,6 +5,7 @@ import CommentAnchorController from '../../assets/controllers/comment_anchor_con
 
 let application;
 let opened;
+let passageTop;
 const nativeMatches = Element.prototype.matches;
 
 const nextFrame = () =>
@@ -19,6 +20,8 @@ const closedEvent = () =>
 
 beforeEach(() => {
     opened = [];
+    passageTop = 100;
+    window.localStorage.clear();
     window.ResizeObserver = class {
         observe() {}
         unobserve() {}
@@ -40,6 +43,12 @@ beforeEach(() => {
     Range.prototype.getClientRects = () => [
         { top: 100, bottom: 120, left: 50, right: 90 },
     ];
+    Range.prototype.getBoundingClientRect = () => ({
+        top: passageTop,
+        bottom: passageTop + 20,
+        left: 50,
+        right: 90,
+    });
     Object.defineProperty(document.documentElement, 'clientWidth', {
         configurable: true,
         get: () => 1024,
@@ -56,6 +65,8 @@ afterEach(async () => {
     delete HTMLElement.prototype.hidePopover;
     Element.prototype.matches = nativeMatches;
     delete Range.prototype.getClientRects;
+    delete Range.prototype.getBoundingClientRect;
+    delete Element.prototype.scrollIntoView;
 });
 
 function row(id) {
@@ -65,21 +76,21 @@ function row(id) {
         data-action="pointerdown->comment-anchor#pressRow click->comment-anchor#openRow"></button>`;
 }
 
-function card(id, quote) {
+function card(id, quote, status = 'pending') {
     return `<div id="comment-thread-${id}" popover="auto" data-comment-anchor-target="thread"
         data-anchor-quote="${quote}" data-anchor-prefix="" data-anchor-suffix=""
-        data-anchor-status="pending" data-anchor-kind="comment"></div>`;
+        data-anchor-status="${status}" data-anchor-kind="comment"></div>`;
 }
 
-async function mount() {
+async function mount({ earlyStatus = 'pending' } = {}) {
     document.body.innerHTML = `<div data-controller="comment-anchor">
         <div data-comment-anchor-target="block">
             <form data-comment-anchor-target="composer" hidden>
                 <textarea data-comment-anchor-target="composerBody"></textarea>
             </form>
-            <div data-comment-anchor-target="doc">Alpha beta gamma delta</div>
+            <div data-comment-anchor-target="doc" data-action="click->comment-anchor#onDocClick">Alpha beta gamma delta</div>
             <div data-comment-anchor-target="margin">${row('late')}${row('early')}</div>
-            <div id="comment-threads">${card('early', 'beta')}${card('late', 'delta')}</div>
+            <div id="comment-threads">${card('early', 'beta', earlyStatus)}${card('late', 'delta')}</div>
         </div>
     </div>`;
     await settle();
@@ -221,4 +232,44 @@ it('asks for the Comments panel when the Undo notice of a delete arrives', async
     );
 
     expect(reveals).toEqual([{ thread: null }]);
+});
+
+it('scrolls an off-screen passage into view before its row opens the thread', async () => {
+    await mount();
+    const scrolled = [];
+    Element.prototype.scrollIntoView = function () {
+        scrolled.push(this);
+    };
+    passageTop = 2000;
+    rowOf('early').click();
+
+    expect(scrolled).toEqual([
+        document.querySelector('[data-comment-anchor-target="doc"]'),
+    ]);
+    expect(opened).toEqual([cardOf('early')]);
+});
+
+it('leaves the page still when the row of a visible passage opens its thread', async () => {
+    await mount();
+    const scrolled = [];
+    Element.prototype.scrollIntoView = function () {
+        scrolled.push(this);
+    };
+    rowOf('early').click();
+
+    expect(scrolled).toEqual([]);
+    expect(opened).toEqual([cardOf('early')]);
+});
+
+it('skips the passage of a resolved thread the Open filter hides', async () => {
+    await mount({ earlyStatus: 'resolved' });
+    document.querySelector('[data-comment-anchor-target="doc"]').dispatchEvent(
+        new MouseEvent('click', {
+            bubbles: true,
+            clientX: 60,
+            clientY: 110,
+        }),
+    );
+
+    expect(opened).toEqual([cardOf('late')]);
 });
