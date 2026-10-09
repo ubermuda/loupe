@@ -640,8 +640,8 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('.lp-diff-doc'));
         self::assertSelectorTextContains('.lp-empty', 'too large to compare');
         // The versions themselves are still readable from History, which is what
-        // the message points the reviewer at.
-        self::assertCount(1, $crawler->filter('.lp-tabs__tab[href$="/review/history"]'));
+        // the message points the reviewer at. The ⋯ menu holds the way there.
+        self::assertCount(1, $crawler->filter('a.lp-page-menu__row[href$="/review/history"]'));
     }
 
     /**
@@ -1272,6 +1272,11 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
             $panel->filter('.lp-decision-summary__link')->attr('href'),
         );
         self::assertNull($panel->filter('.lp-decision-summary__link')->attr('data-action'));
+        // The phone menu lists the same rows, with the same links.
+        self::assertSame(
+            $base.'#'.DecisionBlockService::blockElementId('deploy-target'),
+            $diff->filter('#review-menu-decisions-list .lp-review-menu__section')->attr('href'),
+        );
 
         // The block in the pane stays inert, and no answer can be posted.
         self::assertSame('disabled', $diff->filter('.lp-diff-doc fieldset.lp-decision')->attr('disabled'));

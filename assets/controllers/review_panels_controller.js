@@ -20,8 +20,7 @@ export default class extends Controller {
     static values = { mode: { type: String, default: 'document' } };
 
     connect() {
-        const stored =
-            this.modeValue === 'columns' ? [] : this.#storedPanels();
+        const stored = this.modeValue === 'columns' ? [] : this.#storedPanels();
         if (stored !== null) {
             for (const button of this.buttonTargets) {
                 const name = button.dataset.reviewPanelsNameParam;

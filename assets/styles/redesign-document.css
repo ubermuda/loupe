@@ -246,7 +246,9 @@
     /* Side by side starts with every panel hidden. An open one takes the panel
        column of the other views, and the version columns shrink beside it. */
     .lp-review
-        .lp-review-doc--wide:has(> .lp-review-panels .lp-review-panel:not([hidden]))
+        .lp-review-doc--wide:has(
+            > .lp-review-panels .lp-review-panel:not([hidden])
+        )
         > :is(.lp-diff-columns, .lp-diff-notes, .lp-empty) {
         margin-right: calc(
             100% - var(--review-column-start) - var(--container-3xl)
