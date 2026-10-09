@@ -24,8 +24,6 @@ use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
  */
 final readonly class CardStates
 {
-    public const int STUCK_DELAY_MINUTES = 15;
-
     private const array FIX_KINDS = ['fix', 'repair'];
 
     private const array MERGE_KINDS = ['merge'];
@@ -33,6 +31,7 @@ final readonly class CardStates
     /** @param iterable<CardStateSignalsInterface> $signals */
     public function __construct(
         private CardPauseRepository $cardPauses,
+        private BoardAutomation $automation,
         private CardLiveWork $liveWork,
         private ClockInterface $clock,
         private RequestTimeline $timeline,
@@ -61,11 +60,12 @@ final readonly class CardStates
             $now = $this->clock->now();
             $paused ??= $this->cardPauses->findActiveForCardIds($ids);
             $work = $this->liveWork->forCards($project, $ids);
+            $delay = new \DateInterval(\sprintf('PT%dM', $this->automation->settingsOf($project)->stuckDelayMinutes));
 
             $reasons = [];
             foreach ($open as $card) {
                 $id = (string) $card->id;
-                foreach ($this->reasonsOf($card, $paused[$id] ?? null, $runWarnings[$id] ?? null, $work[$id] ?? [], $pullRequests, $now) as $reason) {
+                foreach ($this->reasonsOf($card, $paused[$id] ?? null, $runWarnings[$id] ?? null, $work[$id] ?? [], $pullRequests, $now, $delay) as $reason) {
                     self::add($reasons, $id, $reason);
                 }
             }
@@ -94,7 +94,7 @@ final readonly class CardStates
      *
      * @return list<CardStateReason>
      */
-    private function reasonsOf(Card $card, ?CardPause $pause, ?CardRunWarning $warning, array $work, PullRequestStates $pullRequests, \DateTimeImmutable $now): array
+    private function reasonsOf(Card $card, ?CardPause $pause, ?CardRunWarning $warning, array $work, PullRequestStates $pullRequests, \DateTimeImmutable $now, \DateInterval $delay): array
     {
         $reasons = [];
         if (null !== $pause) {
@@ -115,7 +115,6 @@ final readonly class CardStates
             );
         }
 
-        $delay = new \DateInterval(\sprintf('PT%dM', self::STUCK_DELAY_MINUTES));
         foreach ($card->pullRequests as $link) {
             $view = $pullRequests->of($link);
             if (null === $view || null === $view->refreshedAt || PullRequestState::Open !== $view->state) {

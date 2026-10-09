@@ -94,6 +94,10 @@ class ForgePullRequest
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $readySince = null;
 
+    /** The `readySince` for which the board last refreshed its cards after the stuck delay ended. */
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $stuckAnnouncedFor = null;
+
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $checksFailedSince = null;
 

@@ -90,6 +90,8 @@ parameters:
     # and a run shown as running for longer than that misleads.
     app.bridge.run_timeout_schedule: '* * * * *'
     # The backstop for a forge delivery that never arrived.
+    # Every minute, so a Stuck mark shows up within a minute of the end of the stuck delay.
+    app.board.announce_stuck_schedule: '* * * * *'
     app.forge.sweep_schedule: '*/10 * * * *'
     # The backstop for a card wait that no event reported.
     app.inbox.card_wait_sweep_schedule: '*/15 * * * *'

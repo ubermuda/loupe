@@ -12,9 +12,9 @@ use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 
 /**
- * @phpstan-type AutomationSettingsSummary array{enabled: bool, commentOnFixQueued: bool, commentOnStaleApproval: bool, syncBehind: bool, mergePullRequests: bool, changeBase: bool, epicDraftSwitch: bool, closeEpicPullRequests: bool, openEpicPullRequests: bool, epicBranchPattern: ?string}
+ * @phpstan-type AutomationSettingsSummary array{enabled: bool, commentOnFixQueued: bool, commentOnStaleApproval: bool, syncBehind: bool, mergePullRequests: bool, changeBase: bool, epicDraftSwitch: bool, closeEpicPullRequests: bool, openEpicPullRequests: bool, epicBranchPattern: ?string, stuckDelayMinutes: int}
  */
-#[McpTool(name: self::NAME, description: 'Change the automation settings of the project board, the same settings as the Automation page of the project settings. Each setting is on or off, except epicBranchPattern, the branch the breakdown pushes for an epic. A setting you leave out keeps the value it has. An empty epicBranchPattern turns epic branches off. The settings that act on GitHub need the GitHub App of the project to have the matching permission. The result gives the value of every setting after the change.')]
+#[McpTool(name: self::NAME, description: 'Change the automation settings of the project board, the same settings as the Automation page of the project settings. Each setting is on or off, except epicBranchPattern, the branch the breakdown pushes for an epic, and stuckDelayMinutes, the minutes a ready pull request may wait for a merge before its card shows Stuck. A setting you leave out keeps the value it has. An empty epicBranchPattern turns epic branches off. The settings that act on GitHub need the GitHub App of the project to have the matching permission. The result gives the value of every setting after the change.')]
 final readonly class AutomationSettingsUpdateTool
 {
     public const string NAME = 'automation_settings_update';
@@ -38,10 +38,11 @@ final readonly class AutomationSettingsUpdateTool
      * @param bool|null   $closeEpicPullRequests  whether Loupe closes the pull requests of an epic when the workflow asks
      * @param bool|null   $openEpicPullRequests   whether Loupe opens the pull request of an epic when the workflow asks
      * @param string|null $epicBranchPattern      the branch the breakdown pushes for an epic, such as epic/{number}, with {number} exactly once; an empty string turns epic branches off
+     * @param int|null    $stuckDelayMinutes      the minutes a ready pull request may wait for a merge before its card shows Stuck, from 1 to 1440
      *
      * @return AutomationSettingsSummary
      */
-    public function __invoke(?bool $enabled = null, ?bool $commentOnFixQueued = null, ?bool $commentOnStaleApproval = null, ?bool $syncBehind = null, ?bool $mergePullRequests = null, ?bool $changeBase = null, ?bool $epicDraftSwitch = null, ?bool $closeEpicPullRequests = null, ?bool $openEpicPullRequests = null, ?string $epicBranchPattern = null): array
+    public function __invoke(?bool $enabled = null, ?bool $commentOnFixQueued = null, ?bool $commentOnStaleApproval = null, ?bool $syncBehind = null, ?bool $mergePullRequests = null, ?bool $changeBase = null, ?bool $epicDraftSwitch = null, ?bool $closeEpicPullRequests = null, ?bool $openEpicPullRequests = null, ?string $epicBranchPattern = null, ?int $stuckDelayMinutes = null): array
     {
         try {
             $project = $this->subjects->requireProject();
@@ -59,6 +60,7 @@ final readonly class AutomationSettingsUpdateTool
                 closeEpicPullRequests: $closeEpicPullRequests ?? $current->closeEpicPullRequests,
                 openEpicPullRequests: $openEpicPullRequests ?? $current->openEpicPullRequests,
                 epicBranchPattern: $epicBranchPattern ?? $current->epicBranchPattern,
+                stuckDelayMinutes: $stuckDelayMinutes ?? $current->stuckDelayMinutes,
             ));
             $saved = $this->automation->settingsOf($project);
 
@@ -73,6 +75,7 @@ final readonly class AutomationSettingsUpdateTool
                 'closeEpicPullRequests' => $saved->closeEpicPullRequests,
                 'openEpicPullRequests' => $saved->openEpicPullRequests,
                 'epicBranchPattern' => $saved->epicBranchPattern,
+                'stuckDelayMinutes' => $saved->stuckDelayMinutes,
             ];
         } catch (DomainErrors $e) {
             throw $this->errorMessages->forAgent($e);
