@@ -11,7 +11,6 @@ use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPullRequestRepository;
-use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardPullRequests;
 use App\Module\Board\Workflow\BlockerFacts;
@@ -36,9 +35,11 @@ use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState as ForgePullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Project\Entity\Project;
+use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
+use App\Module\Workflow\Contract\CardDirectory;
 use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Contract\DocumentFacts;
 use App\Module\Workflow\Contract\Facts;
@@ -187,6 +188,35 @@ final class FactsBuilderTest extends KernelTestCase
         self::assertSame('@terminal', $this->facts($this->card($project, 'done'))->slot);
         self::assertSame('implementation', $this->facts($this->card($project, 'in-progress'))->slot);
         self::assertSame('tech-design', $this->facts($this->card($project, 'tech-design'))->slot);
+    }
+
+    public function test_the_slot_follows_a_move_in_memory_that_the_snapshot_does_not_show(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('facts-slot-moved');
+        $this->bindLifecycle($project);
+        $card = $this->card($project, 'backlog');
+        $snapshot = $card->snapshot();
+        $card->column = $this->column($project, 'in-progress');
+
+        self::assertSame('implementation', $this->builder()->build($snapshot, new \DateTimeImmutable('2026-10-02 12:00:00'))->slot);
+    }
+
+    public function test_the_parent_slot_reads_the_stored_column_of_the_parent(): void
+    {
+        self::bootKernel();
+        $project = $this->workflowProject('facts-parent-slot');
+        $this->bindLifecycle($project);
+        $epic = $this->card($project, 'backlog', 'epic');
+        $card = $this->card($project, 'next');
+        $card->parent = $epic;
+        $this->em()->flush();
+        self::assertSame('@backlog', $this->facts($card)->parentSlot);
+
+        $this->em()->getConnection()->executeStatement('UPDATE board_cards SET column_id = ? WHERE id = ?', [(string) $this->column($project, 'in-progress')->id, (string) $epic->id]);
+
+        self::assertSame('implementation', $this->facts($card)->parentSlot);
+        self::assertNull($this->facts($epic)->parentSlot);
     }
 
     public function test_an_unlinked_column_has_no_slot(): void
@@ -732,7 +762,8 @@ final class FactsBuilderTest extends KernelTestCase
     {
         return new FactsBuilder(
             $this->service(WorkflowSlotLinkRepository::class),
-            $this->service(CardRepository::class),
+            $this->service(CardDirectory::class),
+            $this->service(ProjectRepository::class),
             new FactProviders([...array_values(array_diff_key($this->service(FactProviders::class)->byClass, [ProvidedFacts::class => true])), $this->provider]),
             $this->em()->getConnection(),
         );

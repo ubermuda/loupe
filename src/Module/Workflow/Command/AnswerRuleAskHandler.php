@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Command;
 
-use App\Module\Board\Repository\CardRepository;
+use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Action\Ask;
 use App\Module\Workflow\Contract\ActionOutcomeKind;
+use App\Module\Workflow\Contract\CardDirectory;
 use App\Module\Workflow\Contract\CardEvaluations;
 use App\Module\Workflow\Contract\WorkLedger;
 use App\Module\Workflow\Engine\RuleSubject;
@@ -36,7 +37,8 @@ final readonly class AnswerRuleAskHandler
     public function __construct(
         private EntityManagerInterface $em,
         private WorkflowRuleStateRepository $workflowRuleStates,
-        private CardRepository $cards,
+        private CardDirectory $cards,
+        private ProjectRepository $projects,
         private WorkLedger $ledger,
         private WorkflowAutomation $automation,
         private TemplateSource $templates,
@@ -88,9 +90,10 @@ final readonly class AnswerRuleAskHandler
         $this->em->refresh($state);
 
         $cardId = $state->cardId;
-        $card = $this->cards->find($cardId) ?? throw new \LogicException('A rule state belongs to a card that exists.');
-        $projectId = $card->project->id ?? throw new \LogicException('A persisted project has an id.');
-        if ($this->ledger->isHeld($projectId, $cardId) || !$this->automation->runsFor($card->project)) {
+        $snapshot = $this->cards->refresh($cardId) ?? throw new \LogicException('A rule state belongs to a card that exists.');
+        $projectId = $snapshot->projectId;
+        $project = $this->projects->find($projectId) ?? throw new \LogicException('A stored card has a project.');
+        if ($this->ledger->isHeld($projectId, $cardId) || !$this->automation->runsFor($project)) {
             return $this->skip('card-unmanaged', $itemId);
         }
 
@@ -105,10 +108,7 @@ final readonly class AnswerRuleAskHandler
             return $this->skip('no-option', $itemId);
         }
 
-        $this->cards->refreshColumn($card);
-        $this->cards->refreshTypeAndParent($card);
         $now = $this->clock->now();
-        $snapshot = $card->snapshot();
         $facts = $this->factsBuilder->build($snapshot, $now);
         if (null !== $rule->slot && $facts->slot !== $rule->slot) {
             return $this->skip('left-slot', $itemId);

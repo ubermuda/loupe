@@ -38,9 +38,9 @@ return static function (Config $config): void {
 
     $config->add($src,
         Rule::allClasses()
-            ->that(new NotResideInTheseNamespaces('App\Module\Board', 'App\Module\Inbox', 'App\Module\Readiness', 'App\Module\Workflow'))
+            ->that(new NotResideInTheseNamespaces('App\Module\Board', 'App\Module\Inbox', 'App\Module\Readiness'))
             ->should(new NotDependsOnTheseNamespaces(['App\Module\Board']))
-            ->because('Board is a leaf: a card belongs to a project, so Board depends on Project and Project must not depend back. Folding a card export into ProjectExporter reads as the convenient move and closes the cycle. Inbox is exempt, because it links an item to a card by foreign key and Board never imports Inbox. Workflow is exempt, because the engine reads and moves cards, and Board never imports Workflow. Readiness is exempt, because it creates and moves cards, and Board never imports Readiness'),
+            ->because('Board is a leaf: a card belongs to a project, so Board depends on Project and Project must not depend back. Folding a card export into ProjectExporter reads as the convenient move and closes the cycle. Inbox is exempt, because it links an item to a card by foreign key and Board never imports Inbox. Readiness is exempt, because it creates and moves cards, and Board never imports Readiness'),
     );
 
     $config->add($src,
@@ -54,7 +54,15 @@ return static function (Config $config): void {
         Rule::allClasses()
             ->that(new ResideInOneOfTheseNamespaces('App\Module\Board', 'App\Module\Bridge', 'App\Module\Forge', 'App\Module\GitHub'))
             ->should(new NotDependsOnTheseNamespaces(['App\Module\Workflow'], ['App\Module\Workflow\Contract']))
-            ->because('Workflow depends on Board, Bridge, Forge and GitHub to read facts and act on cards, so an import back closes a cycle. A module plugs its facts and conditions into the engine through Workflow\Contract, which imports nothing back. Board reaches the engine through a port it declares, and Workflow implements that port'),
+            ->because('Board, Bridge, Forge and GitHub plug their facts, conditions and actions into the engine through Workflow\Contract. They import nothing else from Workflow, and Workflow imports none of them, so the contract is the only link between the two sides'),
+    );
+
+    $config->add($src,
+        Rule::allClasses()
+            ->that(new ResideInOneOfTheseNamespaces('App\Module\Workflow'))
+            ->andThat(new NotResideInTheseNamespaces('App\Module\Workflow\Contract'))
+            ->should(new NotDependsOnTheseNamespaces(['App\Module\Board', 'App\Module\Bridge', 'App\Module\Forge', 'App\Module\GitHub', 'App\Module\Review']))
+            ->because('Board, Bridge, Forge and GitHub plug facts, conditions and actions into the engine through Workflow\Contract. So the engine depends on none of them, and they may depend on the contract. Review is in the list too, because the engine reads documents through the contract alone'),
     );
 
     $config->add($src,
