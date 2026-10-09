@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\EventListener;
+namespace App\Module\Board\EventListener;
 
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Bridge\Event\WorkRequestChanged;
-use App\Module\Workflow\Service\EvaluationTrigger;
+use App\Module\Workflow\Contract\CardEvaluations;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
@@ -21,7 +21,7 @@ final readonly class EvaluateCardOnWorkRequestChanged
     public function __construct(
         private EventDispatcherInterface $events,
         private CardRepository $cards,
-        private EvaluationTrigger $trigger,
+        private CardEvaluations $trigger,
     ) {
     }
 

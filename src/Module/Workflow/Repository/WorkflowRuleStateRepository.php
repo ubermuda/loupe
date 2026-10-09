@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Repository;
 
-use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
@@ -76,9 +75,9 @@ class WorkflowRuleStateRepository extends ServiceEntityRepository
     }
 
     /** @return list<WorkflowRuleState> */
-    public function findRefusedInProject(Project $project, string $refusal): array
+    public function findRefusedInProjectId(Uuid $projectId, string $refusal): array
     {
-        return $this->findBy(['project' => $project, 'lastRefusal' => $refusal]);
+        return $this->findBy(['project' => $projectId, 'lastRefusal' => $refusal]);
     }
 
     /**

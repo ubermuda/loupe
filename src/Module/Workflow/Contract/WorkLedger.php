@@ -27,12 +27,5 @@ interface WorkLedger
     /** Whether the run is an open worker run on the card, or shares a session with one. */
     public function isOpenWorkerOnCard(string $runId, Uuid $projectId, Uuid $cardId): bool;
 
-    /**
-     * Gives the open work of the cards a new timeout.
-     *
-     * @param non-empty-list<Uuid> $cardIds
-     */
-    public function restartClock(Uuid $projectId, array $cardIds, \DateTimeImmutable $now): void;
-
     public function isHeld(Uuid $projectId, Uuid $cardId): bool;
 }

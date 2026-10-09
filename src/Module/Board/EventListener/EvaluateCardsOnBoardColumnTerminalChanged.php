@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\EventListener;
+namespace App\Module\Board\EventListener;
 
 use App\Module\Board\Event\BoardColumnTerminalChanged;
-use App\Module\Workflow\Service\EvaluationTrigger;
+use App\Module\Workflow\Contract\CardEvaluations;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 #[AsEventListener]
 final readonly class EvaluateCardsOnBoardColumnTerminalChanged
 {
     public function __construct(
-        private EvaluationTrigger $trigger,
+        private CardEvaluations $trigger,
     ) {
     }
 
