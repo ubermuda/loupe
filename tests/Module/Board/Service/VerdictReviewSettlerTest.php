@@ -24,6 +24,7 @@ use App\Module\Forge\Service\PullRequestReviewPosters;
 use App\Module\Forge\Service\PullRequestStateReaders;
 use App\Module\Forge\Service\PullRequestUnreadable;
 use App\Module\Project\Entity\Project;
+use App\Routing\PinnedUrlGenerator;
 use App\Tests\Module\Board\CardVerdictScenario;
 use App\Tests\Module\Board\Fake\FakeAuthorReader;
 use App\Tests\Module\Board\Fake\FakeReviewerForgeAccount;
@@ -102,19 +103,33 @@ final class VerdictReviewSettlerTest extends KernelTestCase
         $this->settle($card);
 
         self::assertSame(
-            "Two problems\n\nhttps://app.example/a\n\nFooter overlaps\n<!-- loupe-note:note-1 -->\n\nhttps://app.example/b\n\nLogo is blurry\n<!-- loupe-note:note-2 -->",
+            $this->sourceLine($card, ' · [Open the preview](https://app.example/a)')."\n\nTwo problems\n\nhttps://app.example/a\n\nFooter overlaps\n<!-- loupe-note:note-1 -->\n\nhttps://app.example/b\n\nLogo is blurry\n<!-- loupe-note:note-2 -->",
             $this->poster->posts[0]['body'],
         );
     }
 
-    public function test_an_approval_with_no_message_and_no_note_posts_an_empty_body(): void
+    public function test_a_note_with_an_unreadable_address_adds_no_preview_link(): void
+    {
+        $card = $this->card($this->project);
+        $notes = [['id' => 'note-1', 'url' => 'not a url', 'body' => 'Footer overlaps', 'anchorCount' => 0]];
+        $this->delivery($card, 7, CardVerdictKind::RequestChanges, '', $notes);
+
+        $this->settle($card);
+
+        self::assertSame(
+            $this->sourceLine($card)."\n\nnot a url\n\nFooter overlaps\n<!-- loupe-note:note-1 -->",
+            $this->poster->posts[0]['body'],
+        );
+    }
+
+    public function test_an_approval_with_no_message_and_no_note_names_the_site_review(): void
     {
         $card = $this->card($this->project);
         $this->delivery($card, 7, CardVerdictKind::Approve, '');
 
         $this->settle($card);
 
-        self::assertSame([['kind' => PullRequestReviewKind::Approve, 'body' => '']], $this->postedKindsAndBodies());
+        self::assertSame([['kind' => PullRequestReviewKind::Approve, 'body' => $this->sourceLine($card)]], $this->postedKindsAndBodies());
     }
 
     public function test_a_review_on_the_reviewers_own_pull_request_is_a_comment(): void
@@ -126,7 +141,7 @@ final class VerdictReviewSettlerTest extends KernelTestCase
 
         self::assertSame(CardVerdictDeliveryState::Commented, $delivery->state);
         self::assertSame(PullRequestReviewKind::Comment, $this->poster->posts[0]['kind']);
-        self::assertSame('Reviewed in the Loupe site review.', $this->poster->posts[0]['body']);
+        self::assertSame($this->sourceLine($card), $this->poster->posts[0]['body']);
     }
 
     public function test_an_own_pull_request_comment_keeps_the_message(): void
@@ -137,7 +152,7 @@ final class VerdictReviewSettlerTest extends KernelTestCase
         $this->settle($card);
 
         self::assertSame(PullRequestReviewKind::Comment, $this->poster->posts[0]['kind']);
-        self::assertSame('Needs work', $this->poster->posts[0]['body']);
+        self::assertSame($this->sourceLine($card)."\n\nNeeds work", $this->poster->posts[0]['body']);
     }
 
     public function test_an_unread_author_is_read_before_the_review_is_posted(): void
@@ -383,6 +398,17 @@ final class VerdictReviewSettlerTest extends KernelTestCase
         );
     }
 
+    private function sourceLine(Card $card, string $suffix = ''): string
+    {
+        $url = $this->service(PinnedUrlGenerator::class)->generate('app_board_card', [
+            'projectId' => (string) $card->project->id,
+            'cardId' => (string) $card->id,
+            'tab' => 'feedback',
+        ]);
+
+        return \sprintf('Sent from the Loupe site review of card %d. [Open the notes in Loupe](%s)%s', $card->number, $url, $suffix);
+    }
+
     private function settler(): VerdictReviewSettler
     {
         $translator = $this->service(TranslatorInterface::class);
@@ -396,6 +422,8 @@ final class VerdictReviewSettlerTest extends KernelTestCase
             $translator,
             $this->em,
             new MockClock('2026-10-08 12:00:00'),
+            $this->service(PinnedUrlGenerator::class),
+            'en',
         );
     }
 
