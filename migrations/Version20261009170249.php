@@ -17,7 +17,7 @@ final class Version20261009170249 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        $this->addSql('CREATE TABLE agent_reviews (id UUID NOT NULL, findings JSON NOT NULL, check_run_id BIGINT DEFAULT NULL, posted_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL, head_sha VARCHAR(64) NOT NULL, summary TEXT NOT NULL, conclusion VARCHAR(20) NOT NULL, worker_run_id UUID DEFAULT NULL, work_request_id UUID DEFAULT NULL, created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, project_id UUID NOT NULL, card_id UUID NOT NULL, pull_request_id UUID NOT NULL, PRIMARY KEY (id))');
+        $this->addSql('CREATE TABLE agent_reviews (id UUID NOT NULL, findings JSON NOT NULL, check_run_id BIGINT DEFAULT NULL, annotations_posted INT NOT NULL, posted_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL, head_sha VARCHAR(64) NOT NULL, summary TEXT NOT NULL, conclusion VARCHAR(20) NOT NULL, worker_run_id UUID DEFAULT NULL, work_request_id UUID DEFAULT NULL, created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, project_id UUID NOT NULL, card_id UUID NOT NULL, pull_request_id UUID NOT NULL, PRIMARY KEY (id))');
         $this->addSql('CREATE INDEX IDX_BB2389A5166D1F9C ON agent_reviews (project_id)');
         $this->addSql('CREATE INDEX IDX_BB2389A54ACC9A20 ON agent_reviews (card_id)');
         $this->addSql('CREATE INDEX IDX_BB2389A54CE0BF7E ON agent_reviews (pull_request_id)');

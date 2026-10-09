@@ -33,6 +33,10 @@ class AgentReview
     #[ORM\Column(type: Types::BIGINT, nullable: true)]
     public ?int $checkRunId = null;
 
+    /** How many line notes the run of $checkRunId holds, so a retry sends only the rest. */
+    #[ORM\Column]
+    public int $annotationsPosted = 0;
+
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $postedAt = null;
 

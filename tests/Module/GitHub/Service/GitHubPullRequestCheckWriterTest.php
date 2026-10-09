@@ -248,6 +248,37 @@ final class GitHubPullRequestCheckWriterTest extends KernelTestCase
         self::assertFalse($failure->permanent);
     }
 
+    public function test_a_failure_on_a_later_page_names_the_run_and_the_annotations_it_holds(): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 72_033);
+        $this->responses = [$this->answer(['token' => 'ghs_token'], 201), $this->answer(['id' => 4242], 201), new MockResponse('{}', ['http_code' => 502])];
+        $annotations = [];
+        for ($i = 1; $i <= 120; ++$i) {
+            $annotations[] = new PullRequestCheckAnnotation('src/page.html', $i, $i, PullRequestCheckAnnotationLevel::Warning, 'Note '.$i, 'Fix line '.$i.'.');
+        }
+
+        try {
+            $this->writer()->publish($pullRequest, 'Loupe agent review', 'abc123', PullRequestCheckConclusion::Failure, 'Notes', 'Summary', null, $annotations);
+            self::fail('Expected PullRequestCheckFailed.');
+        } catch (PullRequestCheckFailed $e) {
+            self::assertSame('api_failed_http_status_502', $e->cause);
+            self::assertSame(4242, $e->runId);
+            self::assertSame(50, $e->annotationsSent);
+        }
+        self::assertCount(3, $this->requests);
+    }
+
+    public function test_a_failure_on_the_first_request_of_a_new_run_names_no_run(): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 72_034);
+        $this->responses = [$this->answer(['token' => 'ghs_token'], 201), new MockResponse('{}', ['http_code' => 502])];
+
+        $failure = $this->failure($pullRequest);
+
+        self::assertNull($failure->runId);
+        self::assertSame(0, $failure->annotationsSent);
+    }
+
     public function test_an_answer_with_no_run_id_is_a_transient_failure(): void
     {
         $pullRequest = $this->tracked('ubermuda/loupe', 72_032);

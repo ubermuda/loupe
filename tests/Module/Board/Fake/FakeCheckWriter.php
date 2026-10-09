@@ -22,6 +22,9 @@ final class FakeCheckWriter implements PullRequestCheckWriter
     /** Whether a failing check fails for good, or a retry can fix it. */
     public bool $failsForGood = true;
 
+    /** A check with more annotations than this fails once the run holds this many of them. */
+    public ?int $failsAfterAnnotations = null;
+
     private int $runs = 0;
 
     #[\Override]
@@ -38,6 +41,11 @@ final class FakeCheckWriter implements PullRequestCheckWriter
             throw new PullRequestCheckFailed($this->failsForGood ? 'permission' : 'server_error', $this->failsForGood);
         }
 
-        return $runId ?? 100 + ++$this->runs;
+        $id = $runId ?? 100 + ++$this->runs;
+        if (null !== $this->failsAfterAnnotations && \count($annotations) > $this->failsAfterAnnotations) {
+            throw new PullRequestCheckFailed('server_error', false, runId: $id, annotationsSent: $this->failsAfterAnnotations);
+        }
+
+        return $id;
     }
 }

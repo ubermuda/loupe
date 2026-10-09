@@ -25,6 +25,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * Posts each stored agent review that no check shows yet, on the open GitHub pull requests of the card.
  *
  * Each review gets a new run: the forge appends the notes of every update to a run and cannot remove them.
+ * For the same reason, a run that took only part of the notes keeps its id, and the retry sends it the rest.
  */
 #[AsAlias(AgentReviewCheck::class)]
 final readonly class AgentReviewCheckPublisher implements AgentReviewCheck
@@ -62,6 +63,7 @@ final readonly class AgentReviewCheckPublisher implements AgentReviewCheck
             if (null === $writer) {
                 continue;
             }
+            $annotations = $this->annotations->of($review);
             try {
                 $runId = $writer->publish(
                     $review->pullRequest,
@@ -70,16 +72,22 @@ final readonly class AgentReviewCheckPublisher implements AgentReviewCheck
                     AgentReviewConclusion::Failure === $review->conclusion ? PullRequestCheckConclusion::Failure : PullRequestCheckConclusion::Success,
                     $this->title($review),
                     $this->summary($review),
-                    null,
-                    $this->annotations->of($review),
+                    $review->checkRunId,
+                    \array_slice($annotations, $review->annotationsPosted),
                 );
             } catch (PullRequestCheckFailed $e) {
                 $failure ??= $e->cause;
+                if (null !== $e->runId) {
+                    $review->checkRunId = $e->runId;
+                    $review->annotationsPosted += $e->annotationsSent;
+                    $this->em->flush();
+                }
 
                 continue;
             }
 
             $review->checkRunId = $runId;
+            $review->annotationsPosted = \count($annotations);
             $review->postedAt = \DateTimeImmutable::createFromInterface($this->clock->now());
             $this->em->flush();
             $changed = true;

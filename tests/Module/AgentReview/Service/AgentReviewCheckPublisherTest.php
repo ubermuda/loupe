@@ -112,6 +112,41 @@ final class AgentReviewCheckPublisherTest extends KernelTestCase
         self::assertNotNull($posted->postedAt);
     }
 
+    public function test_a_run_that_took_part_of_the_notes_gets_the_rest_on_the_next_publish(): void
+    {
+        $card = $this->card($this->project);
+        $findings = [];
+        for ($line = 1; $line <= 120; ++$line) {
+            $findings[] = new AgentReviewFinding('src/Foo.php', $line, $line, AgentReviewSeverity::Nit, 'Note '.$line, 'Fix line '.$line.'.');
+        }
+        $review = $this->stored($card, $this->linked($card, 7), str_repeat('a', 40), $findings);
+        $this->writer->failsAfterAnnotations = 50;
+
+        $first = $this->publisher()->publish($card);
+        $second = $this->publisher()->publish($card);
+
+        self::assertSame('server_error', $first->failure);
+        self::assertSame('server_error', $second->failure);
+        self::assertSame(101, $review->checkRunId);
+        self::assertSame(100, $review->annotationsPosted);
+        self::assertNull($review->postedAt);
+
+        $third = $this->publisher()->publish($card);
+
+        self::assertNull($third->failure);
+        self::assertTrue($third->changed);
+        self::assertSame(
+            [[null, 1, 120], [101, 51, 70], [101, 101, 20]],
+            array_map(static fn (array $call): array => [$call['runId'], $call['annotations'][0]->startLine, \count($call['annotations'])], $this->writer->published),
+        );
+        $this->em->clear();
+        $stored = $this->em->find(AgentReview::class, $review->id);
+        self::assertNotNull($stored);
+        self::assertSame(101, $stored->checkRunId);
+        self::assertSame(120, $stored->annotationsPosted);
+        self::assertNotNull($stored->postedAt);
+    }
+
     public function test_a_closed_pull_request_gets_no_check(): void
     {
         $card = $this->card($this->project);

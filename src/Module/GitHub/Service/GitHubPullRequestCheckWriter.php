@@ -54,7 +54,10 @@ final readonly class GitHubPullRequestCheckWriter implements PullRequestCheckWri
         $runs = GitHubPullRequestInstallations::repositoryPath($path).'/check-runs';
         $output = ['title' => $title, 'summary' => mb_substr($summary, 0, self::MAX_SUMMARY_LENGTH)];
         $pages = array_chunk(array_map(self::annotation(...), $annotations), self::ANNOTATIONS_PER_REQUEST);
-        $first = [] === $pages ? $output : [...$output, 'annotations' => array_shift($pages)];
+        $firstPage = array_shift($pages) ?? [];
+        $first = [] === $firstPage ? $output : [...$output, 'annotations' => $firstPage];
+        $id = $runId;
+        $sent = 0;
 
         try {
             if (null !== $runId) {
@@ -78,12 +81,15 @@ final readonly class GitHubPullRequestCheckWriter implements PullRequestCheckWri
                 throw new PullRequestCheckFailed('api_failed_malformed_body', permanent: false);
             }
 
+            $sent = \count($firstPage);
+
             // GitHub appends the annotations of each update to the run, so the next pages go in more updates.
             foreach ($pages as $page) {
                 $this->api->patch($installationId, $runs.'/'.$id, ['output' => [...$output, 'annotations' => $page]]);
+                $sent += \count($page);
             }
         } catch (GitHubAppApiFailed $e) {
-            throw self::failed($e);
+            throw self::failed($e, $id, $sent);
         }
 
         return $id;
@@ -102,17 +108,17 @@ final readonly class GitHubPullRequestCheckWriter implements PullRequestCheckWri
         ];
     }
 
-    private static function failed(GitHubAppApiFailed $e): PullRequestCheckFailed
+    private static function failed(GitHubAppApiFailed $e, ?int $runId, int $sent): PullRequestCheckFailed
     {
         if ($e->rateLimited) {
-            return new PullRequestCheckFailed('api_failed_rate_limited', permanent: false, previous: $e, retryAfterSeconds: $e->retryAfterSeconds);
+            return new PullRequestCheckFailed('api_failed_rate_limited', permanent: false, previous: $e, retryAfterSeconds: $e->retryAfterSeconds, runId: $runId, annotationsSent: $sent);
         }
         if ('http_status' === $e->reason && \in_array($e->status, self::REFUSED_STATUSES, true)) {
-            return new PullRequestCheckFailed('permission', permanent: true, previous: $e);
+            return new PullRequestCheckFailed('permission', permanent: true, previous: $e, runId: $runId, annotationsSent: $sent);
         }
 
         $cause = 'http_status' === $e->reason ? 'http_status_'.$e->status : $e->reason;
 
-        return new PullRequestCheckFailed('api_failed_'.$cause, permanent: \in_array($e->reason, self::CONFIGURATION_REASONS, true), previous: $e);
+        return new PullRequestCheckFailed('api_failed_'.$cause, permanent: \in_array($e->reason, self::CONFIGURATION_REASONS, true), previous: $e, runId: $runId, annotationsSent: $sent);
     }
 }
