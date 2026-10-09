@@ -276,6 +276,19 @@ final class CardHistoryEntryTest extends TestCase
         self::assertEquals(new TranslatableMessage('board.card.history.cause.workflow_rule', ['%rule%' => 'fix-on-review']), $entry->cause);
     }
 
+    public function test_a_verdict_names_the_person_and_the_decision(): void
+    {
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::Verdict, Actor::Human, $this->user, ['kind' => 'request-changes', 'noteCount' => 2]));
+
+        self::assertSame('lucide:message-square', $entry->icon);
+        self::assertEquals(new TranslatableMessage('board.card.history.verdict', [
+            '%actor%' => 'Riley Chen',
+            '%verdict%' => new TranslatableMessage('board.card.history.verdict_kind.request_changes'),
+        ]), $entry->sentence);
+        self::assertNull($entry->cause);
+        self::assertNull($entry->run);
+    }
+
     public function test_a_pause_with_no_rule_has_no_cause_line(): void
     {
         $entry = CardHistoryEntry::of($this->event(CardEventKind::Paused, Actor::System, null, ['kind' => 'rule']));
@@ -306,6 +319,7 @@ final class CardHistoryEntryTest extends TestCase
         yield 'a stop with no pull request' => [CardEventKind::Stopped, []];
         yield 'a ready pull request with a text number' => [CardEventKind::ReadyToMerge, ['pullRequest' => 'twelve']];
         yield 'a pause with no kind' => [CardEventKind::Paused, ['ruleId' => 'fix-on-review']];
+        yield 'a verdict with an unknown kind' => [CardEventKind::Verdict, ['kind' => 'gremlins']];
         yield 'a release with an unknown kind' => [CardEventKind::PauseReleased, ['kind' => 'gremlins', 'ruleId' => 'fix-on-review']];
     }
 

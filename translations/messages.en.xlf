@@ -6617,6 +6617,10 @@
             <trans-unit id="board.card.history.run_not_started_no_kind"><source>board.card.history.run_not_started_no_kind</source><target>A worker did not run.</target></trans-unit>
             <trans-unit id="board.card.history.paused"><source>board.card.history.paused</source><target>%actor% paused the card because %kind%.</target></trans-unit>
             <trans-unit id="board.card.history.pause_released"><source>board.card.history.pause_released</source><target>%actor% released a pause set because %kind%.</target></trans-unit>
+            <trans-unit id="board.card.history.verdict"><source>board.card.history.verdict</source><target>%actor% sent a verdict from the site-review widget: %verdict%.</target></trans-unit>
+            <trans-unit id="board.card.history.verdict_kind.approve"><source>board.card.history.verdict_kind.approve</source><target>approve</target></trans-unit>
+            <trans-unit id="board.card.history.verdict_kind.request_changes"><source>board.card.history.verdict_kind.request_changes</source><target>request changes</target></trans-unit>
+            <trans-unit id="board.card.history.verdict_kind.comment"><source>board.card.history.verdict_kind.comment</source><target>comment</target></trans-unit>
             <trans-unit id="board.card.history.pause_kind.rule"><source>board.card.history.pause_kind.rule</source><target>a workflow rule asked for it</target></trans-unit>
             <trans-unit id="board.card.history.pause_kind.retries"><source>board.card.history.pause_kind.retries</source><target>too many attempts were refused</target></trans-unit>
             <trans-unit id="board.card.history.pause_kind.work_limit"><source>board.card.history.pause_kind.work_limit</source><target>a rule reached its work limit</target></trans-unit>
@@ -7130,6 +7134,22 @@
                 <source>board.form.save_board_automation_settings_form.open_epic_pull_requests.help</source>
                 <target>Loupe opens a draft pull request from the epic branch to the default branch after the first child merges, and links it to the epic. The GitHub App needs "Pull requests: read and write".</target>
             </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.post_widget_reviews.label">
+                <source>board.form.save_board_automation_settings_form.post_widget_reviews.label</source>
+                <target>Post a widget verdict as a review on GitHub</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.post_widget_reviews.help">
+                <source>board.form.save_board_automation_settings_form.post_widget_reviews.help</source>
+                <target>When a reviewer sends a verdict from the site-review widget, Loupe posts it as a review on the pull requests of the card, under the reviewer's own GitHub account. The reviewer connects that account once.</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.site_review_check.label">
+                <source>board.form.save_board_automation_settings_form.site_review_check.label</source>
+                <target>Keep a "Loupe site review" check on pull requests</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.site_review_check.help">
+                <source>board.form.save_board_automation_settings_form.site_review_check.help</source>
+                <target>Loupe posts a check named "Loupe site review" on each open pull request of a managed card. It fails while open site-review notes remain. The GitHub App needs "Checks: read and write".</target>
+            </trans-unit>
             <trans-unit id="board.form.save_board_automation_settings_form.epic_branch_pattern.label">
                 <source>board.form.save_board_automation_settings_form.epic_branch_pattern.label</source>
                 <target>Epic branch pattern</target>
@@ -7638,6 +7658,7 @@
             <trans-unit id="github.system_status.app_api.missing_permissions"><source>github.system_status.app_api.missing_permissions</source><target>These installations do not grant each permission Loupe reads: %installations%. On GitHub, give the App read access to checks, contents, metadata, pull requests and commit statuses, then let each account accept the new permissions.</target></trans-unit>
             <trans-unit id="github.system_status.app_api.missing_comment_permission"><source>github.system_status.app_api.missing_comment_permission</source><target>The GitHub App cannot write to pull requests for the accounts %accounts%. Loupe cannot post fix run comments, or mark ready, draft or close an epic pull request. Grant Pull requests: read and write.</target></trans-unit>
             <trans-unit id="github.system_status.app_api.missing_contents_write"><source>github.system_status.app_api.missing_contents_write</source><target>The GitHub App cannot write the contents of repositories for the accounts %accounts%. Loupe cannot sync a pull request branch that is behind its base for these accounts. Grant Contents: read and write to use the sync.</target></trans-unit>
+            <trans-unit id="github.system_status.app_api.missing_checks_write"><source>github.system_status.app_api.missing_checks_write</source><target>The GitHub App cannot write checks for the accounts %accounts%. Loupe cannot report the Loupe site review check on a pull request for these accounts. Grant Checks: read and write to use the check.</target></trans-unit>
             <trans-unit id="github.system_status.app_api.working"><source>github.system_status.app_api.working</source><target>{0}GitHub accepts the App key. No account has installed the App yet.|{1}GitHub accepts the App key, and its installation grants each permission Loupe reads.|]1,Inf[GitHub accepts the App key, and its %count% installations grant each permission Loupe reads.</target></trans-unit>
             <trans-unit id="check.github_hook_key.label"><source>check.github_hook_key.label</source><target>GitHub webhook secrets</target></trans-unit>
             <trans-unit id="github.system_status.hook_key.readable"><source>github.system_status.hook_key.readable</source><target>APP_ENCRYPTION_KEY is readable, so projects can create a GitHub webhook.</target></trans-unit>
@@ -7700,6 +7721,30 @@
             <trans-unit id="github.app.flash.github_unavailable"><source>github.app.flash.github_unavailable</source><target>Loupe could not reach GitHub. Try the install again in a few minutes.</target></trans-unit>
             <trans-unit id="github.app.flash.installation_elsewhere"><source>github.app.flash.installation_elsewhere</source><target>This installation belongs to another project.</target></trans-unit>
             <trans-unit id="github.app.flash.connected"><source>github.app.flash.connected</source><target>Loupe is connected to the GitHub App on %account%.</target></trans-unit>
+            <trans-unit id="github.connect.heading"><source>github.connect.heading</source><target>GitHub account</target></trans-unit>
+            <trans-unit id="github.connect.intro"><source>github.connect.intro</source><target>Connect your GitHub account so that Loupe can act as you on GitHub, for example to post a review under your name.</target></trans-unit>
+            <trans-unit id="github.connect.empty"><source>github.connect.empty</source><target>No GitHub account is connected.</target></trans-unit>
+            <trans-unit id="github.connect.state.connected"><source>github.connect.state.connected</source><target>Connected on %time%.</target></trans-unit>
+            <trans-unit id="github.connect.state.expired"><source>github.connect.state.expired</source><target>The connection expired. Connect again to use it.</target></trans-unit>
+            <trans-unit id="github.connect.action.connect"><source>github.connect.action.connect</source><target>Connect GitHub account</target></trans-unit>
+            <trans-unit id="github.connect.action.reconnect"><source>github.connect.action.reconnect</source><target>Connect again</target></trans-unit>
+            <trans-unit id="github.connect.action.disconnect"><source>github.connect.action.disconnect</source><target>Disconnect</target></trans-unit>
+            <trans-unit id="github.connect.disconnect.title"><source>github.connect.disconnect.title</source><target>Disconnect your GitHub account?</target></trans-unit>
+            <trans-unit id="github.connect.disconnect.description"><source>github.connect.disconnect.description</source><target>Loupe forgets the connection to %login% and asks GitHub to void the token it holds.</target></trans-unit>
+            <trans-unit id="github.connect.disconnect.cancel"><source>github.connect.disconnect.cancel</source><target>Cancel</target></trans-unit>
+            <trans-unit id="github.connect.disconnect.confirm"><source>github.connect.disconnect.confirm</source><target>Disconnect</target></trans-unit>
+            <trans-unit id="github.connect.callback.page.title"><source>github.connect.callback.page.title</source><target>GitHub account</target></trans-unit>
+            <trans-unit id="github.connect.callback.connected"><source>github.connect.callback.connected</source><target>Your GitHub account %login% is connected.</target></trans-unit>
+            <trans-unit id="github.connect.callback.close"><source>github.connect.callback.close</source><target>Connected. You can close this window.</target></trans-unit>
+            <trans-unit id="github.connect.callback.connected_apps"><source>github.connect.callback.connected_apps</source><target>Go to connected apps</target></trans-unit>
+            <trans-unit id="github.connect.flash.unavailable"><source>github.connect.flash.unavailable</source><target>The operator has not registered a GitHub App, so no account can connect.</target></trans-unit>
+            <trans-unit id="github.connect.flash.expired"><source>github.connect.flash.expired</source><target>The connection took too long or was already used. Start again.</target></trans-unit>
+            <trans-unit id="github.connect.flash.state_mismatch"><source>github.connect.flash.state_mismatch</source><target>GitHub sent back an unexpected answer. Start again.</target></trans-unit>
+            <trans-unit id="github.connect.flash.not_authorized"><source>github.connect.flash.not_authorized</source><target>You did not allow Loupe on GitHub, so no account is connected.</target></trans-unit>
+            <trans-unit id="github.connect.flash.tokens_do_not_expire"><source>github.connect.flash.tokens_do_not_expire</source><target>The GitHub App does not expire user tokens. Ask the operator to turn on user token expiry in the App settings.</target></trans-unit>
+            <trans-unit id="github.connect.flash.github_unavailable"><source>github.connect.flash.github_unavailable</source><target>GitHub did not answer. Try again in a moment.</target></trans-unit>
+            <trans-unit id="github.connect.flash.disconnected"><source>github.connect.flash.disconnected</source><target>Your GitHub account is disconnected.</target></trans-unit>
+            <trans-unit id="github.connect.flash.disconnected_not_revoked"><source>github.connect.flash.disconnected_not_revoked</source><target>Your GitHub account is disconnected in Loupe. GitHub did not confirm that it voided the token, so revoke Loupe under your GitHub settings as well.</target></trans-unit>
             <trans-unit id="github.app.flash.repositories_incomplete"><source>github.app.flash.repositories_incomplete</source><target>GitHub listed more repositories than Loupe reads at one time, so the repository list may be incomplete. A missing repository joins the list on its first delivery.</target></trans-unit>
             <trans-unit id="github.app.flash.repositories_elsewhere"><source>github.app.flash.repositories_elsewhere</source><target>{0}No repository belongs to another project.|{1}1 repository belongs to another project, so Loupe did not connect it.|]1,Inf[%count% repositories belong to another project, so Loupe did not connect them.</target></trans-unit>
 
@@ -7716,6 +7761,10 @@
             <trans-unit id="workflow.waiting.not.card_is_child"><source>workflow.waiting.not.card_is_child</source><target>Waiting: the card is a child of an epic.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_discovery_requested"><source>workflow.waiting.card_discovery_requested</source><target>Waiting: the card has no requested discovery.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.card_discovery_requested"><source>workflow.waiting.not.card_discovery_requested</source><target>Waiting: the card has a requested discovery.</target></trans-unit>
+            <trans-unit id="workflow.waiting.site_review_verdict_unsent"><source>workflow.waiting.site_review_verdict_unsent</source><target>Waiting: no verdict of the card waits to be sent.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.site_review_verdict_unsent"><source>workflow.waiting.not.site_review_verdict_unsent</source><target>Waiting: a verdict of the card waits to be sent.</target></trans-unit>
+            <trans-unit id="workflow.waiting.site_review_check_stale"><source>workflow.waiting.site_review_check_stale</source><target>Waiting: the site review check of each open pull request is up to date.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.site_review_check_stale"><source>workflow.waiting.not.site_review_check_stale</source><target>Waiting: the site review check of an open pull request is out of date.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_child_merged_into_epic_branch"><source>workflow.waiting.card_child_merged_into_epic_branch</source><target>Waiting: no child pull request merged into the epic branch.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.card_child_merged_into_epic_branch"><source>workflow.waiting.not.card_child_merged_into_epic_branch</source><target>Waiting: a child pull request merged into the epic branch.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_has_children"><source>workflow.waiting.card_has_children</source><target>Waiting: the card has no child cards.</target></trans-unit>
@@ -7980,6 +8029,14 @@
             <trans-unit id="readiness.form.update_agent_account_form.login.help"><source>readiness.form.update_agent_account_form.login.help</source><target>Leave it empty to clear the recorded login.</target></trans-unit>
             <trans-unit id="readiness.discovery.reason.no_taker"><source>readiness.discovery.reason.no_taker</source><target>No bridge took the work.</target></trans-unit>
             <trans-unit id="readiness.discovery.reason.card_moved"><source>readiness.discovery.reason.card_moved</source><target>The discovery card left Backlog before the work ended.</target></trans-unit>
+            <trans-unit id="board.verdict.action.post_review"><source>board.verdict.action.post_review</source><target>Posts your verdict as a review on the pull requests you pick.</target></trans-unit>
+            <trans-unit id="board.verdict.review.fallback_body"><source>board.verdict.review.fallback_body</source><target>Reviewed in the Loupe site review.</target></trans-unit>
+            <trans-unit id="board.site_review_check.title"><source>board.site_review_check.title</source><target>{0} No open site review notes|{1} One site review note is open|]1,Inf[ %count% site review notes are open</target></trans-unit>
+            <trans-unit id="board.site_review_check.summary_clear"><source>board.site_review_check.summary_clear</source><target>Every site review note of this card is closed.</target></trans-unit>
+            <trans-unit id="board.site_review_check.title_off"><source>board.site_review_check.title_off</source><target>Loupe no longer keeps this check</target></trans-unit>
+            <trans-unit id="board.site_review_check.summary_off"><source>board.site_review_check.summary_off</source><target>The site review check is off for this project, so this check does not block the pull request.</target></trans-unit>
+            <trans-unit id="board.site_review_check.summary_unlinked"><source>board.site_review_check.summary_unlinked</source><target>No card links this pull request any more, so this check does not block it.</target></trans-unit>
+            <trans-unit id="board.site_review_check.summary_more"><source>board.site_review_check.summary_more</source><target>{0} No more notes.|{1} And one more note.|]1,Inf[ And %count% more notes.</target></trans-unit>
         </body>
     </file>
 </xliff>

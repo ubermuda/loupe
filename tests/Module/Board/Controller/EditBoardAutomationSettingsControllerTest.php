@@ -57,6 +57,10 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         self::assertCount(1, $form->filter('input[name="'.self::FORM.'[epicDraftSwitch]"]'));
         self::assertCount(1, $form->filter('input[name="'.self::FORM.'[closeEpicPullRequests]"]'));
         self::assertCount(0, $form->filter('input[name="'.self::FORM.'[openEpicPullRequests]"]:checked'));
+        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[postWidgetReviews]"]'));
+        self::assertCount(0, $form->filter('input[name="'.self::FORM.'[postWidgetReviews]"]:checked'));
+        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[siteReviewCheck]"]'));
+        self::assertCount(0, $form->filter('input[name="'.self::FORM.'[siteReviewCheck]"]:checked'));
         self::assertSame('epic/{number}', $form->filter('input[name="'.self::FORM.'[epicBranchPattern]"]')->attr('value'));
         self::assertSelectorTextContains('[data-board-automation-settings]', 'Contents: read and write');
         self::assertSelectorNotExists('[data-fix-run-comment-failure]');
@@ -84,6 +88,12 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         $openEpicPullRequests = $submit[self::FORM.'[openEpicPullRequests]'];
         self::assertInstanceOf(ChoiceFormField::class, $openEpicPullRequests);
         $openEpicPullRequests->tick();
+        $postWidgetReviews = $submit[self::FORM.'[postWidgetReviews]'];
+        self::assertInstanceOf(ChoiceFormField::class, $postWidgetReviews);
+        $postWidgetReviews->tick();
+        $siteReviewCheck = $submit[self::FORM.'[siteReviewCheck]'];
+        self::assertInstanceOf(ChoiceFormField::class, $siteReviewCheck);
+        $siteReviewCheck->tick();
         $submit[self::FORM.'[epicBranchPattern]'] = 'feature/epic-{number}';
         $this->client->submit($submit);
 
@@ -94,6 +104,8 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
 
         $settings = $this->stored($project);
         self::assertNotNull($settings);
+        self::assertTrue($settings->postWidgetReviews);
+        self::assertTrue($settings->siteReviewCheck);
         self::assertFalse($settings->enabled);
         self::assertTrue($settings->commentOnFixQueued);
         self::assertTrue($settings->commentOnStaleApproval);
@@ -114,6 +126,8 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         self::assertCount(0, $form->filter('input[name="'.self::FORM.'[changeBase]"]:checked'));
         self::assertCount(1, $form->filter('input[name="'.self::FORM.'[epicDraftSwitch]"]:checked'));
         self::assertCount(1, $form->filter('input[name="'.self::FORM.'[openEpicPullRequests]"]:checked'));
+        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[postWidgetReviews]"]:checked'));
+        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[siteReviewCheck]"]:checked'));
         self::assertSame('feature/epic-{number}', $form->filter('input[name="'.self::FORM.'[epicBranchPattern]"]')->attr('value'));
     }
 

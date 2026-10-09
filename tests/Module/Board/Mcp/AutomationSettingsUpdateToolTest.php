@@ -56,6 +56,8 @@ final class AutomationSettingsUpdateToolTest extends KernelTestCase
             'epicDraftSwitch' => false,
             'closeEpicPullRequests' => false,
             'openEpicPullRequests' => false,
+            'postWidgetReviews' => false,
+            'siteReviewCheck' => false,
             'epicBranchPattern' => 'epic/{number}',
         ];
         self::assertSame($expected, $result);
@@ -87,6 +89,25 @@ final class AutomationSettingsUpdateToolTest extends KernelTestCase
         self::assertInstanceOf(BoardAutomationSettings::class, $stored);
         self::assertTrue($stored->openEpicPullRequests);
         self::assertSame('feature/{number}', $stored->epicBranchPattern);
+    }
+
+    public function test_the_widget_verdict_opt_ins_are_set_and_kept_when_omitted(): void
+    {
+        $project = $this->makeProject('automation-update-verdict');
+        $this->em->persist(new BoardAutomationSettings($project));
+        $this->em->flush();
+        $this->actAsMcpTokenBoundTo($project);
+
+        $result = ($this->tool)(postWidgetReviews: true, siteReviewCheck: true);
+        self::assertTrue($result['postWidgetReviews']);
+        self::assertTrue($result['siteReviewCheck']);
+
+        $result = ($this->tool)(syncBehind: true);
+        self::assertTrue($result['postWidgetReviews']);
+        self::assertTrue($result['siteReviewCheck']);
+        $stored = $this->stored($project->id);
+        self::assertTrue($stored->postWidgetReviews);
+        self::assertTrue($stored->siteReviewCheck);
     }
 
     public function test_it_sets_both_epic_settings_and_turning_the_opening_on_rearms_it(): void

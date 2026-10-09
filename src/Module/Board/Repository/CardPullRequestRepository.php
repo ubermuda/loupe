@@ -7,6 +7,7 @@ namespace App\Module\Board\Repository;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
+use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -184,6 +185,74 @@ class CardPullRequestRepository extends ServiceEntityRepository
         );
 
         return array_map(self::cardId(...), $ids);
+    }
+
+    /**
+     * The cards of the project outside a terminal column that link a GitHub pull request whose last read found it open.
+     *
+     * @return list<string>
+     */
+    public function findActiveCardIdsWithOpenGitHubPullRequest(Project $project): array
+    {
+        /** @var list<mixed> $ids */
+        $ids = $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            'SELECT DISTINCT c.id
+            FROM board_card_pull_requests link
+            JOIN board_cards c ON c.id = link.card_id
+            JOIN board_columns k ON k.id = c.column_id
+            JOIN forge_pull_requests pr ON pr.project_id = c.project_id AND pr.forge = :forge
+                AND pr.repository = LOWER(link.repository) AND pr.number = link.number
+            WHERE c.project_id = :project AND link.forge = :forge AND pr.state = :open AND k.terminal = false',
+            [
+                'project' => ($project->id ?? throw new \LogicException('Project has no id.'))->toRfc4122(),
+                'forge' => Forge::GitHub->value,
+                'open' => PullRequestState::Open->value,
+            ],
+        );
+
+        return array_map(self::cardId(...), $ids);
+    }
+
+    /**
+     * The GitHub pull requests the card links whose last forge read found them open, oldest link first.
+     *
+     * @return list<ForgePullRequest>
+     */
+    public function findOpenGitHubForCard(Card $card): array
+    {
+        /** @var list<ForgePullRequest> $pullRequests */
+        $pullRequests = $this->getEntityManager()->createQuery(
+            'SELECT pr FROM '.ForgePullRequest::class.' pr, '.CardPullRequest::class.' link
+            WHERE link.card = :card AND pr.project = :project AND pr.forge = :forge
+                AND pr.repository = LOWER(link.repository) AND pr.number = link.number AND pr.state = :open
+            GROUP BY pr.id
+            ORDER BY MIN(link.addedAt) ASC, pr.id ASC',
+        )
+            ->setParameter('card', $card)
+            ->setParameter('project', $card->project)
+            ->setParameter('forge', Forge::GitHub->value)
+            ->setParameter('open', PullRequestState::Open)
+            ->getResult();
+
+        return $pullRequests;
+    }
+
+    /**
+     * The card and every card of its project that links an open GitHub pull request of the card.
+     *
+     * @return list<string> card ids
+     */
+    public function findCardIdsSharingOpenPullRequests(Card $card): array
+    {
+        $projectId = $card->project->id ?? throw new \LogicException('A stored project has an id.');
+        $cardIds = [(string) $card->id => (string) $card->id];
+        foreach ($this->findOpenGitHubForCard($card) as $pullRequest) {
+            foreach ($this->findForPullRequest($projectId, Forge::GitHub, $pullRequest->repository, $pullRequest->number) as $link) {
+                $cardIds[(string) $link->card->id] = (string) $link->card->id;
+            }
+        }
+
+        return array_values($cardIds);
     }
 
     /** Whether a child of the card links a pull request that the last forge read found merged into the branch. */

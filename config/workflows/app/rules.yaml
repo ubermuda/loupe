@@ -14,6 +14,14 @@ rules:
                   - The Loupe plugin skills are installed for the agent, with the loupe-discovery skill
                   - The bridge rule file maps the discovery kind, or sets appPrompts to true
 
+    - id: post-widget-review
+      when: { card.site_review.verdict_unsent: {} }
+      then: { forge-write: { write: post-review } }
+
+    - id: sync-site-review-check
+      when: { card.site_review.check_stale: {} }
+      then: { forge-write: { write: site-review-check } }
+
 # Work the app asks a bridge for outside the engine. Each entry ships a prompt.
 requests:
     - id: insights.analysis

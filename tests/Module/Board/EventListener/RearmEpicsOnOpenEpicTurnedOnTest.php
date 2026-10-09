@@ -177,6 +177,8 @@ final class RearmEpicsOnOpenEpicTurnedOnTest extends KernelTestCase
             syncBehind: $settings->syncBehind,
             mergePullRequests: $settings->mergePullRequests,
             changeBase: $settings->changeBase,
+            postWidgetReviews: $settings->postWidgetReviews,
+            siteReviewCheck: $settings->siteReviewCheck,
             openEpicPullRequests: $openEpicPullRequests,
         ));
     }

@@ -369,15 +369,17 @@ timeline. A row says who created the card and in which column, and who moved
 it from one column to another. When Loupe moved the card on its own, a line
 under the row says why, for example after a pull request merged. An agent's
 move inside a worker run names that run on the same line. The tab also
-records when the automation asked for a fix or stopped, with the reason, and
-when a pull request was ready to merge. A finished agent run shows its
+records when the automation asked for a fix or stopped, with the reason, when
+a pull request was ready to merge, and when a verdict was sent from the
+site-review widget. A finished agent run shows its
 rule, its duration and its result, and it links to the run while the run is
 kept.
 
 A row names a person by their full name. An agent's change reads **Agent for**
 and the name of the person the agent works for. A change by the app reads
 **Loupe**. A change from the site-review widget reads **A reviewer**, because
-the widget does not name its visitor. A deleted account reads **A deleted
+the widget does not name its visitor. A verdict is the exception, because the
+reviewer signs in to send it, so its row names the reviewer. A deleted account reads **A deleted
 user**. The tab shows 50 rows, and **Show older** loads the next 50 in
 place. Loupe records history from the version that added this tab, so an
 older card starts with an empty tab.
@@ -797,6 +799,8 @@ as its template says.
 | **Switch an epic pull request between draft and ready when the workflow asks** | off | When on, Loupe marks the pull request of an epic as a draft in implementation, and as ready in review. The GitHub App needs "Pull requests: read and write" |
 | **Close the pull requests of an epic when the workflow asks** | off | When on, Loupe closes the pull requests of an epic that moves back to the Backlog. The GitHub App needs "Pull requests: read and write" |
 | **Open the epic pull request** | off | When on, Loupe opens a draft pull request from the epic branch to the default branch after the first child merges into the epic branch, and links it to the epic. The GitHub App needs "Pull requests: read and write" |
+| **Post a widget verdict as a review on GitHub** | off | When on, a verdict that a reviewer sends from the site-review widget becomes a review on the pull requests of the card, under the reviewer's own GitHub account. Loupe stores the verdict and its notes with this setting off or on |
+| **Keep a "Loupe site review" check on pull requests** | off | When on, Loupe posts a check named "Loupe site review" on each open pull request of a managed card. The check fails while open site-review notes remain on any card of the project that links the pull request. The GitHub App needs "Checks: read and write" |
 | **Epic branch pattern** | `epic/{number}` | The branch that the breakdown pushes for an epic. `{number}` stands for the epic card number. A child pull request into this branch merges into the epic. Leave it empty when the project uses no epic branches |
 
 The draft and ready switch and the close write were on for each board whose automation was on before the
@@ -1093,6 +1097,40 @@ leaves the notes resolved. **Reopen** on the Feedback tab makes a resolved note
 pending again.
 
 The board screen shows on each card how many notes still wait on it.
+
+### A verdict from the widget
+
+A reviewer signs in to the widget and sends a verdict on a card: Approve,
+Request changes or Comment. The verdict keeps the message and a copy of the
+pending notes of the card at that time. The copy does not follow a later edit
+of a note. The reviewer picks the open GitHub pull requests of the card that
+the verdict goes to. The card history records the verdict, with the name of
+the reviewer.
+
+A verdict changes nothing on GitHub by itself. The
+[rules the app adds](workflows.md#rules-the-app-adds) write to the pull
+requests, and only while the matching setting on the **Automation** tab is on:
+
+- With **Post a widget verdict as a review on GitHub** on, the verdict becomes
+  a review under the reviewer's own GitHub account. On the reviewer's own pull
+  request it becomes a comment. With the setting off, the verdict stays on the
+  card and no review goes out.
+- With **Keep a "Loupe site review" check on pull requests** on, the check
+  fails while a pending note that a verdict carried remains. The check also
+  runs when nobody sends a verdict. It is green until a verdict carries a note.
+  When two cards link one pull request, the check counts the pending notes of
+  both cards. When you switch the setting off, Loupe turns each failed check on
+  an open pull request to neutral, so it no longer blocks a merge.
+
+Before the reviewer sends, the widget lists the writes that the verdict will
+start. The list follows the rules and the settings of the project. It does not
+list the fix round that a request for changes on GitHub starts later.
+
+The widget shows the state of each pull request after the send. When the
+connection to GitHub has expired, the review is refused with the reason
+`connection-expired`. The reviewer connects again from the widget, and Loupe
+then sends the refused reviews of that reviewer on cards that are not in a
+terminal column.
 
 `card_update` reads an omitted field as "leave it alone". `pullRequestUrls` is
 the one field where an omitted list and an empty list differ. Omit it and the

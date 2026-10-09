@@ -10,6 +10,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Project\Entity\Project;
+use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Schema\Schema;
 use Doctrine\ORM\EntityManagerInterface;
 use DoctrineMigrations\Version20260927141409;
@@ -43,6 +44,7 @@ final class ForgePullRequestsBackfillMigrationTest extends KernelTestCase
         $em->persist(new CardPullRequest($first, 'https://example.com/pr'));
         $em->flush();
         $connection = $em->getConnection();
+        $this->dropForeignKeysTo($connection, 'forge_pull_requests');
 
         foreach (['down', 'up'] as $direction) {
             $migration = new Version20260927141409($connection, new NullLogger());
@@ -70,6 +72,18 @@ final class ForgePullRequestsBackfillMigrationTest extends KernelTestCase
                 [(string) $project->id, (string) $other->id],
             ),
         );
+    }
+
+    // Later tables reference forge_pull_requests, so down() cannot drop it; the test transaction restores them.
+    private function dropForeignKeysTo(Connection $connection, string $table): void
+    {
+        $constraints = $connection->fetchAllAssociative(
+            "SELECT conrelid::regclass::text AS owner, conname FROM pg_constraint WHERE contype = 'f' AND confrelid = ?::regclass",
+            [$table],
+        );
+        foreach ($constraints as $constraint) {
+            $connection->executeStatement(\sprintf('ALTER TABLE %s DROP CONSTRAINT %s', $constraint['owner'], $constraint['conname']));
+        }
     }
 
     private function card(EntityManagerInterface $em, Project $project, int $number): Card
