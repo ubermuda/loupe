@@ -77,6 +77,18 @@ final class LinkDocumentTest extends KernelTestCase
         self::assertSame([(string) $first->id], $this->linkedIds($card));
     }
 
+    public function test_with_two_tagged_documents_it_links_the_approved_one(): void
+    {
+        self::bootKernel();
+        [$card, $parent] = $this->childAndParent('link-approved');
+        $this->document($parent, 'tech-design', DocumentStatus::Draft);
+        $approved = $this->document($parent, 'tech-design');
+
+        $this->link($card, $this->facts($card, $parent));
+
+        self::assertSame([(string) $approved->id], $this->linkedIds($card));
+    }
+
     public function test_a_document_the_board_refuses_to_link_is_a_refusal(): void
     {
         self::bootKernel();

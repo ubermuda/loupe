@@ -76,6 +76,7 @@ final class AppRules
             $template->types,
             $template->defaultType,
             $template->onWorkFailed,
+            $template->childChoices,
         );
     }
 

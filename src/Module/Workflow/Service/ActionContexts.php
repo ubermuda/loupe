@@ -18,6 +18,7 @@ use App\Module\Workflow\Template\AppRules;
 use App\Module\Workflow\Template\Rule;
 use App\Module\Workflow\Template\RuleOrigin;
 use App\Module\Workflow\Template\TemplateParser;
+use Symfony\Component\Uid\Uuid;
 
 /** Builds what an action reads when it runs, with the column of each slot parameter that has one. */
 final readonly class ActionContexts
@@ -35,11 +36,11 @@ final readonly class ActionContexts
     {
         $name = RuleOrigin::App === $rule->origin ? $rule->then->params[TemplateParser::PROMPT] ?? null : null;
 
-        return $rule->context($card, $facts, $fires, $this->columns($rule, $card), \is_string($name) ? $this->appRules->prompt($name) : null);
+        return $rule->context($card, $facts, $fires, $this->columns($rule, $card->projectId), \is_string($name) ? $this->appRules->prompt($name) : null);
     }
 
-    /** @return array<string, ColumnRef> a slot with no column stays out */
-    private function columns(Rule $rule, CardSnapshot $card): array
+    /** @return array<string, ColumnRef> the column of each slot parameter of the action, by parameter name; a slot with no column stays out */
+    public function columns(Rule $rule, Uuid $projectId): array
     {
         $slots = [];
         foreach ($this->actions->get($rule->then->key)::parameters() as $parameter) {
@@ -52,13 +53,13 @@ final readonly class ActionContexts
             return [];
         }
 
-        $project = $this->projects->find($card->projectId) ?? throw new \LogicException('A stored card has a project.');
+        $project = $this->projects->find($projectId) ?? throw new \LogicException('A stored card has a project.');
         $linked = $this->workflowSlotLinks->findColumnsBySlot($project);
         $columns = [];
         foreach ($slots as $name => $slot) {
             $column = match ($slot) {
-                SlotKeys::BACKLOG => array_find($this->boardColumns->forProject($card->projectId), static fn ($view): bool => $view->backlog),
-                SlotKeys::TERMINAL => array_find($this->boardColumns->forProject($card->projectId), static fn ($view): bool => $view->terminal),
+                SlotKeys::BACKLOG => array_find($this->boardColumns->forProject($projectId), static fn ($view): bool => $view->backlog),
+                SlotKeys::TERMINAL => array_find($this->boardColumns->forProject($projectId), static fn ($view): bool => $view->terminal),
                 default => $linked[$slot] ?? null,
             };
             if (null !== $column) {
