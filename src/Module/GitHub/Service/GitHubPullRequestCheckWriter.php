@@ -85,7 +85,14 @@ final readonly class GitHubPullRequestCheckWriter implements PullRequestCheckWri
 
             // GitHub appends the annotations of each update to the run, so the next pages go in more updates.
             foreach ($pages as $page) {
-                $this->api->patch($installationId, $runs.'/'.$id, ['output' => [...$output, 'annotations' => $page]]);
+                try {
+                    $this->api->patch($installationId, $runs.'/'.$id, ['output' => [...$output, 'annotations' => $page]]);
+                } catch (GitHubAppApiFailed $e) {
+                    // A body that does not decode follows a 2xx status, so GitHub holds the page already.
+                    if ('malformed_body' !== $e->reason) {
+                        throw $e;
+                    }
+                }
                 $sent += \count($page);
             }
         } catch (GitHubAppApiFailed $e) {

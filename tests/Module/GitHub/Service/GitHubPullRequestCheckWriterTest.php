@@ -268,6 +268,29 @@ final class GitHubPullRequestCheckWriterTest extends KernelTestCase
         self::assertCount(3, $this->requests);
     }
 
+    public function test_a_later_page_that_github_accepts_with_a_body_that_does_not_decode_counts_as_sent(): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 72_033);
+        $this->responses = [
+            $this->answer(['token' => 'ghs_token'], 201),
+            $this->answer(['id' => 4242], 201),
+            new MockResponse('not json', ['http_code' => 200]),
+            new MockResponse('{}', ['http_code' => 502]),
+        ];
+        $annotations = [];
+        for ($i = 1; $i <= 120; ++$i) {
+            $annotations[] = new PullRequestCheckAnnotation('src/page.html', $i, $i, PullRequestCheckAnnotationLevel::Warning, 'Note '.$i, 'Fix line '.$i.'.');
+        }
+
+        try {
+            $this->writer()->publish($pullRequest, 'Loupe agent review', 'abc123', PullRequestCheckConclusion::Failure, 'Notes', 'Summary', null, $annotations);
+            self::fail('Expected PullRequestCheckFailed.');
+        } catch (PullRequestCheckFailed $e) {
+            self::assertSame(4242, $e->runId);
+            self::assertSame(100, $e->annotationsSent);
+        }
+    }
+
     public function test_a_failure_on_the_first_request_of_a_new_run_names_no_run(): void
     {
         $pullRequest = $this->tracked('ubermuda/loupe', 72_034);
