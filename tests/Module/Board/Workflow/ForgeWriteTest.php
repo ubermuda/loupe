@@ -17,7 +17,6 @@ use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardVerdictDeliveryRepository;
 use App\Module\Board\Repository\SiteReviewCheckStateRepository;
-use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardPullRequests;
 use App\Module\Board\Service\SiteReviewCheckPublisher;
 use App\Module\Board\Service\VerdictReviewSettler;
@@ -42,6 +41,7 @@ use App\Module\Forge\Service\PullRequestSyncFailed;
 use App\Module\Forge\Service\PullRequestWriteFailed;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Contract\ActionOutcome;
+use App\Module\Workflow\Contract\EpicBranches;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Messenger\EvaluateCard;
 use App\Module\Workflow\Service\EvaluationTrigger;
@@ -564,7 +564,7 @@ final class ForgeWriteTest extends KernelTestCase
         $action = new ForgeWrite(
             $this->service(CardRepository::class),
             new CardPullRequests($this->service(CardPullRequestRepository::class), $forgePullRequests),
-            $this->service(BoardAutomation::class),
+            $this->service(EpicBranches::class),
             new ForgePullRequestWrites(
                 new PullRequestMergers($registered),
                 new PullRequestBaseChangers($registered),

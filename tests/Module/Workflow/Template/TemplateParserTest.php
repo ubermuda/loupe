@@ -242,6 +242,49 @@ final class TemplateParserTest extends TestCase
         self::assertCount(5, $this->parser->parse($template)->rules);
     }
 
+    public function test_a_template_reads_its_epic_branch(): void
+    {
+        $template = $this->parser->parse(self::valid() + ['epicBranch' => 'feature/epic-{number}']);
+
+        self::assertSame('feature/epic-{number}', $template->epicBranch);
+        self::assertSame('feature/epic-42', $template->epicBranchOf(42));
+    }
+
+    public function test_a_template_with_no_epic_branch_has_none(): void
+    {
+        $template = $this->parser->parse(self::valid());
+
+        self::assertNull($template->epicBranch);
+        self::assertNull($template->epicBranchOf(42));
+    }
+
+    #[DataProvider('invalidEpicBranches')]
+    public function test_an_epic_branch_that_is_not_a_branch_name_with_one_placeholder_is_refused_and_a_stored_copy_has_none(mixed $value): void
+    {
+        $source = self::valid() + ['epicBranch' => $value];
+
+        try {
+            $this->parser->parse($source);
+            self::fail('The template should be refused.');
+        } catch (InvalidTemplate $e) {
+            self::assertContains('epicBranch: must be a Git branch name that holds the placeholder {number} exactly once', $e->errors);
+        }
+        self::assertNull($this->parser->parseStored($source)->epicBranch);
+    }
+
+    /** @return iterable<string, array{mixed}> */
+    public static function invalidEpicBranches(): iterable
+    {
+        yield 'blank' => [''];
+        yield 'no placeholder' => ['epic'];
+        yield 'two placeholders' => ['epic/{number}/{number}'];
+        yield 'a space' => ['epic /{number}'];
+        yield 'two dots' => ['epic..{number}'];
+        yield 'a slash at the end' => ['epic/{number}/'];
+        yield 'not a string' => [7];
+        yield 'too long' => [str_repeat('a', 250).'/{number}'];
+    }
+
     public function test_a_template_reads_the_retry_policy_for_a_refused_request(): void
     {
         self::assertNull($this->parser->parse(self::valid())->onWorkFailed);
