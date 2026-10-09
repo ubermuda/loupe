@@ -8,11 +8,11 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Command\ListCardsHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEventKind;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardGetHistoryTool;
 use App\Module\Board\Mcp\CardUpdateTool;
 use App\Module\Board\Repository\CardEventRepository;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
@@ -75,7 +75,7 @@ final class CardGetHistoryToolTest extends KernelTestCase
     {
         $this->actAsMcpTokenBoundTo($this->makeProject('card-history-automation'));
         $created = ($this->createTool)('Ship it', 'Body', 'feature');
-        $this->events()->record($this->card($created['cardId']), CardEventKind::FixRequested, CardReporter::System, null, ['reason' => 'checks failed', 'pullRequest' => 42], new \DateTimeImmutable('+1 minute'));
+        $this->events()->record($this->card($created['cardId']), CardEventKind::FixRequested, Actor::System, null, ['reason' => 'checks failed', 'pullRequest' => 42], new \DateTimeImmutable('+1 minute'));
         $this->em->flush();
 
         $event = ($this->tool)($created['cardId'])['events'][0];
@@ -91,7 +91,7 @@ final class CardGetHistoryToolTest extends KernelTestCase
     {
         $this->actAsMcpTokenBoundTo($this->makeProject('card-history-pause'));
         $created = ($this->createTool)('Ship it', 'Body', 'feature');
-        $this->events()->record($this->card($created['cardId']), CardEventKind::Paused, CardReporter::System, null, ['kind' => 'retries', 'reason' => 'review-failed', 'ruleId' => 'fix-on-review'], new \DateTimeImmutable('+1 minute'));
+        $this->events()->record($this->card($created['cardId']), CardEventKind::Paused, Actor::System, null, ['kind' => 'retries', 'reason' => 'review-failed', 'ruleId' => 'fix-on-review'], new \DateTimeImmutable('+1 minute'));
         $this->em->flush();
 
         [$paused, $creation] = ($this->tool)($created['cardId'])['events'];
@@ -107,7 +107,7 @@ final class CardGetHistoryToolTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($this->makeProject('card-history-run'));
         $created = ($this->createTool)('Ship it', 'Body', 'feature');
         $detail = ['outcome' => 'succeeded', 'stage' => 'implementation'];
-        $this->events()->record($this->card($created['cardId']), CardEventKind::RunFinished, CardReporter::System, null, $detail, new \DateTimeImmutable('+1 minute'));
+        $this->events()->record($this->card($created['cardId']), CardEventKind::RunFinished, Actor::System, null, $detail, new \DateTimeImmutable('+1 minute'));
         $this->em->flush();
 
         self::assertSame($detail, ($this->tool)($created['cardId'])['events'][0]['run']);
@@ -117,7 +117,7 @@ final class CardGetHistoryToolTest extends KernelTestCase
     {
         $this->actAsMcpTokenBoundTo($this->makeProject('card-history-malformed'));
         $created = ($this->createTool)('Ship it', 'Body', 'feature');
-        $this->events()->record($this->card($created['cardId']), CardEventKind::Moved, CardReporter::System, null, ['from' => 'backlog', 'to' => ['slug' => 'next'], 'cause' => 'merged', 'reason' => 7, 'pullRequest' => '42'], new \DateTimeImmutable('+1 minute'));
+        $this->events()->record($this->card($created['cardId']), CardEventKind::Moved, Actor::System, null, ['from' => 'backlog', 'to' => ['slug' => 'next'], 'cause' => 'merged', 'reason' => 7, 'pullRequest' => '42'], new \DateTimeImmutable('+1 minute'));
         $this->em->flush();
 
         $event = ($this->tool)($created['cardId'])['events'][0];

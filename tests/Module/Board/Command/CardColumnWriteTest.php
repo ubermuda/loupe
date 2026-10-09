@@ -13,8 +13,8 @@ use App\Module\Board\Command\MoveCardCommand;
 use App\Module\Board\Command\MoveCardHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -140,7 +140,7 @@ final class CardColumnWriteTest extends KernelTestCase
         $handler = self::getContainer()->get(MoveCardHandler::class);
         self::assertInstanceOf(MoveCardHandler::class, $handler);
 
-        $handler(new MoveCardCommand($card, CardReporter::Human, $this->column($board ?? $this->project, $slug)));
+        $handler(new MoveCardCommand($card, Actor::Human, $this->column($board ?? $this->project, $slug)));
     }
 
     /** The slug of the column on the raw row, so the identity map cannot answer with what the handler assigned. */

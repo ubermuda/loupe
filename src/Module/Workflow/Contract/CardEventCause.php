@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Board\Service;
+namespace App\Module\Workflow\Contract;
 
 use Symfony\Component\Uid\Uuid;
 

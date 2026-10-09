@@ -8,8 +8,8 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Forge\Event\PullRequestStateChanged;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use App\Module\Workflow\Service\EvaluationTrigger;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
@@ -42,7 +42,7 @@ final readonly class EvaluateCardsOnPullRequestStateChanged
         ) as $link) {
             $cards[] = $link->card;
         }
-        $types = $this->catalog->forProject($pullRequest->project);
+        $types = $this->catalog->forProject($pullRequest->project->requireId());
         $epics = array_values(array_filter($cards, static fn (Card $card): bool => $types->get($card->type)->children));
 
         $this->trigger->forCards(array_values(array_filter(

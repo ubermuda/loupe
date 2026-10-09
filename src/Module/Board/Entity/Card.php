@@ -6,9 +6,11 @@ namespace App\Module\Board\Entity;
 
 use App\Doctrine\SearchLanguage;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Board\Service\CardTypes;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardSnapshot;
+use App\Module\Workflow\Contract\CardTypes;
 use App\Security\ProjectScopedSubject;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -95,11 +97,11 @@ class Card implements ProjectScopedSubject
      * Null on a row an image without this column wrote, which is why nothing
      * reads it directly. Read $reporter instead.
      */
-    #[ORM\Column(name: 'reporter', length: 20, nullable: true, enumType: CardReporter::class)]
-    private ?CardReporter $storedReporter = null;
+    #[ORM\Column(name: 'reporter', length: 20, nullable: true, enumType: Actor::class)]
+    private ?Actor $storedReporter = null;
 
     /** Who raised the card, falling back to the column release 2 drops. */
-    public CardReporter $reporter {
+    public Actor $reporter {
         get => $this->storedReporter ?? $this->origin;
     }
 
@@ -149,8 +151,8 @@ class Card implements ProjectScopedSubject
         public string $type = 'feature',
 
         /** The column release 2 drops. Every write sets it, so an older image still reads the row. */
-        #[ORM\Column(length: 20, enumType: CardReporter::class)]
-        public readonly CardReporter $origin = CardReporter::Agent,
+        #[ORM\Column(length: 20, enumType: Actor::class)]
+        public readonly Actor $origin = Actor::Agent,
 
         /** Rank inside the card's column, counting from 0. A terminal column ignores it. */
         #[ORM\Column]
@@ -193,6 +195,21 @@ class Card implements ProjectScopedSubject
     public static function normalText(string $text): string
     {
         return trim(str_replace(["\r\n", "\r"], "\n", $text));
+    }
+
+    /** What the workflow reads about this card when it decides on a move. */
+    public function snapshot(): CardSnapshot
+    {
+        return new CardSnapshot(
+            $this->id ?? throw new \LogicException('A stored card has an id.'),
+            $this->project->id ?? throw new \LogicException('A stored project has an id.'),
+            $this->number,
+            $this->type,
+            $this->column->ref(),
+            $this->parent?->id,
+            $this->parent?->number,
+            $this->parent?->column->ref(),
+        );
     }
 
     /** Whether the board draws this card as a lane of its own. */

@@ -7,7 +7,6 @@ namespace App\Tests\Module\Board\EventListener;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEvent;
 use App\Module\Board\Entity\CardEventKind;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\EventListener\WriteCardEventOnRunFinished;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Bridge\Entity\WorkerRun;
@@ -17,6 +16,7 @@ use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -58,7 +58,7 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
         self::assertCount(1, $rows);
         $row = $rows[0];
         self::assertSame(CardEventKind::RunFinished, $row->kind);
-        self::assertSame(CardReporter::Agent, $row->actorKind);
+        self::assertSame(Actor::Agent, $row->actorKind);
         self::assertSame($this->project->owner->id?->toRfc4122(), $row->actorUser?->id?->toRfc4122());
         self::assertEquals(new \DateTimeImmutable('2026-09-30 10:02:05+00:00'), $row->occurredAt);
         $expected = [

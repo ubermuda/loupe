@@ -11,9 +11,9 @@ use App\Module\Board\Command\ListCardsHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEvent;
 use App\Module\Board\Entity\CardEventKind;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -123,7 +123,7 @@ final class ListCardEventsHandlerTest extends KernelTestCase
     {
         $other = new Card($this->card->project, $this->card->column, 'Other', '', 2);
         $this->em->persist($other);
-        $this->events->record($other, CardEventKind::Created, CardReporter::Agent, null, []);
+        $this->events->record($other, CardEventKind::Created, Actor::Agent, null, []);
         $mine = $this->record('2026-09-01T10:00:00+00:00');
         $this->em->flush();
 
@@ -135,7 +135,7 @@ final class ListCardEventsHandlerTest extends KernelTestCase
 
     private function record(string $at): CardEvent
     {
-        return $this->events->record($this->card, CardEventKind::Created, CardReporter::Agent, null, [], new \DateTimeImmutable($at));
+        return $this->events->record($this->card, CardEventKind::Created, Actor::Agent, null, [], new \DateTimeImmutable($at));
     }
 
     /**

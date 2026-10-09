@@ -8,6 +8,7 @@ use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Repository\CardDocumentRepository;
+use App\Module\Board\Repository\CardRepository;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
@@ -117,7 +118,7 @@ final class LinkDocumentTest extends KernelTestCase
         $card = $this->em()->find(Card::class, $card->id) ?? throw new \LogicException('The card exists.');
         $rule = $this->rule(ActionType::LinkDocument, ['from' => 'parent', 'tag' => 'tech-design'], 'unplanned-child');
 
-        return new LinkDocument($this->service(UpdateCardHandler::class))->run($rule, $card, $facts, $this->state($card, $rule->id));
+        return new LinkDocument($this->service(CardRepository::class), $this->service(UpdateCardHandler::class))->run($rule, $card->snapshot(), $facts, $this->state($card, $rule->id));
     }
 
     /** @return list<string> */

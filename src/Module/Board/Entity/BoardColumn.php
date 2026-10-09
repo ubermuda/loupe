@@ -6,6 +6,8 @@ namespace App\Module\Board\Entity;
 
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\ColumnRef;
+use App\Module\Workflow\Contract\LabelTone;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
@@ -61,5 +63,10 @@ class BoardColumn
         #[ORM\Column(length: 20, enumType: LabelTone::class, options: ['default' => 'neutral'])]
         public LabelTone $tone = LabelTone::Neutral,
     ) {
+    }
+
+    public function ref(): ColumnRef
+    {
+        return new ColumnRef($this->id ?? throw new \LogicException('A stored column has an id.'), $this->backlog, $this->terminal);
     }
 }

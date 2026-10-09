@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Mcp;
 
 use App\Module\Board\Entity\BoardColumn;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Mcp\AgentRunCause;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardPayload;
@@ -14,6 +13,7 @@ use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkSubject;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\CardMovedOutbox;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
@@ -103,11 +103,11 @@ final class CardUpdateToolTest extends KernelTestCase
     public function test_reporter_cannot_be_changed(): void
     {
         $created = $this->card('card-update-reporter');
-        self::assertSame(CardReporter::Agent->value, $created['reporter']);
+        self::assertSame(Actor::Agent->value, $created['reporter']);
 
         $card = ($this->tool)($created['cardId'], title: 'Renamed');
 
-        self::assertSame(CardReporter::Agent->value, $card['reporter']);
+        self::assertSame(Actor::Agent->value, $card['reporter']);
         self::assertArrayNotHasKey('reporter', $this->publishedParameters());
     }
 
@@ -135,7 +135,7 @@ final class CardUpdateToolTest extends KernelTestCase
 
         $payload = CardMovedOutbox::onlyPayload(self::getContainer(), $project);
         self::assertSame($created['cardId'], $payload['subject']['id'] ?? null);
-        self::assertSame(CardReporter::Agent->value, $payload['actor'] ?? null);
+        self::assertSame(Actor::Agent->value, $payload['actor'] ?? null);
     }
 
     public function test_a_move_with_the_session_header_names_the_worker_run(): void

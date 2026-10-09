@@ -14,10 +14,10 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardGroupOrder;
 use App\Module\Board\Service\CardParentPolicy;
-use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Board\Service\PullRequestTracking;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\InteractiveRuns;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -78,7 +78,7 @@ final readonly class DeleteCardHandler
 
             $this->cards->refreshTypeAndParent($card);
             $parent = $card->parent;
-            $drawsLane = $card->drawsLane($this->catalog->forProject($card->project));
+            $drawsLane = $card->drawsLane($this->catalog->forProject($card->project->requireId()));
 
             // Inside the transaction, so the delete and the renumbering it
             // causes commit together or not at all.

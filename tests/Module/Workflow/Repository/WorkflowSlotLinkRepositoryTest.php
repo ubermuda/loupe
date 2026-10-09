@@ -22,8 +22,8 @@ final class WorkflowSlotLinkRepositoryTest extends KernelTestCase
         $this->bindLifecycle($other);
         $repository = $this->repository();
 
-        self::assertSame('implementation', $repository->findSlotKeyForColumn($project, $this->column($project, 'in-progress')));
-        self::assertSame((string) $this->column($project, 'tech-design')->id, (string) $repository->findColumnForSlot($project, 'tech-design')?->id);
+        self::assertSame('implementation', $repository->findSlotKeyForColumn($project, $this->column($project, 'in-progress')->ref()));
+        self::assertSame((string) $this->column($project, 'tech-design')->id, (string) $repository->findColumnIdForSlot($project, 'tech-design'));
     }
 
     public function test_an_unlinked_column_and_an_unknown_slot_give_null(): void
@@ -35,12 +35,12 @@ final class WorkflowSlotLinkRepositoryTest extends KernelTestCase
         $this->bindLifecycle($other);
         $repository = $this->repository();
 
-        self::assertNull($repository->findSlotKeyForColumn($project, $this->column($project, 'done')));
-        self::assertNull($repository->findSlotKeyForColumn($project, $this->column($other, 'in-progress')));
-        self::assertNull($repository->findColumnForSlot($project, 'no-such-slot'));
+        self::assertNull($repository->findSlotKeyForColumn($project, $this->column($project, 'done')->ref()));
+        self::assertNull($repository->findSlotKeyForColumn($project, $this->column($other, 'in-progress')->ref()));
+        self::assertNull($repository->findColumnIdForSlot($project, 'no-such-slot'));
     }
 
-    public function test_the_columns_by_slot_are_the_project_s_own_and_arrive_loaded(): void
+    public function test_the_columns_by_slot_are_the_project_s_own(): void
     {
         self::bootKernel();
         $project = $this->workflowProject('slot-link-all');
@@ -62,8 +62,7 @@ final class WorkflowSlotLinkRepositoryTest extends KernelTestCase
         self::assertNull($columns['tech-design']);
         self::assertSame('in-progress', $columns['implementation']?->slug);
         foreach (array_filter($columns) as $column) {
-            self::assertFalse($this->em()->getUnitOfWork()->isUninitializedObject($column));
-            self::assertSame((string) $project->id, (string) $column->project->id);
+            self::assertSame((string) $project->id, (string) $column->projectId);
         }
     }
 

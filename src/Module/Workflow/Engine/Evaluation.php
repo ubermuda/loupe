@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Engine;
 
-use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPause;
+use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\PauseView;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Template\Rule;
 use App\Module\Workflow\Template\Template;
@@ -14,11 +15,11 @@ use App\Module\Workflow\Template\Template;
 /** What one evaluation of one card reads and collects. The engine alone uses it. */
 final class Evaluation
 {
-    /** @var list<CardPause> the pauses this evaluation applied */
+    /** @var list<PauseView> the pauses this evaluation applied */
     public array $pauses = [];
 
     /** The pause that holds the card while only release rules run. */
-    public ?CardPause $holdingPause = null;
+    public ?PauseView $holdingPause = null;
 
     /** True when the pass recorded a baseline instead of running the rules. */
     public bool $baselined = false;
@@ -34,7 +35,8 @@ final class Evaluation
 
     /** @param array<string, WorkflowRuleState> $states keyed by rule id */
     public function __construct(
-        public readonly Card $card,
+        public readonly CardSnapshot $card,
+        public readonly Project $project,
         public readonly Template $template,
         public Facts $facts,
         public array $states,

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Service;
 
 use App\Module\Account\Entity\User;
-use App\Module\Board\Entity\CardReporter;
+use App\Module\Workflow\Contract\Actor;
 use Symfony\Bundle\SecurityBundle\Security;
 
 /** The account a history row names beside its actor kind. */
@@ -17,9 +17,9 @@ final readonly class CardEventActor
     }
 
     /** A reviewer and the app act as no account, whoever holds the session. */
-    public function userFor(CardReporter $actor): ?User
+    public function userFor(Actor $actor): ?User
     {
-        if (CardReporter::Human !== $actor && CardReporter::Agent !== $actor) {
+        if (Actor::Human !== $actor && Actor::Agent !== $actor) {
             return null;
         }
         $user = $this->security->getUser();

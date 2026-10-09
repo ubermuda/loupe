@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Repository;
 
-use App\Module\Board\Entity\Card;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -66,10 +65,10 @@ class WorkflowRuleStateRepository extends ServiceEntityRepository
     }
 
     /** @return array<string, WorkflowRuleState> keyed by rule id */
-    public function findForCard(Card $card): array
+    public function findForCard(Uuid $cardId): array
     {
         $states = [];
-        foreach ($this->findBy(['cardId' => $card->id]) as $state) {
+        foreach ($this->findBy(['cardId' => $cardId]) as $state) {
             $states[$state->ruleId] = $state;
         }
 

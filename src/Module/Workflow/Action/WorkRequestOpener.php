@@ -7,10 +7,12 @@ namespace App\Module\Workflow\Action;
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardPullRequestRepository;
+use App\Module\Board\Repository\CardRepository;
 use App\Module\Bridge\Command\OpenWorkRequestCommand;
 use App\Module\Bridge\Command\OpenWorkRequestHandler;
 use App\Module\Bridge\ValueObject\WorkRequestContext;
 use App\Module\Bridge\ValueObject\WorkSubject;
+use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Contract\DocumentFacts;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Service\CardPullRequests;
@@ -27,6 +29,7 @@ final readonly class WorkRequestOpener
 {
     public function __construct(
         private OpenWorkRequestHandler $openWorkRequest,
+        private CardRepository $cards,
         private CardPullRequests $trackedPullRequests,
         private CardPullRequestRepository $cardPullRequests,
         private AppRules $appRules,
@@ -34,8 +37,9 @@ final readonly class WorkRequestOpener
     }
 
     /** A given reason replaces the fix reason of the pull request in the context. */
-    public function open(Rule $rule, Card $card, Facts $facts, string $kind, ?string $capability, ?string $reason = null): ActionOutcome
+    public function open(Rule $rule, CardSnapshot $snapshot, Facts $facts, string $kind, ?string $capability, ?string $reason = null): ActionOutcome
     {
+        $card = $this->cards->find($snapshot->id) ?? throw new \LogicException('A stored card has an id.');
         $documentId = null;
         $tag = ActionParams::optionalString($rule, TemplateParser::DOCUMENT_TAG);
         if (null !== $tag) {

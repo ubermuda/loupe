@@ -7,7 +7,6 @@ namespace App\Tests\Module\Board\EventListener;
 use App\Module\Board\Command\DeleteCardCommand;
 use App\Module\Board\Command\DeleteCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\BoardColumnDeleted;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardDeleted;
@@ -15,6 +14,7 @@ use App\Module\Board\EventListener\ForgetWorkflowRowsOnBoardColumnDeleted;
 use App\Module\Board\EventListener\ForgetWorkflowRowsOnCardDeleted;
 use App\Module\Board\EventListener\SweepWorkflowRowsOnCardDeleted;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Entity\WorkflowPendingBaseline;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Tests\Module\Workflow\WorkflowProjects;
@@ -69,7 +69,7 @@ final class ForgetWorkflowRowsTest extends KernelTestCase
         $delete = self::getContainer()->get(DeleteCardHandler::class);
         self::assertInstanceOf(DeleteCardHandler::class, $delete);
 
-        $delete(new DeleteCardCommand($gone, CardReporter::Human));
+        $delete(new DeleteCardCommand($gone, Actor::Human));
 
         self::assertSame([0, 0], $this->cardRowCounts($goneId));
         self::assertSame([1, 1], $this->cardRowCounts($kept));
@@ -85,7 +85,7 @@ final class ForgetWorkflowRowsTest extends KernelTestCase
 
         $listener = self::getContainer()->get(ForgetWorkflowRowsOnBoardColumnDeleted::class);
         self::assertInstanceOf(ForgetWorkflowRowsOnBoardColumnDeleted::class, $listener);
-        $listener(new BoardColumnDeleted($project, $columnId, 'tech-design', null, [], CardReporter::Human, false, false));
+        $listener(new BoardColumnDeleted($project, $columnId, 'tech-design', null, [], Actor::Human, false, false));
 
         $connection = $this->em()->getConnection();
         self::assertSame(1, (int) $connection->fetchOne('SELECT COUNT(*) FROM workflow_slot_links WHERE project_id = :id AND slot_key = :slot AND column_id IS NULL', ['id' => (string) $project->id, 'slot' => 'tech-design']));

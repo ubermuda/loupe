@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Workflow\Mcp;
+namespace App\Tests\Module\Board\Mcp;
 
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
@@ -10,14 +10,14 @@ use App\Module\Board\Command\PauseCardCommand;
 use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
-use App\Module\Board\Entity\CardPauseKind;
-use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Mcp\CardPauseReleaseTool;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Mcp\AdvertisedTools;
-use App\Module\Workflow\Mcp\CardPauseReleaseTool;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Tests\Module\Workflow\WorkflowProjects;
 use App\Tests\Support\McpTokenScenario;
 use Mcp\Capability\Registry;
@@ -45,7 +45,7 @@ final class CardPauseReleaseToolTest extends KernelTestCase
     public function test_a_release_by_number_ends_the_pause_and_names_the_agent(): void
     {
         $card = $this->card($this->project);
-        $this->pause($card, CardPauseKind::Retries);
+        $this->pause($card, PauseKind::Retries);
 
         $result = $this->tool()(number: $card->number);
 
@@ -66,7 +66,7 @@ final class CardPauseReleaseToolTest extends KernelTestCase
     public function test_a_release_by_card_id_with_the_active_pause_id_ends_the_pause(): void
     {
         $card = $this->card($this->project);
-        $pause = $this->pause($card, CardPauseKind::WorkLimit);
+        $pause = $this->pause($card, PauseKind::WorkLimit);
 
         $result = $this->tool()((string) $card->id, pauseId: (string) $pause->id);
 
@@ -89,7 +89,7 @@ final class CardPauseReleaseToolTest extends KernelTestCase
     public function test_a_held_card_is_refused_as_unmanaged(): void
     {
         $card = $this->card($this->project);
-        $this->pause($card, CardPauseKind::Retries);
+        $this->pause($card, PauseKind::Retries);
         $this->service(CardHolds::class)->hold($this->project, $card->id ?? throw new \LogicException('A created card has an id.'), null);
 
         self::assertSame('card-unmanaged', $this->tool()((string) $card->id)['code'] ?? null);
@@ -98,7 +98,7 @@ final class CardPauseReleaseToolTest extends KernelTestCase
     public function test_a_card_whose_automation_is_off_is_refused_as_unmanaged(): void
     {
         $card = $this->card($this->project);
-        $this->pause($card, CardPauseKind::Retries);
+        $this->pause($card, PauseKind::Retries);
         $this->service(BoardAutomation::class)->settingsForUpdate($this->project)->enabled = false;
         $this->em()->flush();
 
@@ -108,7 +108,7 @@ final class CardPauseReleaseToolTest extends KernelTestCase
     public function test_a_pause_id_that_is_not_the_active_pause_is_refused_as_changed(): void
     {
         $card = $this->card($this->project);
-        $this->pause($card, CardPauseKind::Retries);
+        $this->pause($card, PauseKind::Retries);
 
         self::assertSame('pause-changed', $this->tool()((string) $card->id, pauseId: (string) Uuid::v7())['code'] ?? null);
         self::assertNotNull($this->service(CardPauseRepository::class)->findActiveForCard($card));
@@ -117,7 +117,7 @@ final class CardPauseReleaseToolTest extends KernelTestCase
     public function test_a_rule_pause_is_refused_as_not_releasable(): void
     {
         $card = $this->card($this->project);
-        $this->pause($card, CardPauseKind::Rule);
+        $this->pause($card, PauseKind::Rule);
 
         self::assertSame('kind-not-releasable', $this->tool()((string) $card->id)['code'] ?? null);
         self::assertNotNull($this->service(CardPauseRepository::class)->findActiveForCard($card));
@@ -146,7 +146,7 @@ final class CardPauseReleaseToolTest extends KernelTestCase
         $other = $this->workflowProject('mcp-pause-release-other');
         $this->bindLifecycle($other);
         $foreign = $this->card($other);
-        $this->pause($foreign, CardPauseKind::Retries);
+        $this->pause($foreign, PauseKind::Retries);
 
         self::assertSame('not-found', $this->tool()((string) $foreign->id)['code'] ?? null);
         self::assertNotNull($this->service(CardPauseRepository::class)->findActiveForCard($foreign));
@@ -155,7 +155,7 @@ final class CardPauseReleaseToolTest extends KernelTestCase
     public function test_a_malformed_pause_id_is_refused(): void
     {
         $card = $this->card($this->project);
-        $this->pause($card, CardPauseKind::Retries);
+        $this->pause($card, PauseKind::Retries);
 
         try {
             $this->tool()((string) $card->id, pauseId: 'pause-1');
@@ -210,11 +210,11 @@ final class CardPauseReleaseToolTest extends KernelTestCase
             body: 'Body',
             type: 'feature',
             column: $this->column($project, 'tech-design'),
-            reporter: CardReporter::Human,
+            reporter: Actor::Human,
         ));
     }
 
-    private function pause(Card $card, CardPauseKind $kind): CardPause
+    private function pause(Card $card, PauseKind $kind): CardPause
     {
         return $this->service(PauseCardHandler::class)(new PauseCardCommand($card, 'move-refused', 'tech-design-write', $kind))
             ?? throw new \LogicException('The card had no pause.');

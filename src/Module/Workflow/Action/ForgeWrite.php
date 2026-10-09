@@ -9,10 +9,8 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
-use App\Module\Board\Service\CardEventCause;
-use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
@@ -22,6 +20,10 @@ use App\Module\Forge\Service\PullRequestOpeners;
 use App\Module\Forge\Service\PullRequestStateWriters;
 use App\Module\Forge\Service\PullRequestSyncFailed;
 use App\Module\Forge\Service\PullRequestWriteFailed;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardEventCause;
+use App\Module\Workflow\Contract\CardSnapshot;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Service\CardPullRequests;
@@ -42,6 +44,7 @@ final readonly class ForgeWrite implements Action
     public const string OPEN_EPIC_OFF = 'open-epic-off';
 
     public function __construct(
+        private CardRepository $cards,
         private CardPullRequests $cardPullRequests,
         private BoardAutomation $boardAutomation,
         private ForgePullRequestWrites $forgePullRequestWrites,
@@ -66,12 +69,13 @@ final readonly class ForgeWrite implements Action
     }
 
     #[\Override]
-    public function run(Rule $rule, Card $card, Facts $facts, WorkflowRuleState $state): ActionOutcome
+    public function run(Rule $rule, CardSnapshot $snapshot, Facts $facts, WorkflowRuleState $state): ActionOutcome
     {
+        $card = $this->cards->find($snapshot->id) ?? throw new \LogicException('A stored card has an id.');
         $write = ForgeWriteKind::tryFrom(ActionParams::string($rule, 'write'))
             ?? throw new \LogicException(\sprintf('The rule "%s" names an unknown forge write.', $rule->id));
         $fallbackKind = ActionParams::optionalString($rule, 'fallback');
-        $fallback = fn (): ActionOutcome => null === $fallbackKind ? ActionOutcome::done() : $this->opener->open($rule, $card, $facts, $fallbackKind, null);
+        $fallback = fn (): ActionOutcome => null === $fallbackKind ? ActionOutcome::done() : $this->opener->open($rule, $snapshot, $facts, $fallbackKind, null);
 
         $pullRequests = $this->cardPullRequests->forCard($card);
         if (ForgeWriteKind::OpenEpic === $write) {
@@ -131,7 +135,7 @@ final readonly class ForgeWrite implements Action
     {
         $settings = $this->boardAutomation->settingsOf($card->project);
         $epicBranch = $settings->epicBranchOf($card->number);
-        if (!$this->catalog->forProject($card->project)->get($card->type)->children || null === $epicBranch) {
+        if (!$this->catalog->forProject($card->project->requireId())->get($card->type)->children || null === $epicBranch) {
             return ActionOutcome::done();
         }
         // A refusal waits, and turning the write on re-arms it. A done rule never fires again.
@@ -173,7 +177,7 @@ final readonly class ForgeWrite implements Action
         try {
             ($this->updateCard)(new UpdateCardCommand(
                 card: $card,
-                actor: CardReporter::System,
+                actor: Actor::System,
                 pullRequestUrls: [...$this->cardPullRequests->currentUrls($card), $opener->url($child, $number)],
                 cause: CardEventCause::workflowRule($rule->id),
             ));

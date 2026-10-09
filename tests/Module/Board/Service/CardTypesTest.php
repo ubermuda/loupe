@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Service;
 
-use App\Module\Board\Entity\LabelTone;
-use App\Module\Board\Service\CardTypeDefinition;
-use App\Module\Board\Service\CardTypes;
+use App\Module\Workflow\Contract\CardTypeDefinition;
+use App\Module\Workflow\Contract\CardTypes;
+use App\Module\Workflow\Contract\LabelTone;
 use PHPUnit\Framework\TestCase;
 
 final class CardTypesTest extends TestCase

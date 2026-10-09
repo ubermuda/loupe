@@ -8,6 +8,7 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Context\ContextLabel;
 use App\Module\SiteReview\Context\ContextLabelResolverInterface;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Uid\Uuid;
 
@@ -57,7 +58,7 @@ final readonly class CardContextLabelResolver implements ContextLabelResolverInt
         if (null === $card || $card->project->id != $project->id || $card->column->terminal) {
             return null;
         }
-        if ($epic && !$this->catalog->forProject($project)->get($card->type)->children) {
+        if ($epic && !$this->catalog->forProject($project->requireId())->get($card->type)->children) {
             return null;
         }
 

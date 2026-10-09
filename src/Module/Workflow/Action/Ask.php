@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Action;
 
-use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPauseKind;
+use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Contract\RuleAsks;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Template\ActionType;
@@ -40,17 +40,17 @@ final readonly class Ask implements Action
     }
 
     #[\Override]
-    public function run(Rule $rule, Card $card, Facts $facts, WorkflowRuleState $state): ActionOutcome
+    public function run(Rule $rule, CardSnapshot $card, Facts $facts, WorkflowRuleState $state): ActionOutcome
     {
-        $projectId = $card->project->id ?? throw new \LogicException('A stored card has a project id.');
+        $projectId = $card->projectId;
         if (!$this->asks->isOn($projectId)) {
-            return ActionOutcome::pause(CardPauseKind::Rule, self::INBOX_OFF);
+            return ActionOutcome::pause(PauseKind::Rule, self::INBOX_OFF);
         }
 
-        $parameters = ['%child%' => $card->number, '%epic%' => $card->parent->number ?? ''];
+        $parameters = ['%child%' => $card->number, '%epic%' => $card->parentNumber ?? ''];
         $state->askItemId = $this->asks->open(
             $projectId,
-            $card->id ?? throw new \LogicException('A stored card has an id.'),
+            $card->id,
             $rule->id,
             $this->translator->trans(ActionParams::string($rule, 'question'), $parameters, null, $this->locale),
             array_map(

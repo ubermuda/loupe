@@ -4,31 +4,27 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Engine;
 
-use App\Module\Board\Command\PauseCardCommand;
-use App\Module\Board\Command\PauseCardHandler;
-use App\Module\Board\Command\ReleaseCardPauseCommand;
-use App\Module\Board\Command\ReleaseCardPauseHandler;
-use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardEventKind;
-use App\Module\Board\Entity\CardPause;
-use App\Module\Board\Entity\CardPauseKind;
-use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Repository\CardEventRepository;
-use App\Module\Board\Repository\CardPauseRepository;
-use App\Module\Board\Repository\CardRepository;
 use App\Module\Bridge\Command\WithdrawWorkRequestCommand;
 use App\Module\Bridge\Command\WithdrawWorkRequestHandler;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Project\Entity\Project;
+use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\ActionOutcomeKind;
 use App\Module\Workflow\Action\ActionParams;
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Action\WorkRequestOpener;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardDirectory;
+use App\Module\Workflow\Contract\CardPauses;
+use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\PauseKind;
+use App\Module\Workflow\Contract\PauseView;
 use App\Module\Workflow\Contract\RuleAsks;
 use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
@@ -68,7 +64,8 @@ final readonly class Engine
 
     public function __construct(
         private EntityManagerInterface $em,
-        private CardRepository $cards,
+        private CardDirectory $cards,
+        private ProjectRepository $projects,
         private TemplateSource $templates,
         private FactsBuilder $factsBuilder,
         private FactFingerprint $fingerprint,
@@ -78,11 +75,8 @@ final readonly class Engine
         private WorkflowPendingBaselineRepository $workflowPendingBaselines,
         private WorkRequestRepository $workRequests,
         private WorkerRunRepository $workerRuns,
-        private CardEventRepository $cardEvents,
         private WithdrawWorkRequestHandler $withdrawWorkRequest,
-        private CardPauseRepository $cardPauses,
-        private PauseCardHandler $pauseCard,
-        private ReleaseCardPauseHandler $releaseCardPause,
+        private CardPauses $cardPauses,
         private Actions $actions,
         private WorkRequestOpener $opener,
         private RuleSubject $ruleSubject,
@@ -106,7 +100,7 @@ final readonly class Engine
 
         foreach ($run->pauses as $pause) {
             $this->events->dispatch(new CardPaused(
-                $pause->project->id ?? throw new \LogicException('A persisted project has an id.'),
+                $pause->projectId,
                 $cardId,
                 $pause->reason,
                 $pause->kind,
@@ -123,27 +117,27 @@ final readonly class Engine
         // and a FOR UPDATE on that row would deadlock against a claim or a settle.
         $this->workflowRuleStates->lockCard($cardId);
         $card = $this->cards->find($cardId);
+        $project = null === $card ? null : $this->projects->find($card->projectId);
         // A held card is unmanaged: settling its requests would cancel or expire them.
-        if (null === $card || $this->cardHolds->isHeld($card->project, $cardId)) {
+        if (null === $card || null === $project || $this->cardHolds->isHeld($project, $cardId)) {
             return null;
         }
         // The mark makes the first pass after the automation is on again quiet.
-        if (!$this->automation->runsFor($card->project)) {
-            $this->workflowPendingBaselines->markCards($card->project->id ?? throw new \LogicException('A persisted project has an id.'), [$cardId]);
+        if (!$this->automation->runsFor($project)) {
+            $this->workflowPendingBaselines->markCards($card->projectId, [$cardId]);
 
             return null;
         }
         $baseline = $this->workflowPendingBaselines->consume($cardId);
-        $this->cards->refreshColumn($card);
-        $this->cards->refreshTypeAndParent($card);
+        $card = $this->cards->refresh($cardId) ?? throw new \LogicException('A card stays stored for the pass.');
 
         try {
-            $template = $this->templates->forProject($card->project->id ?? throw new \LogicException('A persisted project has an id.'));
+            $template = $this->templates->forProject($card->projectId);
         } catch (TemplateMissing) {
             return null;
         }
 
-        $run = new Evaluation($card, $template, $this->facts($card, $now), $this->workflowRuleStates->findForCard($card), $now);
+        $run = new Evaluation($card, $project, $template, $this->facts($card, $now), $this->workflowRuleStates->findForCard($cardId), $now);
         $this->logMissingProviders($run);
         if ($baseline) {
             $this->settleWorkRequests($run, $cardId, expire: false);
@@ -222,7 +216,7 @@ final readonly class Engine
     {
         $policy = $run->template->onWorkFailed;
         // A second pause is refused, so a refusal waits until the active pause ends.
-        if (null === $policy || null !== $this->cardPauses->findActiveForCard($run->card)) {
+        if (null === $policy || null !== $this->cardPauses->findActive($run->card->id)) {
             return;
         }
         foreach ($run->template->rules as $rule) {
@@ -274,7 +268,7 @@ final readonly class Engine
                 $this->write($run, $state, function (WorkflowRuleState $state) use ($run, $rule): void {
                     $state->lastRefusal = self::REPAIR_FAILED;
                     $state->lastRefusalAt = $run->now;
-                    $this->pause($run, CardPauseKind::Retries, self::REPAIR_FAILED, $rule->id);
+                    $this->pause($run, PauseKind::Retries, self::REPAIR_FAILED, $rule->id);
                 });
                 continue;
             }
@@ -291,8 +285,8 @@ final readonly class Engine
     private function readResumedRun(Evaluation $run): void
     {
         $policy = $run->template->onWorkFailed;
-        $cardId = $run->card->id ?? throw new \LogicException('A persisted card has an id.');
-        $pause = $this->cardPauses->findLatestForCard($run->card);
+        $cardId = $run->card->id;
+        $pause = $this->cardPauses->findLatest($cardId);
         if (null === $policy || $run->ended || null === $pause || self::RUN_RESUMED !== $pause->releaseReason) {
             return;
         }
@@ -316,7 +310,7 @@ final readonly class Engine
         $state->lastRefusal = $code;
         $state->lastRefusalAt = $run->now;
         if (!$policy->retries($code)) {
-            $this->pause($run, CardPauseKind::WorkStopped, $code, $rule->id);
+            $this->pause($run, PauseKind::WorkStopped, $code, $rule->id);
 
             return;
         }
@@ -332,14 +326,14 @@ final readonly class Engine
                     $state->workRequestId = $outcome->requestId;
                     $state->repaired = true;
                     $run->repairing[$rule->id] = true;
-                    $this->logger->info('workflow.repair_requested', ['cardId' => $run->card->id?->toRfc4122(), 'ruleId' => $rule->id, 'code' => $code]);
+                    $this->logger->info('workflow.repair_requested', ['cardId' => $run->card->id->toRfc4122(), 'ruleId' => $rule->id, 'code' => $code]);
                     // The rules after this one read the new request.
                     $run->facts = $this->facts($run->card, $run->now, $run->facts);
 
                     return;
                 }
             }
-            $this->pause($run, CardPauseKind::Retries, $code, $rule->id);
+            $this->pause($run, PauseKind::Retries, $code, $rule->id);
 
             return;
         }
@@ -370,7 +364,7 @@ final readonly class Engine
                 $state = $run->states[$rule->id] ?? null;
                 $repair = null !== $state && $state->repaired && null !== $state->workRequestId && $state->workRequestId->equals($requestId);
                 if ($repair || 'expire' !== ActionParams::optionalString($rule, 'onTimeout')) {
-                    $this->pause($run, CardPauseKind::WorkTimeout, self::NO_BRIDGE_TOOK_WORK, $rule->id);
+                    $this->pause($run, PauseKind::WorkTimeout, self::NO_BRIDGE_TOOK_WORK, $rule->id);
                 }
             }
         }
@@ -384,7 +378,7 @@ final readonly class Engine
     /** Releases the active pause when its condition is met. Answers whether the card stays paused. */
     private function stillPaused(Evaluation $run): bool
     {
-        $pause = $this->cardPauses->findActiveForCard($run->card);
+        $pause = $this->cardPauses->findActive($run->card->id);
         if (null === $pause) {
             return false;
         }
@@ -395,15 +389,11 @@ final readonly class Engine
             return true;
         }
 
-        ($this->releaseCardPause)(new ReleaseCardPauseCommand($pause, $code));
+        $released = $this->cardPauses->release($pause, $code) ?? $this->cardPauses->findLatest($run->card->id) ?? $pause;
         $rule = $run->rule($pause->ruleId);
         if (self::RUN_RESUMED === $code && null !== $rule) {
             $this->keepQuiet($run, $rule);
-            $this->cardEvents->record($run->card, CardEventKind::PauseReleased, CardReporter::System, null, [
-                'kind' => $pause->kind->value,
-                'reason' => $pause->reason,
-                'ruleId' => $pause->ruleId,
-            ], $pause->releasedAt);
+            $this->cardPauses->recordReleased($released, Actor::System, null);
         }
         if (self::REFILLED === $code && null !== $rule) {
             $this->write($run, $this->state($run, $rule), static function (WorkflowRuleState $state): void {
@@ -429,14 +419,14 @@ final readonly class Engine
      * Whether a worker ran or runs again on an earlier run since the pause began, which a person or a closed ask started.
      * A short run can end before the evaluation, so the run counts open or ended. A run that a person stopped does not count.
      */
-    private function resumed(Evaluation $run, CardPause $pause): bool
+    private function resumed(Evaluation $run, PauseView $pause): bool
     {
         $rule = $run->rule($pause->ruleId);
         if (null === $rule || !$run->applies($rule) || !\in_array($pause->kind, ReleaseWorkflowPauseCommand::RELEASABLE_KINDS, true)) {
             return false;
         }
 
-        return null !== $this->workerRuns->findLatestContinuationOfCard($run->card->id ?? throw new \LogicException('A persisted card has an id.'), $pause->createdAt, $pause->ruleId);
+        return null !== $this->workerRuns->findLatestContinuationOfCard($run->card->id, $pause->createdAt, $pause->ruleId);
     }
 
     /**
@@ -463,12 +453,12 @@ final readonly class Engine
     {
         $this->runRules($run, array_filter($run->template->rules, static fn (Rule $rule): bool => ActionType::Release === $rule->then->type));
 
-        $run->holdingPause = $this->cardPauses->findActiveForCard($run->card);
+        $run->holdingPause = $this->cardPauses->findActive($run->card->id);
 
         return null === $run->holdingPause;
     }
 
-    private function releaseCode(Evaluation $run, CardPause $pause): ?string
+    private function releaseCode(Evaluation $run, PauseView $pause): ?string
     {
         $rule = $run->rule($pause->ruleId);
         if (null === $rule) {
@@ -477,18 +467,18 @@ final readonly class Engine
         $applies = $run->applies($rule);
         $bound = $this->ruleSubject->bind($rule, $run->facts);
         $stored = ($run->states[$rule->id] ?? null)?->subjectPullRequestId;
-        if (CardPauseKind::Rule !== $pause->kind && $applies && $bound->binds && $bound->truth
+        if (PauseKind::Rule !== $pause->kind && $applies && $bound->binds && $bound->truth
             && null !== $stored && null !== $bound->subject && !$stored->equals($bound->subject)) {
             return self::SUBJECT_CHANGED;
         }
 
         return match ($pause->kind) {
-            CardPauseKind::Rule => match (true) {
+            PauseKind::Rule => match (true) {
                 ActionType::Ask === $rule->then->type => match (true) {
                     !$applies => 'facts-changed',
                     null !== $rule->when->unreadable($run->facts) => null,
                     !$bound->truth => 'facts-changed',
-                    $this->ruleAsks->isOn($run->card->project->id ?? throw new \LogicException('A persisted project has an id.')) => 'inbox-on',
+                    $this->ruleAsks->isOn($run->card->projectId) => 'inbox-on',
                     default => null,
                 },
                 null === $rule->then->until => 'rule-removed',
@@ -496,12 +486,12 @@ final readonly class Engine
                 $rule->then->until->evaluate($this->ruleSubject->paused($rule, $run->facts, $stored)) => 'until-met',
                 default => null,
             },
-            CardPauseKind::WorkLimit => match (true) {
+            PauseKind::WorkLimit => match (true) {
                 !$applies => 'left-slot',
                 $this->refills($run, $rule, $stored) => self::REFILLED,
                 default => null,
             },
-            CardPauseKind::Retries, CardPauseKind::WorkTimeout, CardPauseKind::WorkStopped => match (true) {
+            PauseKind::Retries, PauseKind::WorkTimeout, PauseKind::WorkStopped => match (true) {
                 !$applies => 'facts-changed',
                 null !== $rule->when->unreadable($run->facts) => null,
                 !$bound->truth,
@@ -606,7 +596,8 @@ final readonly class Engine
             $state->repaired = $repairedBefore;
         }
         $run->fired[] = ['rule' => $rule->id, 'outcome' => $outcome->kind->value, 'code' => $outcome->code];
-        if (null !== $run->holdingPause?->releasedAt) {
+        // An action can release the pause that holds the card, and the view of it is a copy.
+        if (null !== $run->holdingPause && null === $this->cardPauses->findActive($run->card->id)) {
             $run->holdingPause = null;
         }
 
@@ -646,7 +637,7 @@ final readonly class Engine
                     return true;
                 }
                 $state->dueAt = null;
-                $this->pause($run, CardPauseKind::Retries, $code, $rule->id);
+                $this->pause($run, PauseKind::Retries, $code, $rule->id);
 
                 return false;
             case ActionOutcomeKind::Pause:
@@ -666,14 +657,14 @@ final readonly class Engine
     }
 
     /** Logs each source that failed, unless it had already failed in the previous build of this evaluation. A source that is off is not an error. */
-    private function facts(Card $card, \DateTimeImmutable $now, ?Facts $previous = null): Facts
+    private function facts(CardSnapshot $card, \DateTimeImmutable $now, ?Facts $previous = null): Facts
     {
         $facts = $this->factsBuilder->build($card, $now);
         foreach ($facts->provided as $class => $provided) {
             if ($provided instanceof Unreadable && UnreadableKind::Failed === $provided->kind
                 && UnreadableKind::Failed !== $previous?->unreadable($class)?->kind) {
                 $this->logger->error('workflow.fact_source_failed', [
-                    'cardId' => $card->id?->toRfc4122(),
+                    'cardId' => $card->id->toRfc4122(),
                     'source' => $provided->source,
                     'exception' => $provided->cause,
                 ]);
@@ -710,7 +701,7 @@ final readonly class Engine
             }
         }
         foreach (array_keys($missing) as $class) {
-            $this->logger->error('workflow.fact_provider_missing', ['cardId' => $run->card->id?->toRfc4122(), 'factsClass' => $class]);
+            $this->logger->error('workflow.fact_provider_missing', ['cardId' => $run->card->id->toRfc4122(), 'factsClass' => $class]);
         }
     }
 
@@ -755,7 +746,7 @@ final readonly class Engine
     private function state(Evaluation $run, Rule $rule): WorkflowRuleState
     {
         if (!isset($run->states[$rule->id])) {
-            $state = new WorkflowRuleState($run->card->id ?? throw new \LogicException('A persisted card has an id.'), $run->card->project, $rule->id, $run->now);
+            $state = new WorkflowRuleState($run->card->id, $run->project, $rule->id, $run->now);
             $this->em->persist($state);
             $run->states[$rule->id] = $state;
         }
@@ -779,10 +770,10 @@ final readonly class Engine
         return [$state->truth, $state->attempts, $state->fires, $state->fingerprint, $state->dueAt?->format('U.u'), $state->lastRefusal, $state->lastRefusalAt?->format('U.u'), $state->subjectPullRequestId?->toRfc4122(), $state->workRequestId?->toRfc4122(), $state->repaired, $state->askItemId?->toRfc4122()];
     }
 
-    private function pause(Evaluation $run, CardPauseKind $kind, string $code, string $ruleId): void
+    private function pause(Evaluation $run, PauseKind $kind, string $code, string $ruleId): void
     {
         $run->ended = true;
-        $pause = ($this->pauseCard)(new PauseCardCommand($run->card, $code, $ruleId, $kind));
+        $pause = $this->cardPauses->pause($run->card, $code, $ruleId, $kind);
         if (null !== $pause) {
             $run->pauses[] = $pause;
         }

@@ -6,6 +6,7 @@ namespace App\Tests\Module\Workflow\Action;
 
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Repository\CardRepository;
 use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\Detach;
 use App\Module\Workflow\Template\ActionType;
@@ -49,6 +50,6 @@ final class DetachTest extends KernelTestCase
     {
         $rule = $this->rule(ActionType::Detach, [], 'unplanned-child');
 
-        return new Detach($this->service(UpdateCardHandler::class))->run($rule, $card, FactsMother::facts(card: FactsMother::card(isChild: $isChild)), $this->state($card, $rule->id));
+        return new Detach($this->service(CardRepository::class), $this->service(UpdateCardHandler::class))->run($rule, $card->snapshot(), FactsMother::facts(card: FactsMother::card(isChild: $isChild)), $this->state($card, $rule->id));
     }
 }

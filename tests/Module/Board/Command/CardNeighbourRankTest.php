@@ -10,8 +10,8 @@ use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\MoveCardCommand;
 use App\Module\Board\Command\MoveCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -119,7 +119,7 @@ final class CardNeighbourRankTest extends KernelTestCase
 
         ($this->moveCard)(new MoveCardCommand(
             card: $a,
-            actor: CardReporter::Human,
+            actor: Actor::Human,
             column: $this->column($this->project, 'backlog'),
             beforeCardId: '0199a0a0-0000-7000-8000-000000000000',
         ));
@@ -158,7 +158,7 @@ final class CardNeighbourRankTest extends KernelTestCase
     {
         ($this->moveCard)(new MoveCardCommand(
             card: $card,
-            actor: CardReporter::Human,
+            actor: Actor::Human,
             column: $this->column($this->project, $column),
             beforeCardId: $before?->id?->toRfc4122(),
             afterCardId: $after?->id?->toRfc4122(),

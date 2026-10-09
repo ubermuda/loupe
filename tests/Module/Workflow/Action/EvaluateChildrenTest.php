@@ -55,7 +55,7 @@ final class EvaluateChildrenTest extends KernelTestCase
     {
         $action = new EvaluateChildren($this->service(CardRepository::class), $evaluations);
 
-        return $action->run($this->rule(ActionType::Evaluate, ['cards' => 'children']), $card, FactsMother::facts(), $this->state($card));
+        return $action->run($this->rule(ActionType::Evaluate, ['cards' => 'children']), $card->snapshot(), FactsMother::facts(), $this->state($card));
     }
 
     /**

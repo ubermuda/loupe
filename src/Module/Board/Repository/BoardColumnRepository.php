@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Board\Repository;
 
 use App\Module\Board\Entity\BoardColumn;
-use App\Module\Board\Entity\LabelTone;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\LabelTone;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bridge\Doctrine\Types\UuidType;

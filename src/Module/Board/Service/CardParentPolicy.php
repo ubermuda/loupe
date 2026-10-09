@@ -8,6 +8,7 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 
 /**
  * The rules of a parent: only a type with the children capability is a parent,
@@ -41,7 +42,7 @@ final readonly class CardParentPolicy
      */
     public function refusal(Project $project, ?Card $card, string $type, ?Card $parent, bool $parentSet): ?DomainErrors
     {
-        $types = $this->catalog->forProject($project);
+        $types = $this->catalog->forProject($project->requireId());
         if (null !== $parent) {
             // The resolver read the parent before the lock. Another write may
             // have deleted it or changed its type since.
