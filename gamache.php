@@ -153,6 +153,7 @@ return (new GamacheConfig())->registerChecks([
             new DesignSystemComponent('Dialog', 'lp-dialog', 'templates/components/Ds/Dialog.html.twig', enforced: true),
             new DesignSystemComponent('Tabs', 'lp-tabs', 'templates/components/Ds/Tabs.html.twig', enforced: true),
             new DesignSystemComponent('Pagination', 'lp-pagination', 'templates/components/Ds/Pagination.html.twig', enforced: true),
+            new DesignSystemComponent('StateMark', 'lp-state-mark', 'templates/components/Ds/StateMark.html.twig', enforced: true),
             new DesignSystemComponent('Tooltip', 'lp-tooltip', 'templates/components/Ds/Tooltip.html.twig', enforced: true),
         ],
     ),

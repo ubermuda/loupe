@@ -1,8 +1,9 @@
 /**
- * Browser coverage for the warning a card shows when its latest worker run
+ * Browser coverage for the state mark a tile shows when its latest worker run
  * gave up or failed. The runs go through the real run state endpoint with an agent
- * token, so no bridge runs. The warning appears and clears on an open board
+ * token, so no bridge runs. The mark appears and clears on an open board
  * with no navigation, so the run needs a Mercure hub the browser can reach.
+ * The tile holds one mark and no run warning. Its tooltip links to the card.
  */
 
 import { test, expect } from '@playwright/test';
@@ -14,18 +15,18 @@ import {
 } from '../fixtures';
 
 const RUN = Date.now();
-const PASSWORD = 'E2eRunWarning1!';
+const PASSWORD = 'E2eStateMark1!';
 
-test('a card shows a warning until a newer run of the card succeeds or starts', async ({
+test('a card shows a stuck mark until a newer run of the card succeeds or starts', async ({
     browser,
     request,
 }) => {
     // A sign-in, a card, a token and four live reports outlast the default budget.
     test.slow();
 
-    const email = `e2e+run-warning+${RUN}@example.com`;
+    const email = `e2e+state-mark+${RUN}@example.com`;
     const registered = await request.post('/dev/register-and-verify', {
-        form: { fullName: 'E2E Run Warning User', email, password: PASSWORD },
+        form: { fullName: 'E2E State Mark User', email, password: PASSWORD },
     });
     expect(registered.status()).toBe(200);
 
@@ -36,7 +37,7 @@ test('a card shows a warning until a newer run of the card succeeds or starts', 
     await suppressWidget(page);
 
     const seed = await page.request.post('/dev/seed/document', {
-        form: { title: 'E2E Run Warning Project', markdown: '# Runs' },
+        form: { title: 'E2E State Mark Project', markdown: '# Runs' },
     });
     expect(seed.status()).toBe(201);
     const { projectId } = await seed.json();
@@ -94,16 +95,28 @@ test('a card shows a warning until a newer run of the card succeeds or starts', 
         exitCode: 0,
         hasResult: true,
     };
-    const gaveUp = await report({
+    await report({
         ...outcome,
         state: 'gave-up',
         resultStatus: 'unfinished',
         output: 'CI still ran when the turn ended',
     });
-    const warning = card.locator(`[data-card-run-warning="${gaveUp}"]`);
-    await expect(warning).toBeVisible();
-    await expect(warning).toContainText('Gave up');
-    await expect(warning).toContainText('CI still ran when the turn ended');
+    const mark = card.locator('.lp-state-mark--stuck');
+    await expect(mark).toHaveCount(1);
+    await expect(mark.getByRole('img', { name: 'Stuck' })).toBeVisible();
+    await expect(card.locator('.lp-state-mark')).toHaveCount(1);
+    await expect(card.locator('[data-card-run-warning]')).toHaveCount(0);
+    await expect(card.locator('.lp-board-card__badges')).toHaveCount(0);
+
+    await mark.getByRole('img', { name: 'Stuck' }).hover();
+    const tooltip = mark.getByRole('tooltip');
+    await expect(tooltip).toBeVisible();
+    await expect(tooltip).toContainText(
+        'The last worker run did not finish its work.',
+    );
+    // The pointer moves from the mark into the tooltip, which stays open.
+    await tooltip.getByRole('link', { name: 'Open card' }).hover();
+    await expect(tooltip).toBeVisible();
 
     await report({
         ...outcome,
@@ -111,23 +124,36 @@ test('a card shows a warning until a newer run of the card succeeds or starts', 
         resultStatus: 'finished',
         output: 'The pull request is ready',
     });
-    await expect(card.locator('[data-card-run-warning]')).toHaveCount(0);
+    await expect(card.locator('.lp-state-mark--stuck')).toHaveCount(0);
     await expect(card).toBeVisible();
 
-    const failed = await report({
+    await report({
         ...outcome,
         state: 'failed',
         exitCode: 1,
         output: 'The tests failed',
     });
-    await expect(
-        card.locator(`[data-card-run-warning="${failed}"]`),
-    ).toContainText('Failed');
+    await expect(card.locator('.lp-state-mark--stuck')).toHaveCount(1);
 
-    // A queued retry is the newest run of the card, so the warning goes before it ends.
+    // A queued retry is the newest run of the card, so the stuck mark goes before it ends.
     await report({ state: 'queued' });
-    await expect(card.locator('[data-card-run-warning]')).toHaveCount(0);
+    await expect(card.locator('.lp-state-mark--stuck')).toHaveCount(0);
     await expect(card).toBeVisible();
     // Each run change places the one card, and never reloads the whole board.
     expect(boardLoads).toEqual([]);
+
+    // The link in the tooltip opens the card in the drawer.
+    await report({
+        ...outcome,
+        state: 'failed',
+        exitCode: 1,
+        output: 'The tests failed again',
+    });
+    const reopened = card.locator('.lp-state-mark--stuck');
+    await expect(reopened).toHaveCount(1);
+    await reopened.getByRole('img', { name: 'Stuck' }).focus();
+    await reopened.getByRole('link', { name: 'Open card' }).click();
+    await expect(
+        page.locator('dialog.lp-card-drawer-overlay'),
+    ).toHaveJSProperty('open', true);
 });

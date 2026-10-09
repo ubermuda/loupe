@@ -5,6 +5,19 @@
     .lp-tooltip {
         @apply invisible absolute left-0 top-full z-20 mt-2 flex w-72 flex-col gap-1 rounded-lg bg-ink px-3 py-2 text-xs font-medium leading-snug text-chrome-fg opacity-0 shadow-lg transition-opacity;
     }
+    /* A tooltip that may hold a link. Its controller places it, so no column clips it. */
+    .lp-tooltip--interactive {
+        @apply fixed top-0 left-0 z-30 mt-0 cursor-default select-text;
+    }
+    .lp-tooltip--interactive[data-open] {
+        @apply visible opacity-100;
+    }
+    .lp-tooltip__title {
+        @apply font-semibold;
+    }
+    .lp-tooltip__link {
+        @apply w-fit font-semibold text-chrome-fg underline underline-offset-2 outline-none focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-chrome-fg;
+    }
     .lp-tooltip__line--quiet {
         @apply break-all text-chrome-mute;
     }

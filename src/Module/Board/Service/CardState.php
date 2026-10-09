@@ -25,11 +25,14 @@ final readonly class CardState
         return new self($reasons[0], \array_slice($reasons, 1));
     }
 
-    /** A short value for the tile digest: the winner, its time and the other codes. */
+    /** A short value for the tile digest: the winner with the hash of its parameters, its time and the other codes. */
     public function digest(): string
     {
+        $params = $this->reason->params;
+        ksort($params);
+
         return implode('|', [
-            $this->reason->code->value,
+            $this->reason->code->value.([] === $params ? '' : ':'.hash('xxh3', json_encode($params, \JSON_THROW_ON_ERROR))),
             $this->reason->since?->format('U'),
             ...array_map(static fn (CardStateReason $reason): string => $reason->code->value, $this->others),
         ]);

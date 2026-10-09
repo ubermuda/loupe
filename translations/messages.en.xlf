@@ -6574,10 +6574,10 @@
             <trans-unit id="board.card_state.working"><source>board.card_state.working</source><target>Working</target></trans-unit>
             <trans-unit id="board.card_state.waiting"><source>board.card_state.waiting</source><target>Waiting</target></trans-unit>
             <trans-unit id="board.card_state.reason.paused"><source>board.card_state.reason.paused</source><target>Paused: %reason%.</target></trans-unit>
-            <trans-unit id="board.card_state.reason.run_stopped"><source>board.card_state.reason.run_stopped</source><target>The last run ended as %state%.</target></trans-unit>
+            <trans-unit id="board.card_state.reason.run_stopped"><source>board.card_state.reason.run_stopped</source><target>The last worker run did not finish its work.</target></trans-unit>
             <trans-unit id="board.card_state.reason.checks_failed"><source>board.card_state.reason.checks_failed</source><target>The checks of pull request #%number% fail, and no fix is under way.</target></trans-unit>
             <trans-unit id="board.card_state.reason.conflicting"><source>board.card_state.reason.conflicting</source><target>Pull request #%number% has a merge conflict, and no fix is under way.</target></trans-unit>
-            <trans-unit id="board.card_state.reason.ready_not_merged"><source>board.card_state.reason.ready_not_merged</source><target>Pull request #%number% is ready to merge, and nothing merges it.</target></trans-unit>
+            <trans-unit id="board.card_state.reason.ready_not_merged"><source>board.card_state.reason.ready_not_merged</source><target>Pull request #%number% is ready to merge, and no merge rule matches it.</target></trans-unit>
             <trans-unit id="board.card_state.reason.document_in_review"><source>board.card_state.reason.document_in_review</source><target>The document "%title%" waits for your review.</target></trans-unit>
             <trans-unit id="board.card_state.reason.waits_for_approval"><source>board.card_state.reason.waits_for_approval</source><target>Pull request #%number% waits for your approval.</target></trans-unit>
             <trans-unit id="board.card_state.reason.open_question"><source>board.card_state.reason.open_question</source><target>Question #%number% waits for your answer: %title%</target></trans-unit>
@@ -6585,6 +6585,7 @@
             <trans-unit id="board.card_state.reason.run_open"><source>board.card_state.reason.run_open</source><target>A worker runs on this card.</target></trans-unit>
             <trans-unit id="board.card_state.reason.forge_request_pending"><source>board.card_state.reason.forge_request_pending</source><target>Loupe asked the forge to change pull request #%number%, and the forge has not answered.</target></trans-unit>
             <trans-unit id="board.card_state.reason.held_by_blocker"><source>board.card_state.reason.held_by_blocker</source><target>Card #%number% blocks this card: %title%</target></trans-unit>
+            <trans-unit id="board.card_state.open_card"><source>board.card_state.open_card</source><target>Open card</target></trans-unit>
             <trans-unit id="board.card.badge.unmanaged"><source>board.card.badge.unmanaged</source><target>Unmanaged</target></trans-unit>
             <trans-unit id="board.card.history.reason.conflict"><source>board.card.history.reason.conflict</source><target>the pull request has a merge conflict</target></trans-unit>
             <trans-unit id="board.card.history.reason.checks_failed"><source>board.card.history.reason.checks_failed</source><target>the checks fail</target></trans-unit>

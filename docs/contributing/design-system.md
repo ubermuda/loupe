@@ -54,11 +54,12 @@ A building block is a Twig component under `templates/components/Ds/`. Its CSS l
 | Badge | The status of a document in a list | in-review, draft, approved, changes-requested |
 | Tag | A short label, such as a card type or a column | neutral, lime, purple, green, amber, red, teal, sky, blue, indigo, pink, orange |
 | StatusChip | A state with a coloured dot and an optional reason tooltip | pending, addressed, resolved, ok, failed, neutral |
+| StateMark | An icon that names what a card needs now, with its reason in an interactive tooltip | stuck, needs-you, working, waiting |
 | StatusBox | The state of a card with its reason, since when, and the other states that apply | stuck, needs-you, working, waiting |
 | Dialog | A modal that the `modal` Stimulus controller opens | document, search |
 | Tabs | A strip of links or tab buttons with an underline | none |
 | Pagination | The previous, next and page-number control of a list | none |
-| Tooltip | A text bubble under its anchor | none |
+| Tooltip | A text bubble under its anchor | interactive, which stays open for a link |
 
 Write a button like this:
 
