@@ -74,7 +74,8 @@ final readonly class InboxItemExporter implements UserDataExporterInterface
                 'waits' => array_values(array_map(
                     static fn (InboxCardWait $wait): array => [
                         'trigger' => $wait->trigger->value,
-                        'reason' => $wait->reason,
+                        'type' => $wait->type->value,
+                        'reason' => $wait->reason->value,
                         'documentId' => null === $wait->documentId ? null : (string) $wait->documentId,
                         'versionNumber' => $wait->versionNumber,
                         'runId' => null === $wait->runId ? null : (string) $wait->runId,

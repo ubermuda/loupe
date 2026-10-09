@@ -5,7 +5,7 @@
     {label: 'workflow.settings.rules.conditions'|trans},
 ]">
     {% for rule in rules %}
-    <div class="lp-data-table__row" data-rule-id="{{ rule.id }}"{% if rule.missingConditions is not empty %} data-rule-missing{% endif %}>
+    <div class="lp-data-table__row" data-rule-id="{{ rule.id }}"{% if rule.missingConditions is not empty or rule.missingAction is not null %} data-rule-missing{% endif %}>
         <span class="lp-data-table__cell lp-data-table__title">{{ rule.id }}</span>
         <span class="lp-data-table__cell">{{ rule.appliesToKey|trans }}</span>
         <span class="lp-data-table__cell">{{ rule.actionKey|trans({'%target%': rule.targetKey is null ? '' : rule.targetKey|trans, '%kind%': rule.kind ?? ''}) }}</span>
@@ -30,6 +30,9 @@
             {% for key in rule.missingConditions %}
             <twig:Ds:Tag tone="amber">{{ 'workflow.settings.rules.missing_condition'|trans({'%condition%': key}) }}</twig:Ds:Tag>
             {% endfor %}
+            {% if rule.missingAction is not null %}
+            <twig:Ds:Tag tone="amber">{{ 'workflow.settings.rules.missing_action'|trans({'%action%': rule.missingAction}) }}</twig:Ds:Tag>
+            {% endif %}
         </div>
     </div>
     {% endfor %}

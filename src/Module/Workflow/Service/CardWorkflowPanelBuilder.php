@@ -150,6 +150,7 @@ final readonly class CardWorkflowPanelBuilder
         return match ($unreadable->kind) {
             UnreadableKind::Failed => $this->translator->trans('workflow.panel.unreadable.failed', ['%source%' => $this->translator->trans($unreadable->source)]),
             UnreadableKind::Off => $this->translator->trans('workflow.panel.unreadable.off', ['%source%' => $this->translator->trans($unreadable->source)]),
+            UnreadableKind::MissingAction => $this->translator->trans('workflow.panel.unreadable.missing_action', ['%action%' => $unreadable->source]),
             UnreadableKind::MissingCondition => $this->translator->trans('workflow.panel.unreadable.missing_condition', ['%condition%' => $unreadable->source]),
         };
     }

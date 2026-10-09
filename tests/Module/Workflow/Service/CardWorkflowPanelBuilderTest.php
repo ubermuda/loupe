@@ -292,6 +292,19 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         self::assertSame('Move the card to Implementation', $progress->nextAction);
     }
 
+    public function test_a_rule_whose_action_this_version_does_not_know_names_the_action(): void
+    {
+        $card = $this->card('tech-design');
+        $this->define([
+            ['id' => 'unknown', 'slot' => 'tech-design', 'when' => ['all' => []], 'then' => ['jump' => []]],
+        ]);
+
+        $progress = $this->builder()->build($card->snapshot())->progress ?? self::fail('The automation is on, so the panel shows the progress.');
+
+        self::assertSame('Waiting: this version does not know the action jump.', $progress->waiting);
+        self::assertSame('An action this version does not know', $progress->nextAction);
+    }
+
     public function test_a_built_in_rule_beside_an_unreadable_rule_shows_its_own_waiting_sentence(): void
     {
         $card = $this->card('tech-design');

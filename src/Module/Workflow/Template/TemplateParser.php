@@ -6,6 +6,7 @@ namespace App\Module\Workflow\Template;
 
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Action\EvaluateChildren;
+use App\Module\Workflow\Action\MissingAction;
 use App\Module\Workflow\Condition\Conditions;
 use App\Module\Workflow\Contract\ActionOutcome;
 use App\Module\Workflow\Contract\ChecksParameters;
@@ -22,6 +23,7 @@ use App\Module\Workflow\Expression\AllOf;
 use App\Module\Workflow\Expression\AnyOf;
 use App\Module\Workflow\Expression\ConditionLeaf;
 use App\Module\Workflow\Expression\Expression;
+use App\Module\Workflow\Expression\MissingActionLeaf;
 use App\Module\Workflow\Expression\MissingConditionLeaf;
 use App\Module\Workflow\Expression\Not;
 
@@ -67,6 +69,7 @@ final readonly class TemplateParser
 
     /**
      * Parses a stored copy. A condition this instance no longer has becomes a leaf that is never readable.
+     * A rule whose action this version does not know never fires.
      *
      * @param array<mixed> $source
      *
@@ -488,6 +491,12 @@ final readonly class TemplateParser
                 $errors[] = $where.' then: is missing';
             }
 
+            $unknownAction = null === $then ? null : self::unknownAction($then);
+            if (null !== $then && null !== $unknownAction && null !== $when) {
+                $when = new AllOf([new MissingActionLeaf($unknownAction), $when]);
+                $then = new ActionCall(MissingAction::KEY, ['name' => $unknownAction], traits: MissingAction::traits(), from: $then->from);
+            }
+
             if (\count($errors) === $errorCount && null !== $when && null !== $then && (null === $slot || \is_string($slot))) {
                 $rule = new Rule($id, $slot, $when, $then, $app ? RuleOrigin::App : RuleOrigin::Template);
                 $rules[] = $rule;
@@ -627,7 +636,12 @@ final readonly class TemplateParser
         }
         $name = array_key_first($node);
         $value = $node[$name];
-        if (!$this->actions->has($name)) {
+        if (!$this->actions->has($name) || MissingAction::KEY === $name) {
+            if ($lenient) {
+                $from = \is_array($value) && \is_string($value['from'] ?? null) && self::isColumn($value['from'], $slotKeys, false) ? $value['from'] : null;
+
+                return new ActionCall(MissingAction::KEY, ['name' => $name], traits: MissingAction::traits(), from: $from);
+            }
             $errors[] = \sprintf('%s: unknown action "%s"', $where, $name);
 
             return null;
@@ -768,6 +782,18 @@ final readonly class TemplateParser
         }
 
         return $options;
+    }
+
+    /** @return ?string the name of the first action that this version does not know, in the action or in an ask option */
+    private static function unknownAction(ActionCall $action): ?string
+    {
+        foreach ([$action, ...array_merge([], ...array_map(static fn (AskOption $option): array => $option->actions, $action->options))] as $call) {
+            if (MissingAction::KEY === $call->key) {
+                return (string) $call->params['name'];
+            }
+        }
+
+        return null;
     }
 
     /**
