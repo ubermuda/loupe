@@ -13,21 +13,28 @@ use App\Module\Board\Entity\CardVerdictKind;
 use App\Module\Board\Repository\CardVerdictDeliveryRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\VerdictReviewSettler;
+use App\Module\Forge\Command\ReadPullRequestStateHandler;
 use App\Module\Forge\Entity\PullRequestState;
-use App\Module\Forge\Messenger\RefreshPullRequestState;
+use App\Module\Forge\PullRequestSnapshot;
+use App\Module\Forge\Repository\ForgePullRequestRepository;
+use App\Module\Forge\Service\ApprovalCoverageReaders;
 use App\Module\Forge\Service\PullRequestReviewFailed;
 use App\Module\Forge\Service\PullRequestReviewKind;
 use App\Module\Forge\Service\PullRequestReviewPosters;
-use App\Module\Forge\Service\PullRequestTracker;
+use App\Module\Forge\Service\PullRequestStateReaders;
+use App\Module\Forge\Service\PullRequestUnreadable;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\CardVerdictScenario;
+use App\Tests\Module\Board\Fake\FakeAuthorReader;
 use App\Tests\Module\Board\Fake\FakeReviewerForgeAccount;
 use App\Tests\Module\Board\Fake\FakeReviewPoster;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
-use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
+use Symfony\Component\EventDispatcher\EventDispatcher;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class VerdictReviewSettlerTest extends KernelTestCase
@@ -39,6 +46,7 @@ final class VerdictReviewSettlerTest extends KernelTestCase
     private Project $project;
     private FakeReviewPoster $poster;
     private FakeReviewerForgeAccount $account;
+    private FakeAuthorReader $authors;
 
     protected function setUp(): void
     {
@@ -49,6 +57,7 @@ final class VerdictReviewSettlerTest extends KernelTestCase
         $this->project = $this->makeProject('verdict-settle');
         $this->poster = new FakeReviewPoster();
         $this->account = new FakeReviewerForgeAccount();
+        $this->authors = new FakeAuthorReader();
         $this->em->persist(new BoardAutomationSettings($this->project, postWidgetReviews: true));
         $this->em->flush();
     }
@@ -131,31 +140,51 @@ final class VerdictReviewSettlerTest extends KernelTestCase
         self::assertSame('Needs work', $this->poster->posts[0]['body']);
     }
 
-    public function test_a_pull_request_with_an_unread_author_waits_for_a_refresh_instead_of_posting(): void
+    public function test_an_unread_author_is_read_before_the_review_is_posted(): void
     {
         $card = $this->card($this->project);
-        $delivery = $this->delivery($card, 7, CardVerdictKind::Approve, '', authorLogin: null);
+        $delivery = $this->delivery($card, 7, CardVerdictKind::Approve, '', authorRead: false);
+        $this->authors->snapshot = new PullRequestSnapshot(authorId: '4242', authorLogin: 'reviewer');
+
+        self::assertNull($this->settle($card));
+
+        self::assertSame(1, $this->authors->reads);
+        self::assertSame(PullRequestReviewKind::Comment, $this->poster->posts[0]['kind']);
+        self::assertSame(CardVerdictDeliveryState::Commented, $delivery->state);
+    }
+
+    public function test_a_deleted_author_is_read_once_and_does_not_block_the_review(): void
+    {
+        $card = $this->card($this->project);
+        $delivery = $this->delivery($card, 7, CardVerdictKind::Approve, '', authorRead: false);
+
+        self::assertNull($this->settle($card));
+
+        self::assertSame(1, $this->authors->reads);
+        self::assertSame(PullRequestReviewKind::Approve, $this->poster->posts[0]['kind']);
+        self::assertSame(CardVerdictDeliveryState::Posted, $delivery->state);
+    }
+
+    public function test_an_author_that_cannot_be_read_leaves_the_delivery_pending(): void
+    {
+        $card = $this->card($this->project);
+        $delivery = $this->delivery($card, 7, CardVerdictKind::Approve, '', authorRead: false);
+        $this->authors->failure = new PullRequestUnreadable('rate_limited', transient: true);
 
         self::assertSame(VerdictReviewSettler::AUTHOR_UNREAD, $this->settle($card));
 
         self::assertSame([], $this->poster->posts);
         self::assertSame(CardVerdictDeliveryState::Pending, $delivery->state);
-        $transport = self::getContainer()->get('messenger.transport.async');
-        self::assertInstanceOf(InMemoryTransport::class, $transport);
-        $queued = array_map(static fn ($envelope) => $envelope->getMessage(), $transport->getSent());
-        self::assertNotEmpty($queued);
-        self::assertContains((string) $delivery->pullRequest->id, array_map(static fn ($message) => $message instanceof RefreshPullRequestState ? $message->pullRequestId : null, $queued));
     }
 
-    public function test_an_author_that_is_not_a_user_account_does_not_block_the_review(): void
+    public function test_a_read_author_is_not_read_again(): void
     {
         $card = $this->card($this->project);
-        $delivery = $this->delivery($card, 7, CardVerdictKind::Approve, '', authorLogin: 'dependabot[bot]');
+        $this->delivery($card, 7, CardVerdictKind::Approve, '');
 
-        self::assertNull($this->settle($card));
+        $this->settle($card);
 
-        self::assertSame(PullRequestReviewKind::Approve, $this->poster->posts[0]['kind']);
-        self::assertSame(CardVerdictDeliveryState::Posted, $delivery->state);
+        self::assertSame(0, $this->authors->reads);
     }
 
     public function test_an_opt_in_that_is_off_skips_every_delivery_and_posts_nothing(): void
@@ -314,6 +343,20 @@ final class VerdictReviewSettlerTest extends KernelTestCase
         return $this->settler()->settle($card)->failure;
     }
 
+    private function readHandler(): ReadPullRequestStateHandler
+    {
+        return new ReadPullRequestStateHandler(
+            $this->service(ForgePullRequestRepository::class),
+            new PullRequestStateReaders([$this->authors]),
+            new ApprovalCoverageReaders([]),
+            $this->em,
+            $this->service(MessageBusInterface::class),
+            new EventDispatcher(),
+            new MockClock('2026-10-08 12:00:00'),
+            new NullLogger(),
+        );
+    }
+
     private function settler(): VerdictReviewSettler
     {
         $translator = $this->service(TranslatorInterface::class);
@@ -323,7 +366,7 @@ final class VerdictReviewSettlerTest extends KernelTestCase
             $this->service(BoardAutomation::class),
             new PullRequestReviewPosters([$this->poster]),
             $this->account,
-            $this->service(PullRequestTracker::class),
+            $this->readHandler(),
             $translator,
             $this->em,
             new MockClock('2026-10-08 12:00:00'),
@@ -333,9 +376,9 @@ final class VerdictReviewSettlerTest extends KernelTestCase
     /**
      * @param list<array{id: string, url: string, body: string, anchorCount: int}> $notes
      */
-    private function delivery(Card $card, int $number, CardVerdictKind $kind, string $message, array $notes = [], ?string $authorId = null, bool $reviewer = true, ?string $authorLogin = 'octocat'): CardVerdictDelivery
+    private function delivery(Card $card, int $number, CardVerdictKind $kind, string $message, array $notes = [], ?string $authorId = null, bool $reviewer = true, bool $authorRead = true): CardVerdictDelivery
     {
-        $pullRequest = $this->linkedPullRequest($card, $number, authorId: $authorId, authorLogin: $authorLogin);
+        $pullRequest = $this->linkedPullRequest($card, $number, authorId: $authorId, authorRead: $authorRead);
         $verdict = new CardVerdict($card, $kind, $reviewer ? $this->project->owner : null, $message, $notes);
         $this->em->persist($verdict);
         $delivery = new CardVerdictDelivery($verdict, $pullRequest);

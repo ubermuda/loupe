@@ -8,11 +8,14 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardVerdictDelivery;
 use App\Module\Board\Entity\CardVerdictDeliveryState;
 use App\Module\Board\Repository\CardVerdictDeliveryRepository;
+use App\Module\Forge\Command\ReadPullRequestStateCommand;
+use App\Module\Forge\Command\ReadPullRequestStateHandler;
+use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Service\PullRequestReviewFailed;
 use App\Module\Forge\Service\PullRequestReviewKind;
 use App\Module\Forge\Service\PullRequestReviewPosters;
-use App\Module\Forge\Service\PullRequestTracker;
+use App\Module\Forge\Service\PullRequestUnreadable;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -31,7 +34,7 @@ final readonly class VerdictReviewSettler
         private BoardAutomation $boardAutomation,
         private PullRequestReviewPosters $posters,
         private ReviewerForgeAccount $forgeAccount,
-        private PullRequestTracker $tracker,
+        private ReadPullRequestStateHandler $readPullRequestState,
         private TranslatorInterface $translator,
         private EntityManagerInterface $em,
         private ClockInterface $clock,
@@ -79,10 +82,7 @@ final readonly class VerdictReviewSettler
             return $this->finish($delivery, CardVerdictDeliveryState::Refused, self::REASON_NO_POSTER);
         }
 
-        // A row from before the author column has neither id nor login. A review of one's own pull request is refused for good.
-        if (null === $pullRequest->authorId && null === $pullRequest->authorLogin) {
-            $this->tracker->refresh($pullRequest->project, $pullRequest->forge, $pullRequest->repository, $pullRequest->number);
-
+        if (!$this->authorIsRead($pullRequest)) {
             return self::AUTHOR_UNREAD;
         }
 
@@ -110,6 +110,20 @@ final readonly class VerdictReviewSettler
         $delivery->reviewUrl = null === $url ? null : substr($url, 0, CardVerdictDelivery::MAX_REVIEW_URL_LENGTH);
 
         return $this->finish($delivery, $own ? CardVerdictDeliveryState::Commented : CardVerdictDeliveryState::Posted);
+    }
+
+    /** A row stored before the author columns existed has no author, and a review of one's own pull request is refused for good. */
+    private function authorIsRead(ForgePullRequest $pullRequest): bool
+    {
+        if (!$pullRequest->authorRead) {
+            try {
+                ($this->readPullRequestState)(new ReadPullRequestStateCommand((string) $pullRequest->id, $this->clock->now()));
+            } catch (PullRequestUnreadable) {
+                return false;
+            }
+        }
+
+        return $pullRequest->authorRead;
     }
 
     private function finish(CardVerdictDelivery $delivery, CardVerdictDeliveryState $state, ?string $reason = null): null

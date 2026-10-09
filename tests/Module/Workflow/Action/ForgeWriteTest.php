@@ -22,6 +22,7 @@ use App\Module\Board\Service\VerdictReviewSettler;
 use App\Module\Board\Workflow\SiteReviewFactProvider;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\ValueObject\WorkRequestContext;
+use App\Module\Forge\Command\ReadPullRequestStateHandler;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
@@ -35,7 +36,6 @@ use App\Module\Forge\Service\PullRequestReviewFailed;
 use App\Module\Forge\Service\PullRequestReviewPosters;
 use App\Module\Forge\Service\PullRequestStateWriters;
 use App\Module\Forge\Service\PullRequestSyncFailed;
-use App\Module\Forge\Service\PullRequestTracker;
 use App\Module\Forge\Service\PullRequestWriteFailed;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Action\ActionOutcome;
@@ -592,7 +592,7 @@ final class ForgeWriteTest extends KernelTestCase
                 $this->service(BoardAutomation::class),
                 new PullRequestReviewPosters([$this->reviewPoster]),
                 new FakeReviewerForgeAccount(),
-                $this->service(PullRequestTracker::class),
+                $this->service(ReadPullRequestStateHandler::class),
                 $this->service(TranslatorInterface::class),
                 $this->service(EntityManagerInterface::class),
                 new MockClock('2026-10-02 12:00:00'),
