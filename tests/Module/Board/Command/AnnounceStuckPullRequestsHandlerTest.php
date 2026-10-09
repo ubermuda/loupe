@@ -112,6 +112,8 @@ final class AnnounceStuckPullRequestsHandlerTest extends KernelTestCase
             syncBehind: false,
             mergePullRequests: false,
             changeBase: false,
+            postWidgetReviews: false,
+            siteReviewCheck: false,
             stuckDelayMinutes: 60,
         ));
 
