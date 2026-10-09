@@ -341,14 +341,14 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         // lines too, so every changed line is one contiguous run. The rendered
         // view groups by what is drawn, where the unchanged words of the tail
         // sentence stand between the removed section and the reworded phrase.
-        foreach ([$base => [2, '2 changes'], $base.'?view=source' => [1, '1 change']] as $url => [$hunks, $counter]) {
+        foreach ([$base => [2, '2 changes', '%current% of 2 changes'], $base.'?view=source' => [1, '1 change', '%current% of 1 change']] as $url => [$hunks, $counter, $position]) {
             $crawler = $client->request(Request::METHOD_GET, $url);
 
             self::assertResponseIsSuccessful();
             self::assertCount($hunks, $crawler->filter('[data-diff-navigation-target="hunk"]'));
             self::assertSame($counter, trim($crawler->filter('.lp-diff-nav__count')->text()));
             self::assertSame(
-                'Change %current% of '.$hunks,
+                $position,
                 $crawler->filter('[data-controller~="diff-navigation"]')->attr('data-diff-navigation-position-value'),
             );
         }
@@ -850,6 +850,58 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
     }
 
     /**
+     * While comparing, the Outline panel opens and says how many changes each
+     * section holds. The Markdown view counts by source line, so it shows none.
+     */
+    public function test_the_outline_counts_the_changes_of_each_section(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-counts', 'owner-diff-counts@example.com');
+        $project = $this->project($em, $owner);
+
+        $renderer = new MarkdownRenderer(new NullLogger(), new IdentityTranslator());
+        $old = "## First\n\nOne.\n\nTwo.\n\nThree.\n\n## Kept\n\nSame.\n\n## Gone\n\nDropped.\n\n## Last\n\nSame.\n";
+        $new = "## First\n\nOne changed.\n\nTwo.\n\nThree changed.\n\n## Kept\n\nSame.\n\n## Last\n\nSame.\n";
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Counted Diff');
+        $doc->addVersion($old, $renderer->render($old));
+        $doc->addVersion($new, $renderer->render($new));
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $base = '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2';
+        $counts = static fn (Crawler $page): array => $page->filter('#review-panel-outline .lp-review-contents__item')->each(
+            static fn (Crawler $row): string => $row->filter('.lp-review-contents__link')->text().':'.($row->filter('.lp-review-contents__changes')->count() > 0 ? $row->filter('.lp-review-contents__changes')->text() : '-'),
+        );
+
+        $rendered = $client->request(Request::METHOD_GET, $base);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['First:2 changes', 'Kept:-', 'Gone:1 change', 'Last:-'], $counts($rendered));
+        self::assertSame('compare', $rendered->filter('[data-review-panels-mode-value]')->attr('data-review-panels-mode-value'));
+        self::assertNull($rendered->filter('#review-panel-outline')->attr('hidden'));
+
+        $columns = $client->request(Request::METHOD_GET, $base.'?view=side-by-side');
+        self::assertSame(['First:2 changes', 'Kept:-', 'Gone:1 change', 'Last:-'], $counts($columns));
+        self::assertSame('columns', $columns->filter('[data-review-panels-mode-value]')->attr('data-review-panels-mode-value'));
+        self::assertNotNull($columns->filter('#review-panel-outline')->attr('hidden'));
+
+        $source = $client->request(Request::METHOD_GET, $base.'?view=source');
+        self::assertSame(['First:-', 'Kept:-', 'Gone:-', 'Last:-'], $counts($source));
+
+        // The document has no comparison to count, and keeps the stored choice.
+        $document = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+        self::assertCount(0, $document->filter('.lp-review-contents__changes'));
+        self::assertSame('document', $document->filter('[data-review-panels-mode-value]')->attr('data-review-panels-mode-value'));
+    }
+
+    /**
      * A heading that only changes level keeps its text, so the two cells are
      * told apart by neither label nor level. They are still listed separately,
      * because the renderer suffixes the second id when one source holds the same
@@ -1138,9 +1190,11 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertGreaterThan(0, $columns->filter('.lp-diff-columns__cell--void')->count());
 
         // The columns take the width the comment column would, so this view
-        // carries none and accepts no comment.
+        // carries none and accepts no comment. The toolbar stays, to bring a
+        // panel back.
         self::assertCount(0, $columns->filter('.lp-review-margin'));
-        self::assertCount(0, $columns->filter('.lp-review-toolbar'));
+        self::assertCount(1, $columns->filter('.lp-review-toolbar'));
+        self::assertCount(0, $columns->filter('.lp-review-toolbar__button[data-review-panels-name-param="comments"]'));
         self::assertCount(0, $columns->filter('[data-comment-anchor-target="doc"]'));
         self::assertCount(0, $columns->filter('[data-diff-side="old"] [data-diff-offset]'));
         self::assertCount(1, $columns->filter('#diff-columns-notice'));

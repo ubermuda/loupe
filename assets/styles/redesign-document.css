@@ -142,6 +142,10 @@
 .lp-review .lp-review-panel .lp-review-contents__link--current {
     @apply bg-transparent font-semibold text-ink;
 }
+/* While comparing, the changes a section holds, after its name. */
+.lp-review .lp-review-contents__changes {
+    @apply shrink-0 text-xs font-semibold whitespace-nowrap text-review-tab-ink;
+}
 
 /* ── "⋯" page menu ──────────────────────────────────────────────── */
 .lp-review .lp-page-menu {

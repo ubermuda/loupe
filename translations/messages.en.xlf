@@ -4175,9 +4175,13 @@
                 <source>review.document.diff.nav.count</source>
                 <target>{0}No changes|{1}1 change|]1,Inf[%count% changes</target>
             </trans-unit>
+            <trans-unit id="review.document.diff.outline.changes">
+                <source>review.document.diff.outline.changes</source>
+                <target>{0}No changes|{1}1 change|]1,Inf[%count% changes</target>
+            </trans-unit>
             <trans-unit id="review.document.diff.nav.position">
                 <source>review.document.diff.nav.position</source>
-                <target>Change %current% of %total%</target>
+                <target>{0}No changes|{1}%current% of 1 change|]1,Inf[%current% of %total% changes</target>
             </trans-unit>
             <trans-unit id="review.document.diff.nav.previous">
                 <source>review.document.diff.nav.previous</source>

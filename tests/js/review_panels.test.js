@@ -26,8 +26,12 @@ function button(name, { pressed = false, disabled = false } = {}) {
         aria-pressed="${pressed}"${disabled ? ' aria-disabled="true"' : ''}>${name}</button>`;
 }
 
-async function mount({ decisionsDisabled = false, hideResolved = false } = {}) {
-    document.body.innerHTML = `<div data-controller="review-panels" data-action="comment-anchor:reveal->review-panels#reveal"${hideResolved ? ' class="lp-review-block--hide-resolved"' : ''}>
+async function mount({
+    decisionsDisabled = false,
+    hideResolved = false,
+    mode = null,
+} = {}) {
+    document.body.innerHTML = `<div data-controller="review-panels" data-action="comment-anchor:reveal->review-panels#reveal"${hideResolved ? ' class="lp-review-block--hide-resolved"' : ''}${mode ? ` data-review-panels-mode-value="${mode}"` : ''}>
         ${button('decisions', { pressed: !decisionsDisabled, disabled: decisionsDisabled })}
         ${button('comments')}
         ${button('outline')}
@@ -254,5 +258,43 @@ it('keeps a disabled Comments panel closed on a reveal', async () => {
         new CustomEvent('comment-anchor:reveal', { bubbles: true }),
     );
     expect(panelFor('comments').hidden).toBe(true);
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
+});
+
+it('opens the outline while comparing and keeps the stored choice', async () => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(['comments']));
+    await mount({ mode: 'compare' });
+    expect(openPanels()).toEqual(['comments', 'outline']);
+
+    buttonFor('decisions').click();
+    buttonFor('outline').click();
+    expect(openPanels()).toEqual(['decisions', 'comments']);
+    expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY))).toEqual([
+        'comments',
+    ]);
+});
+
+it('starts the columns with every panel hidden and stores nothing', async () => {
+    window.localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(['decisions', 'outline']),
+    );
+    await mount({ mode: 'columns' });
+    expect(openPanels()).toEqual([]);
+
+    buttonFor('outline').click();
+    expect(openPanels()).toEqual(['outline']);
+    expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY))).toEqual([
+        'decisions',
+        'outline',
+    ]);
+});
+
+it('stores nothing when a comparison reveals the comments', async () => {
+    await mount({ mode: 'compare' });
+    document
+        .querySelector('[data-controller="review-panels"]')
+        .dispatchEvent(new CustomEvent('comment-anchor:reveal'));
+    expect(openPanels()).toEqual(['decisions', 'comments', 'outline']);
     expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
 });

@@ -42,6 +42,8 @@ final readonly class RenderedDiffBuilder
      */
     private const array TABLE_STRUCTURE = ['table', 'thead', 'tbody', 'tfoot', 'tr'];
 
+    private const array HEADINGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
+
     public function __construct(
         private TranslatorInterface $translator,
     ) {
@@ -59,20 +61,24 @@ final readonly class RenderedDiffBuilder
 
         $count = 0;
         $open = false;
-        $this->visit($body, false, $count, $open);
+        $section = null;
+        $sections = [];
+        $this->visit($body, false, $count, $open, $section, $sections);
 
         if (null !== $newPlainText) {
             $this->stampOffsets($body, $newPlainText);
         }
 
-        return new RenderedDiff($body->innerHTML, $count);
+        return new RenderedDiff($body->innerHTML, $count, $sections);
     }
 
     /**
-     * @param int  $count number of runs seen so far
-     * @param bool $open  whether the previous node continued a run
+     * @param int                $count    number of runs seen so far
+     * @param bool               $open     whether the previous node continued a run
+     * @param ?string            $section  id of the last heading seen
+     * @param array<string, int> $sections runs counted per heading id
      */
-    private function visit(\Dom\Node $parent, bool $insideMark, int &$count, bool &$open): void
+    private function visit(\Dom\Node $parent, bool $insideMark, int &$count, bool &$open, ?string &$section, array &$sections): void
     {
         foreach ($parent->childNodes as $node) {
             if ($node instanceof \Dom\Text) {
@@ -89,6 +95,10 @@ final readonly class RenderedDiffBuilder
                 continue;
             }
 
+            if ($this->isHeading($node)) {
+                $section = $node->getAttribute('id');
+            }
+
             if ($node->classList->contains(self::DECISION_CLASS)) {
                 // The answer belongs to one version, and a diff is looking at two.
                 $node->setAttribute('disabled', 'disabled');
@@ -100,13 +110,43 @@ final readonly class RenderedDiffBuilder
                 if (!$open) {
                     $open = true;
                     $this->openHunk($node, ++$count);
+                    $counted = $this->leadingHeading($node)?->getAttribute('id') ?? $section;
+                    if (null !== $counted) {
+                        $sections[$counted] = ($sections[$counted] ?? 0) + 1;
+                    }
                 }
             } elseif (!$insideMark && $this->drawsItsOwnContent($node)) {
                 $open = false;
             }
 
-            $this->visit($node, $insideMark || $isMark, $count, $open);
+            $this->visit($node, $insideMark || $isMark, $count, $open, $section, $sections);
         }
+    }
+
+    private function isHeading(\Dom\Element $element): bool
+    {
+        return \in_array(strtolower($element->tagName), self::HEADINGS, true) && $element->hasAttribute('id');
+    }
+
+    /**
+     * The heading a removed or added section opens with. The mark wraps that
+     * heading, so the walk reaches it only after the change has opened.
+     */
+    private function leadingHeading(\Dom\Element $mark): ?\Dom\Element
+    {
+        foreach ($mark->childNodes as $child) {
+            if ($child instanceof \Dom\Text) {
+                if ('' !== trim($child->data)) {
+                    return null;
+                }
+
+                continue;
+            }
+
+            return $child instanceof \Dom\Element && $this->isHeading($child) ? $child : null;
+        }
+
+        return null;
     }
 
     /**

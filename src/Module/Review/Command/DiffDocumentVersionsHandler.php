@@ -62,6 +62,7 @@ final readonly class DiffDocumentVersionsHandler
         $diffRefusal = null;
         $changeCount = null;
         $headings = [];
+        $changesByHeading = [];
         $sourceHeadings = null;
         if ($result instanceof DiffRefusal) {
             $diffRefusal = $result;
@@ -106,9 +107,14 @@ final readonly class DiffDocumentVersionsHandler
                 if (DiffView::SideBySide === $command->view) {
                     $sideBySide = $this->sideBySideDiffs->build($rendered->html);
                     $headings = $this->columnHeadings($sideBySide);
+                    foreach ($headings as $heading) {
+                        $changesByHeading[$heading->id] = $rendered->changesByHeadingId[$this->documentId($heading->id)] ?? 0;
+                    }
+                    $changesByHeading = array_filter($changesByHeading);
                 } else {
                     $renderedDiff = $rendered;
                     $headings = $this->headings->extract($rendered->html);
+                    $changesByHeading = $rendered->changesByHeadingId;
                 }
             }
         }
@@ -125,6 +131,7 @@ final readonly class DiffDocumentVersionsHandler
             diffRefusal: $diffRefusal,
             changeCount: $changeCount,
             headings: $headings,
+            changesByHeading: $changesByHeading,
             sourceHeadings: $sourceHeadings,
             commentingEnabled: $isCurrent && (null !== $renderedDiff || null !== $sideBySide),
             comments: $comments,

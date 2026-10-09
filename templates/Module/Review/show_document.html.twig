@@ -80,13 +80,15 @@
     {# Two columns spend the whole width on the two versions, so that view
        carries no comment column and takes no new comment. #}
     {% set diffColumns = diffMode and diffView is not null and diffView.value == 'side-by-side' %}
+    {% set panelsMode = diffColumns ? 'columns' : (diffMode ? 'compare' : 'document') %}
     {% set canComment = (not readOnly or diffCommenting) and not diffColumns %}
     {% set reviewControllers = (diffNavigation ? ['diff-navigation'] : [])|merge(diffMode and not diffCommenting ? [] : ['comment-anchor']) %}
     {% set diffUnmarked = diffNavigation and diff.hasChanges and diffView.value != 'source' and diffChangeCount == 0 %}
     <div class="lp-review-block{{ diffColumns ? ' lp-review-block--wide' : '' }}"
         data-controller="{{ (reviewControllers|merge(['review-panels']))|join(' ') }}"
+        data-review-panels-mode-value="{{ panelsMode }}"
         data-action="review-panels:filter->comment-anchor#filterThreads comment-anchor:resolved-filter->review-panels#resolvedFilter comment-anchor:reveal->review-panels#reveal"
-        {%- if diffNavigation %} data-diff-navigation-position-value="{{ 'review.document.diff.nav.position'|trans({'%total%': diffChangeCount}) }}"{% endif %}
+        {%- if diffNavigation %} data-diff-navigation-position-value="{{ 'review.document.diff.nav.position'|trans({'%total%': diffChangeCount, '%count%': diffChangeCount}) }}"{% endif %}
         {%- if diffCommenting %} data-comment-anchor-diff-value="true"
             data-comment-anchor-deleted-message-value="{{ 'review.document.diff.comment.deleted_refused'|trans }}"
             data-comment-anchor-unanchorable-message-value="{{ 'review.document.diff.comment.unanchorable_refused'|trans }}"{% endif %}>
@@ -141,8 +143,9 @@
             {# A diff lists the headings of the merged render, which is the
                markup the page holds. An untexted heading keeps a row too,
                labelled by its id, or the tab count would outrun the list. #}
+            {% set changesByHeading = diffMode ? diffChangesByHeading : {} %}
             {% set sectionRows = (diffMode ? diffHeadings : headings)
-                |map(heading => {level: heading.level, headingId: heading.id, label: heading.text is not empty ? heading.text : heading.id}) %}
+                |map(heading => {level: heading.level, headingId: heading.id, label: heading.text is not empty ? heading.text : heading.id, changes: changesByHeading[heading.id] ?? 0}) %}
             {% set showContents = sectionRows|length > 0 %}
             {% set referenceCount = document.references|length + document.referencedBy|length %}
             {# The diff is not passed `decisionMarkedHtml`, hence the lazy ternary. #}
@@ -261,10 +264,11 @@
             {% endif %}
 
             {# Comments also on a diff that accepts them: the add-comment
-               stream replaces the list, so a comment made there needs it. #}
-            {% if not diffColumns %}
+               stream replaces the list, so a comment made there needs it. The
+               columns take no comment, and start with every panel hidden. #}
             {% include '@Review/_review_panels.html.twig' with {
-                showComments: not diffMode or diffCommenting,
+                mode: panelsMode,
+                showComments: (not diffMode or diffCommenting) and not diffColumns,
                 decisionsReason: decisionsReason,
                 decisionsHint: diffMode ? 'review.document.margin.decisions_read_only_diff' : 'review.document.margin.decisions_save_hint',
                 decisionsUrl: diffDocumentUrl,
@@ -275,7 +279,6 @@
                 readOnlyThreads: readOnly and not diffCommenting,
                 commentCount: signals.threadCount,
             } only %}
-            {% endif %}
 
             {# The one part the diff view replaces — see diff_document_versions.html.twig.
                Everything else on this page reads the same in both modes, which is
