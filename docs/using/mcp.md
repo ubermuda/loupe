@@ -292,7 +292,7 @@ Roughly in the order an agent uses them:
 | `card_list` | Read a page of the board, filtered by status, type, reporter or parent, with the board's columns |
 | `board_columns` | List the board's columns, each with its slug, label, terminal flag, default flag and backlog flag, and the card types of the project |
 | `card_search` | Search every card's title and body by words, finished ones included |
-| `card_get` | Read one card, with the pull requests and their stored state, and the feedback linked to it |
+| `card_get` | Read one card, with the pull requests and their stored state, the latest agent review of each pull request as `agentReview`, and the feedback linked to it |
 | `card_get_history` | Read a page of one card's history, newest first: its creation, its moves and the automation's actions |
 | `card_update` | Change a card, or move it to another column |
 | `card_run_open` | Record an open interactive session on a card, and optionally move the card in the same step |
