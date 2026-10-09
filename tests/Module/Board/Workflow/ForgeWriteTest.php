@@ -598,6 +598,8 @@ final class ForgeWriteTest extends KernelTestCase
                 $this->service(TranslatorInterface::class),
                 $this->service(EntityManagerInterface::class),
                 new MockClock('2026-10-02 12:00:00'),
+                $this->service(UrlGeneratorInterface::class),
+                'en',
             ),
             new SiteReviewCheckPublisher(
                 $this->service(CardPullRequestRepository::class),

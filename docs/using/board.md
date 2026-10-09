@@ -1114,7 +1114,8 @@ requests, and only while the matching setting on the **Automation** tab is on:
 - With **Post a widget verdict as a review on GitHub** on, the verdict becomes
   a review under the reviewer's own GitHub account. On the reviewer's own pull
   request it becomes a comment. With the setting off, the verdict stays on the
-  card and no review goes out.
+  card and no review goes out. Each review opens with a line that names the
+  Loupe site review and links to the card.
 - With **Keep a "Loupe site review" check on pull requests** on, the check
   fails while a pending note that a verdict carried remains. The check also
   runs when nobody sends a verdict. It is green until a verdict carries a note.

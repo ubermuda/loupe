@@ -18,6 +18,8 @@ use App\Module\Forge\Service\PullRequestReviewPosters;
 use App\Module\Forge\Service\PullRequestUnreadable;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /** Posts the reviews that the verdicts of a card ask for, and settles every pending delivery. */
@@ -38,6 +40,10 @@ final readonly class VerdictReviewSettler
         private TranslatorInterface $translator,
         private EntityManagerInterface $em,
         private ClockInterface $clock,
+        private UrlGeneratorInterface $urls,
+
+        #[Autowire(param: 'kernel.default_locale')]
+        private string $locale,
     ) {
     }
 
@@ -92,10 +98,7 @@ final readonly class VerdictReviewSettler
         $reviewerForgeId = $this->forgeAccount->forgeUserIdOf($reviewer);
         $own = null !== $reviewerForgeId && $reviewerForgeId === $pullRequest->authorId;
         $kind = $own ? PullRequestReviewKind::Comment : PullRequestReviewKind::from($verdict->kind->value);
-        $body = $this->body($verdict->message, $verdict->notes);
-        if ('' === $body && PullRequestReviewKind::Approve !== $kind) {
-            $body = $this->translator->trans('board.verdict.review.fallback_body');
-        }
+        $body = $this->body($delivery->verdict->card, $verdict->message, $verdict->notes);
 
         try {
             $url = $poster->post($pullRequest, $kind, $body, (string) $reviewer->id);
@@ -144,14 +147,41 @@ final readonly class VerdictReviewSettler
         return null;
     }
 
-    /** @param list<array{id: string, url: string, body: string, anchorCount: int}> $notes */
-    private function body(string $message, array $notes): string
+    /**
+     * The first line names the Loupe site review and links to the notes, and to the preview when a note names one.
+     *
+     * @param list<array{id: string, url: string, body: string, anchorCount: int}> $notes
+     */
+    private function body(Card $card, string $message, array $notes): string
     {
-        $parts = '' === trim($message) ? [] : [trim($message)];
+        $parts = [$this->sourceLine($card, $notes)];
+        if ('' !== trim($message)) {
+            $parts[] = trim($message);
+        }
         foreach ($notes as $note) {
             $parts[] = \sprintf("%s\n\n%s\n<!-- loupe-note:%s -->", $note['url'], $note['body'], $note['id']);
         }
 
         return implode("\n\n", $parts);
+    }
+
+    /** @param list<array{id: string, url: string, body: string, anchorCount: int}> $notes */
+    private function sourceLine(Card $card, array $notes): string
+    {
+        $cardUrl = $this->urls->generate('app_board_card', [
+            'projectId' => (string) $card->project->id,
+            'cardId' => (string) $card->id,
+            'tab' => 'feedback',
+        ], UrlGeneratorInterface::ABSOLUTE_URL);
+        $line = $this->translator->trans('board.verdict.review.source', ['%number%' => $card->number, '%card_url%' => $cardUrl], 'messages', $this->locale);
+
+        $first = $notes[0] ?? null;
+        $parts = null === $first ? false : parse_url($first['url']);
+        if (\is_array($parts) && isset($parts['scheme'], $parts['host']) && \in_array($parts['scheme'], ['http', 'https'], true)) {
+            $preview = $parts['scheme'].'://'.$parts['host'].(isset($parts['port']) ? ':'.$parts['port'] : '');
+            $line .= ' '.$this->translator->trans('board.verdict.review.preview', ['%preview_url%' => $preview], 'messages', $this->locale);
+        }
+
+        return $line;
     }
 }
