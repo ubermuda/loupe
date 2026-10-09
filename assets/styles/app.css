@@ -6986,7 +6986,7 @@
         grid-template-rows: 1fr;
     }
     .lp-board-lane--collapsed.lp-board-lane--revealed .lp-board-lane__cells {
-        @apply visible overflow-visible opacity-100 translate-y-0;
+        @apply visible overflow-visible opacity-100 translate-none;
     }
     /* Only a click animates, so a lane restored from storage on load does not.
        The lane controller glides the number, title and progress itself. */
