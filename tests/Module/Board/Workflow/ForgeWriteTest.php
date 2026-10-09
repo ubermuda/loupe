@@ -372,6 +372,14 @@ final class ForgeWriteTest extends KernelTestCase
         self::assertSame([], $this->queuedEvaluations());
     }
 
+    public function test_a_comment_write_names_its_comment_on_the_settings_page(): void
+    {
+        $forgeWrite = $this->service(ForgeWrite::class);
+
+        self::assertSame('comment fix-run', $forgeWrite->describe(['write' => 'comment', 'comment' => 'fix-run'])->settingsDetail);
+        self::assertSame('merge', $forgeWrite->describe(['write' => 'merge', 'fallback' => 'merge'])->settingsDetail);
+    }
+
     private function fixRun(Card $card): void
     {
         $this->em()->persist(new WorkerRun(

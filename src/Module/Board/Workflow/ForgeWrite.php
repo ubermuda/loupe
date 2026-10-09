@@ -119,7 +119,9 @@ final readonly class ForgeWrite implements Action, ChecksParameters
     #[\Override]
     public function describe(array $params): ActionDescription
     {
-        return new ActionDescription('workflow.settings.action.forge_write', 'workflow.panel.action.forge_write', panelParams: ['%write%' => (string) $params['write']], settingsDetail: (string) $params['write']);
+        $write = isset($params['comment']) ? $params['write'].' '.$params['comment'] : (string) $params['write'];
+
+        return new ActionDescription('workflow.settings.action.forge_write', 'workflow.panel.action.forge_write', panelParams: ['%write%' => $write], settingsDetail: $write);
     }
 
     #[\Override]
