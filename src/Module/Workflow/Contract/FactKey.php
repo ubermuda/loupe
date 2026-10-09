@@ -20,4 +20,5 @@ enum FactKey: string
     case Refusal = 'refusal';
     case WorkerRuns = 'worker-runs';
     case ParentWork = 'parent-work';
+    case ParentSlot = 'parent-slot';
 }
