@@ -216,6 +216,19 @@ final class SiteReviewCheckPublisherTest extends KernelTestCase
         self::assertSame('sha-2', $this->stateOf($other)->headSha);
     }
 
+    public function test_a_project_with_no_installation_is_left_alone_with_no_refusal(): void
+    {
+        $card = $this->card($this->project);
+        $pullRequest = $this->openPullRequest($card, 7, 'sha-1');
+        $this->writer->failingNumbers = [7];
+        $this->writer->failureCause = 'no_installation';
+
+        self::assertNull($this->publish($card));
+
+        self::assertCount(1, $this->writer->published);
+        self::assertNull($this->stateRowOf($pullRequest));
+    }
+
     public function test_a_pull_request_with_no_writer_is_left_alone(): void
     {
         $card = $this->card($this->project);

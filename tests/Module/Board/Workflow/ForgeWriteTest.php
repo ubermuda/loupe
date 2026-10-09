@@ -171,6 +171,20 @@ final class ForgeWriteTest extends KernelTestCase
         self::assertSame(['draft-switch'], $this->liveKinds($card));
     }
 
+    public function test_a_state_write_that_skips_one_pull_request_still_opens_the_fallback_work(): void
+    {
+        $card = $this->card($this->project(), 'in-review');
+        $first = $this->pullRequest($card);
+        $second = $this->pullRequest($card);
+        $this->writer->failure = new PullRequestWriteFailed('no_installation', permanent: true);
+        $this->writer->failingNumbers = [$second->number];
+
+        self::assertOpenedWork($this->write($card, 'close', fallback: 'close-epic'));
+
+        self::assertSame([['close', $first->number], ['close', $second->number]], $this->writer->calls);
+        self::assertSame(['close-epic'], $this->liveKinds($card));
+    }
+
     public function test_a_failed_write_is_refused_with_its_cause(): void
     {
         $card = $this->card($this->project(), 'in-review');

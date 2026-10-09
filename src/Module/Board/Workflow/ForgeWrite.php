@@ -316,10 +316,12 @@ final readonly class ForgeWrite implements Action, ChecksParameters
     private function writeStates(array $pullRequests, ForgeWriteKind $write, \Closure $fallback): ActionOutcome
     {
         $failure = null;
-        $written = false;
+        $skipped = false;
         foreach ($pullRequests as $pullRequest) {
             $writer = $this->stateWriters->for($pullRequest->forge);
             if (null === $writer) {
+                $skipped = true;
+
                 continue;
             }
             try {
@@ -328,20 +330,20 @@ final readonly class ForgeWrite implements Action, ChecksParameters
                 } else {
                     $writer->setDraft($pullRequest, ForgeWriteKind::Draft === $write);
                 }
-                $written = true;
             } catch (PullRequestWriteFailed $e) {
                 if (self::lacksWriter($e->cause)) {
+                    $skipped = true;
+
                     continue;
                 }
-                $written = true;
                 $failure ??= $e;
             }
         }
 
-        if (!$written) {
-            return $fallback();
+        if (null !== $failure) {
+            return ActionOutcome::refused($failure->cause);
         }
 
-        return null === $failure ? ActionOutcome::done() : ActionOutcome::refused($failure->cause);
+        return $skipped ? $fallback() : ActionOutcome::done();
     }
 }

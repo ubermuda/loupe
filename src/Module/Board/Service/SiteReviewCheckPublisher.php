@@ -81,7 +81,10 @@ final readonly class SiteReviewCheckPublisher
                     $reusable ? $state->checkRunId : null,
                 );
             } catch (PullRequestCheckFailed $e) {
-                $failure ??= $e->cause;
+                // A project with no GitHub App installation has nothing to post a check with.
+                if ('no_installation' !== $e->cause) {
+                    $failure ??= $e->cause;
+                }
 
                 continue;
             }
