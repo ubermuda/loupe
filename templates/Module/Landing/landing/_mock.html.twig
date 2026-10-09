@@ -64,8 +64,10 @@
                         <span class="lp-topbar__meta">{{ 'landing.mock.document.threads'|trans }}</span>
                     </div>
                     <div class="lp-topbar__actions">
-                        <span class="{{ ds_button_class('outline', 'sm') }}">{{ 'review.document.verdict.request_changes'|trans }}</span>
-                        <span class="{{ ds_button_class('primary', 'sm') }}">{{ 'review.document.verdict.approve'|trans }}</span>
+                        <span class="{{ ds_button_class('primary', 'md') }}">
+                            <twig:ux:icon name="lucide:check" />
+                            {{ 'review.document.finish.title'|trans }}
+                        </span>
                     </div>
                 </div>
 
@@ -73,13 +75,25 @@
                     <div class="lp-review-block">
                         <div class="lp-review-doc">
                             <div class="lp-review-doc__head">
-                                <h2 class="lp-review-doc__title">{{ 'landing.mock.document.title'|trans }}</h2>
-                                <p class="lp-review-doc__byline">{{ 'landing.mock.document.byline'|trans }}</p>
-                                <div class="lp-doc-meta">
-                                    <span class="lp-doc-meta__tab">{{ 'review.document.meta.versions'|trans }} <span class="lp-doc-meta__count">3</span></span>
-                                    <span class="lp-doc-meta__tab">{{ 'review.document.contents.label'|trans }} <span class="lp-doc-meta__count">7</span></span>
-                                    <span class="lp-doc-meta__tab">{{ 'review.document.meta.references'|trans }} <span class="lp-doc-meta__count">2</span></span>
-                                    <span class="lp-doc-meta__tags"><twig:Ds:Tag>{{ 'landing.mock.document.tag'|trans }}</twig:Ds:Tag></span>
+                                <div class="lp-review-doc__identity">
+                                    <span class="lp-review-doc__back"><twig:ux:icon name="lucide:arrow-left" /></span>
+                                    <div class="lp-review-doc__identity-text">
+                                        <h2 class="lp-review-doc__title">{{ 'landing.mock.document.title'|trans }}</h2>
+                                        <div class="lp-review-doc__byline">
+                                            <span class="lp-review-doc__author">
+                                                <span class="lp-review-doc__avatar">{{ 'landing.mock.reviewer'|trans|slice(0, 1)|upper }}</span>
+                                                {{ 'landing.mock.reviewer'|trans }}
+                                            </span>
+                                            <span class="lp-review-doc__middot">·</span>
+                                            <span>{{ 'review.document.byline_updated'|trans({'%updated%': 'landing.mock.document.updated'|trans}) }}</span>
+                                            <span class="lp-review-doc__middot">·</span>
+                                            <span class="lp-review-doc__version">{{ 'landing.mock.document.version'|trans }}</span>
+                                            <span class="{{ ds_button_class('ghost', 'sm') }}">
+                                                <twig:ux:icon name="lucide:eye" />
+                                                {{ 'review.document.new_text.label'|trans }}
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -91,46 +105,53 @@
                                     {{ 'landing.mock.body.paragraph1_middle'|trans }}
                                     <span class="lp-anchor">{{ 'landing.mock.comment.quote'|trans }}</span>.
                                 </p>
-                                <p class="lp-landing-mock__gap">{{ 'landing.mock.body.paragraph2'|trans }}</p>
-                                <p>{{ 'landing.mock.body.paragraph3'|trans }}</p>
-                                <h3>{{ 'landing.mock.body.heading2'|trans }}</h3>
-                                <p>{{ 'landing.mock.body.paragraph4'|trans }}</p>
+                                <p>{{ 'landing.mock.body.paragraph2'|trans }}</p>
                             </div>
 
-                            <div class="lp-anchor-toolbar lp-landing-mock__toolbar">
-                                <span class="lp-anchor-toolbar__btn">
-                                    <twig:ux:icon name="lucide:message-square-plus" class="w-3.5 h-3.5 shrink-0" />
-                                    {{ 'review.document.comment.add'|trans }}
-                                </span>
-                                <span class="lp-anchor-toolbar__btn">
-                                    <twig:ux:icon name="lucide:replace" class="w-3.5 h-3.5 shrink-0" />
-                                    {{ 'review.document.suggestion.add'|trans }}
-                                </span>
-                                <span class="lp-anchor-toolbar__btn lp-anchor-toolbar__btn--strike">
-                                    <twig:ux:icon name="lucide:strikethrough" class="w-3.5 h-3.5 shrink-0" />
-                                    {{ 'review.document.strike.add'|trans }}
-                                    <kbd class="lp-anchor-toolbar__key">{{ 'review.document.strike.shortcut'|trans }}</kbd>
-                                </span>
-                            </div>
-                        </div>
-
-                        <div class="lp-review-margin lp-landing-mock__margin">
-                            <div class="lp-comment-thread lp-comment-thread--active">
-                                <div class="lp-comment-thread__header">
-                                    <span class="lp-comment-author">{{ 'landing.mock.reviewer'|trans }}</span>
-                                    <span class="lp-comment-status">{{ 'review.document.status.pending'|trans }}</span>
+                            <div class="lp-comment-thread lp-landing-mock__thread">
+                                <div class="lp-comment-thread__top">
+                                    <div class="lp-comment-thread__header">
+                                        <span class="lp-comment-avatar">{{ 'landing.mock.reviewer'|trans|slice(0, 1)|upper }}</span>
+                                        <span class="lp-comment-author">{{ 'landing.mock.reviewer'|trans }}</span>
+                                        <span class="lp-comment-status">{{ 'review.document.status.pending'|trans }}</span>
+                                    </div>
                                 </div>
-                                <blockquote class="lp-comment-quote">{{ 'landing.mock.comment.quote'|trans }}</blockquote>
                                 <div class="lp-comment-body">{{ 'landing.mock.comment.body'|trans }}</div>
+                                <div class="lp-landing-mock__reply">
+                                    <div class="lp-comment-thread__header">
+                                        <span class="lp-comment-avatar">{{ 'landing.mock.agent'|trans|slice(0, 1)|upper }}</span>
+                                        <span class="lp-comment-author">{{ 'landing.mock.agent'|trans }}</span>
+                                        <span class="lp-comment-status lp-comment-status--answered">{{ 'review.document.status.addressed'|trans }}</span>
+                                    </div>
+                                    <div class="lp-comment-body">{{ 'landing.mock.reply.body'|trans }}</div>
+                                </div>
                             </div>
 
-                            <div class="lp-comment-thread lp-landing-mock__reply">
-                                <div class="lp-comment-thread__header">
-                                    <span class="lp-comment-author">{{ 'landing.mock.agent'|trans }}</span>
-                                    <span class="lp-comment-status lp-comment-status--answered">{{ 'review.document.status.addressed'|trans }}</span>
+                            <aside class="lp-landing-mock__panels">
+                                <div class="lp-landing-mock__toolbar">
+                                    <span class="lp-landing-mock__tool lp-landing-mock__tool--on"><twig:ux:icon name="lucide:clipboard-check" />{{ 'review.document.panels.decisions'|trans }}</span>
+                                    <span class="lp-landing-mock__tool"><twig:ux:icon name="lucide:message-square" />{{ 'review.document.panels.comments'|trans }}</span>
+                                    <span class="lp-landing-mock__tool"><twig:ux:icon name="lucide:list" />{{ 'review.document.panels.outline'|trans }}</span>
                                 </div>
-                                <div class="lp-comment-body">{{ 'landing.mock.reply.body'|trans }}</div>
-                            </div>
+                                <div class="lp-landing-mock__panel">
+                                    <div class="lp-landing-mock__panel-head">
+                                        <span class="lp-landing-mock__panel-title">{{ 'review.document.panels.decisions'|trans }}</span>
+                                        <span class="lp-landing-mock__panel-count">{{ 'review.document.panels.decisions_count'|trans({'%answered%': 1, '%total%': 2}) }}</span>
+                                    </div>
+                                    <ul class="lp-decision-summary__list">
+                                        <li class="lp-decision-summary__item">
+                                            <span class="lp-decision-summary__tag lp-decision-summary__tag--answered">{{ 'landing.mock.decision.one.tag'|trans }}</span>
+                                            <span class="lp-decision-summary__link">{{ 'landing.mock.decision.one.label'|trans }}</span>
+                                            <span class="lp-decision-summary__answer">{{ 'landing.mock.decision.one.answer'|trans }}</span>
+                                        </li>
+                                        <li class="lp-decision-summary__item">
+                                            <span class="lp-decision-summary__tag">{{ 'landing.mock.decision.two.tag'|trans }}</span>
+                                            <span class="lp-decision-summary__link">{{ 'landing.mock.decision.two.label'|trans }}</span>
+                                            <span class="lp-decision-summary__pending">{{ 'review.document.decisions.pending'|trans }}</span>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </aside>
                         </div>
                     </div>
                 </div>

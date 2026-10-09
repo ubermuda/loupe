@@ -4484,9 +4484,9 @@
                 <source>landing.tech.still.doc_title</source>
                 <target>Comment re-anchoring on revision</target>
             </trans-unit>
-            <trans-unit id="landing.tech.still.byline">
-                <source>landing.tech.still.byline</source>
-                <target>Version 2 &#183; reviewed by Geoffrey &#183; updated 2w ago</target>
+            <trans-unit id="landing.tech.still.version">
+                <source>landing.tech.still.version</source>
+                <target>v2</target>
             </trans-unit>
             <trans-unit id="landing.tech.still.doc_heading">
                 <source>landing.tech.still.doc_heading</source>
@@ -4804,13 +4804,29 @@
                 <source>landing.mock.document.threads</source>
                 <target>2 open · 5 resolved</target>
             </trans-unit>
-            <trans-unit id="landing.mock.document.byline">
-                <source>landing.mock.document.byline</source>
-                <target>Version 3 · reviewing as Geoffrey · updated 4 minutes ago</target>
+            <trans-unit id="landing.mock.document.updated">
+                <source>landing.mock.document.updated</source>
+                <target>4 minutes ago</target>
             </trans-unit>
-            <trans-unit id="landing.mock.document.tag">
-                <source>landing.mock.document.tag</source>
-                <target>payments</target>
+            <trans-unit id="landing.mock.decision.one.tag">
+                <source>landing.mock.decision.one.tag</source>
+                <target>D1</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.decision.one.label">
+                <source>landing.mock.decision.one.label</source>
+                <target>How the second write is retried</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.decision.one.answer">
+                <source>landing.mock.decision.one.answer</source>
+                <target>Queue it and retry</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.decision.two.tag">
+                <source>landing.mock.decision.two.tag</source>
+                <target>D2</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.decision.two.label">
+                <source>landing.mock.decision.two.label</source>
+                <target>When the legacy writer goes</target>
             </trans-unit>
             <trans-unit id="landing.mock.body.heading">
                 <source>landing.mock.body.heading</source>
@@ -4827,18 +4843,6 @@
             <trans-unit id="landing.mock.body.paragraph2">
                 <source>landing.mock.body.paragraph2</source>
                 <target>The second pass flips reads to the new aggregate for internal accounts only. We accept a two-week window where both stores are authoritative and reconcile nightly. The third pass removes the legacy writer and drops the old table.</target>
-            </trans-unit>
-            <trans-unit id="landing.mock.body.paragraph3">
-                <source>landing.mock.body.paragraph3</source>
-                <target>Rollback at any point is a flag flip. Nothing in the first two passes is destructive, and the nightly reconciliation job reports drift to the payments channel before it reaches a customer.</target>
-            </trans-unit>
-            <trans-unit id="landing.mock.body.heading2">
-                <source>landing.mock.body.heading2</source>
-                <target>Open questions</target>
-            </trans-unit>
-            <trans-unit id="landing.mock.body.paragraph4">
-                <source>landing.mock.body.paragraph4</source>
-                <target>Idempotency keys are currently derived from the session id, which does not survive the migration.</target>
             </trans-unit>
             <trans-unit id="landing.mock.comment.quote">
                 <source>landing.mock.comment.quote</source>
