@@ -202,33 +202,46 @@ not only two that follow one another.
 
 ### What a comparison looks like
 
-A comparison is the review page with one pane replaced, so the document keeps its
-place on the screen. One row under the tabs holds the **From** and **To** picker,
-**Compare**, the view switch (**Rendered**, **Markdown** and **Side by side**),
-and the change count with the two jump arrows at the right end. `j` and `k` move
-between changes as well. **Return to document** in the header goes back to the
-latest version.
+A comparison is a mode of the review page. The title, the byline, the toolbar,
+the panels and **Finish review** stay where they are. Select **New since vN** in
+the byline, or **Compare versions** in the **⋯** menu, to open one.
 
-The toolbar keeps Outline, plus Comments when the comparison accepts comments.
-Decisions stays in the toolbar, disabled, because a comparison cannot answer a
-decision. The **⋯** menu stays in the byline.
+A tinted compare bar sits under the byline and stays in view while you scroll.
+From left to right it holds **Document**, the **From** and **To** picker with
+**Compare**, the view switch (**Rendered**, **Markdown** and **Side by side**),
+and the change counter with the two jump arrows. The counter reads "2 of 42
+changes" after a jump. `j` and `k` move between changes as well. **Document**
+goes back to the current version. The Document, Diff and History tabs do not
+show while you compare.
+
+The Outline panel opens while you compare, and shows how many changes each
+section holds. A change before the first heading counts under no section. The
+**Markdown** view shows no counts. When you leave the comparison, the panels
+show as you left them on the document.
+
+Decisions are read-only while you compare. The Decisions panel shows each answer
+and says so, and a row takes you to the decision in the document, where you can
+answer it. **Finish review** and the verdict chip stay in the top bar when the
+comparison ends at the current version, because a verdict applies to that
+version. A comparison that ends at an older version shows neither.
 
 **Side by side** puts the two versions in two columns, the older one on the
 left. Each block sits opposite the block it became, so a reworded paragraph
 reads whole on both sides. Where one version has nothing, that side shows an
-empty slot and the pair stays level. The change count and the jump arrows work
-here too, and a jump can land in either column.
+empty slot and the pair stays level. The rows of a table that both versions
+hold stay level too, row by row in order. The change count and the jump arrows
+work here too, and a jump can land in either column.
 
-This view spends its whole width on the two versions, so it carries no toolbar
-and no panels, and takes no new comment. Read or write comments on **Rendered**, or in
-the document itself. On a phone the columns stack, older above newer, and each
-names its version.
+This view uses the full width for the two versions, so every panel starts
+hidden. Select a toolbar button to show a panel as a column on the right, and
+the two versions make room for it. This view has no Comments panel and takes no
+new comment. Read or write comments on **Rendered**, or in the document itself.
+On a phone the columns stack, older above newer, and each names its version.
 
 **Markdown** compares the two sources line by line, so it shows a change the
 other views cannot mark. Its Outline panel names every heading line, the removed
 ones included, and a row takes you to that line.
 
-The toolbar includes the from/to picker and **Compare** button.
 Version selectors, Compare, and diff-view buttons use the same control height.
 Touch screens retain larger targets.
 Comparing another pair keeps the selected view.
