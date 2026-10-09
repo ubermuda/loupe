@@ -31,12 +31,13 @@ trait CardVerdictScenario
     }
 
     /** A pull request that the card links and the last forge read found in that state. */
-    private function linkedPullRequest(Card $card, int $number, PullRequestState $state = PullRequestState::Open, string $forge = 'github', ?string $authorId = null): ForgePullRequest
+    private function linkedPullRequest(Card $card, int $number, PullRequestState $state = PullRequestState::Open, string $forge = 'github', ?string $authorId = null, bool $authorRead = true): ForgePullRequest
     {
         $this->em->persist(new CardPullRequest($card, 'https://github.com/Acme/Widgets/pull/'.$number, Forge::GitHub, 'Acme/Widgets', $number));
         $row = new ForgePullRequest($card->project, $forge, 'acme/widgets', $number);
         $row->state = $state;
         $row->authorId = $authorId;
+        $row->authorRead = $authorRead;
         $this->em->persist($row);
 
         return $row;

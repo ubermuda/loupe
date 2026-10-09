@@ -8,10 +8,14 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardVerdictDelivery;
 use App\Module\Board\Entity\CardVerdictDeliveryState;
 use App\Module\Board\Repository\CardVerdictDeliveryRepository;
+use App\Module\Forge\Command\ReadPullRequestStateCommand;
+use App\Module\Forge\Command\ReadPullRequestStateHandler;
+use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Service\PullRequestReviewFailed;
 use App\Module\Forge\Service\PullRequestReviewKind;
 use App\Module\Forge\Service\PullRequestReviewPosters;
+use App\Module\Forge\Service\PullRequestUnreadable;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -23,11 +27,14 @@ final readonly class VerdictReviewSettler
 
     public const string REASON_NO_POSTER = 'no-poster';
 
+    public const string AUTHOR_UNREAD = 'author-unread';
+
     public function __construct(
         private CardVerdictDeliveryRepository $cardVerdictDeliveries,
         private BoardAutomation $boardAutomation,
         private PullRequestReviewPosters $posters,
         private ReviewerForgeAccount $forgeAccount,
+        private ReadPullRequestStateHandler $readPullRequestState,
         private TranslatorInterface $translator,
         private EntityManagerInterface $em,
         private ClockInterface $clock,
@@ -61,7 +68,14 @@ final readonly class VerdictReviewSettler
             return $this->finish($delivery, CardVerdictDeliveryState::Skipped);
         }
         $pullRequest = $delivery->pullRequest;
-        if (PullRequestState::Open !== $pullRequest->state) {
+        if (!self::isOpen($pullRequest)) {
+            return $this->finish($delivery, CardVerdictDeliveryState::Skipped, self::REASON_NOT_OPEN);
+        }
+        if (!$this->authorIsRead($pullRequest)) {
+            return self::AUTHOR_UNREAD;
+        }
+        // The read can find the pull request closed.
+        if (!self::isOpen($pullRequest)) {
             return $this->finish($delivery, CardVerdictDeliveryState::Skipped, self::REASON_NOT_OPEN);
         }
 
@@ -99,6 +113,26 @@ final readonly class VerdictReviewSettler
         $delivery->reviewUrl = null === $url ? null : substr($url, 0, CardVerdictDelivery::MAX_REVIEW_URL_LENGTH);
 
         return $this->finish($delivery, $own ? CardVerdictDeliveryState::Commented : CardVerdictDeliveryState::Posted);
+    }
+
+    /** A row stored before the author columns existed has no author, and a review of one's own pull request is refused for good. */
+    private function authorIsRead(ForgePullRequest $pullRequest): bool
+    {
+        if (!$pullRequest->authorRead) {
+            try {
+                ($this->readPullRequestState)(new ReadPullRequestStateCommand((string) $pullRequest->id, $this->clock->now()));
+            } catch (PullRequestUnreadable) {
+                return false;
+            }
+        }
+
+        return $pullRequest->authorRead;
+    }
+
+    /** @phpstan-impure The author read between two calls can change the state. */
+    private static function isOpen(ForgePullRequest $pullRequest): bool
+    {
+        return PullRequestState::Open === $pullRequest->state;
     }
 
     private function finish(CardVerdictDelivery $delivery, CardVerdictDeliveryState $state, ?string $reason = null): null

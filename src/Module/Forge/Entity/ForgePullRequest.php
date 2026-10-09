@@ -56,6 +56,10 @@ class ForgePullRequest
     #[ORM\Column(length: 255, nullable: true)]
     public ?string $authorLogin = null;
 
+    /** False for a row that no read has filled since the author columns exist, so a null author id means unread. */
+    #[ORM\Column(options: ['default' => false])]
+    public bool $authorRead = false;
+
     #[ORM\Column(length: 20, enumType: PullRequestChecks::class)]
     public PullRequestChecks $checks = PullRequestChecks::Pending;
 
@@ -221,6 +225,7 @@ class ForgePullRequest
         $this->headBranch = $snapshot->headBranch;
         $this->authorId = $snapshot->authorId;
         $this->authorLogin = $snapshot->authorLogin;
+        $this->authorRead = true;
         $this->baseBranch = $snapshot->baseBranch;
         $this->checks = $snapshot->checks;
         $this->checksSha = $snapshot->checksSha;
