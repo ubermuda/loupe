@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPauseKind;
+use App\Module\Workflow\Contract\PauseKind;
 
 final readonly class PauseCardCommand
 {
@@ -13,7 +13,7 @@ final readonly class PauseCardCommand
         public Card $card,
         public string $reason,
         public string $ruleId,
-        public CardPauseKind $kind,
+        public PauseKind $kind,
     ) {
     }
 }

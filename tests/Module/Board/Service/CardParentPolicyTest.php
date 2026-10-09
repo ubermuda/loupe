@@ -7,13 +7,13 @@ namespace App\Tests\Module\Board\Service;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\LabelTone;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardParentPolicy;
-use App\Module\Board\Service\CardTypeCatalog;
-use App\Module\Board\Service\CardTypeDefinition;
-use App\Module\Board\Service\CardTypes;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\CardTypeCatalog;
+use App\Module\Workflow\Contract\CardTypeDefinition;
+use App\Module\Workflow\Contract\CardTypes;
+use App\Module\Workflow\Contract\LabelTone;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Uid\Uuid;
 
@@ -26,6 +26,7 @@ final class CardParentPolicyTest extends TestCase
     protected function setUp(): void
     {
         $this->project = new Project(new User(fullName: 'Owner', email: 'owner@example.com', password: 'hashed'), 'p');
+        new \ReflectionProperty(Project::class, 'id')->setValue($this->project, Uuid::v7());
     }
 
     public function test_a_card_of_a_type_with_the_children_capability_can_be_a_parent(): void
@@ -82,7 +83,7 @@ final class CardParentPolicyTest extends TestCase
 
         return new CardParentPolicy($cards, new class implements CardTypeCatalog {
             #[\Override]
-            public function forProject(Project $project): CardTypes
+            public function forProject(Uuid $projectId): CardTypes
             {
                 return new CardTypes([
                     new CardTypeDefinition('feature', 'feature', LabelTone::Lime, false, false),

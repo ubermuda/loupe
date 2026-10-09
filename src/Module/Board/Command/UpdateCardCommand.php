@@ -7,8 +7,8 @@ namespace App\Module\Board\Command;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Service\CardEventCause;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardEventCause;
 
 /**
  * $card and $actor are required. $actor is who makes this change, and a move
@@ -59,7 +59,7 @@ final readonly class UpdateCardCommand
      */
     public function __construct(
         public Card $card,
-        public CardReporter $actor,
+        public Actor $actor,
         public ?string $title = null,
         public ?string $body = null,
         public ?string $type = null,

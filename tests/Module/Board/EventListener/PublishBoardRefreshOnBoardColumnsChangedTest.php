@@ -19,12 +19,12 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\BoardColumnRenamed;
 use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\EventListener\PublishBoardRefreshOnBoardColumnsChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Outbox\AgentPush;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\FeatureFlags;
@@ -95,7 +95,7 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
         $this->configureColumn($this->project, 'on-hold', terminal: false);
         $this->assertPublishedAtTerminate(5);
 
-        $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($added, CardReporter::Human));
+        $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($added, Actor::Human));
         $this->assertPublishedAtTerminate(6);
 
         $projectId = $this->project->id;
@@ -118,15 +118,15 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
         $update = $this->handler(UpdateCardHandler::class);
 
         $laneWasOn = $epic->laneEnabled;
-        $update(new UpdateCardCommand($epic, CardReporter::Human, laneEnabled: !$laneWasOn));
+        $update(new UpdateCardCommand($epic, Actor::Human, laneEnabled: !$laneWasOn));
         $this->assertPublishedAtTerminate(2);
-        $update(new UpdateCardCommand($epic, CardReporter::Human, laneEnabled: $laneWasOn));
+        $update(new UpdateCardCommand($epic, Actor::Human, laneEnabled: $laneWasOn));
         $this->assertPublishedAtTerminate(4);
         self::assertSame(2, $this->countOfType('board.columns_changed'));
 
         // An unchanged lane or a title edit places one card and reloads no board.
-        $update(new UpdateCardCommand($epic, CardReporter::Human, laneEnabled: $laneWasOn));
-        $update(new UpdateCardCommand($epic, CardReporter::Human, title: 'Renamed epic'));
+        $update(new UpdateCardCommand($epic, Actor::Human, laneEnabled: $laneWasOn));
+        $update(new UpdateCardCommand($epic, Actor::Human, title: 'Renamed epic'));
         $this->assertPublishedAtTerminate(5);
         self::assertSame(2, $this->countOfType('board.columns_changed'));
     }

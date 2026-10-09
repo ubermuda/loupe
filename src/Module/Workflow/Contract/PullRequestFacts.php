@@ -40,4 +40,27 @@ final readonly class PullRequestFacts
             default => null,
         };
     }
+
+    /**
+     * The part of the pull request whose change counts as a change. The close time stays out: a closed pull request
+     * takes it from its last read, so a re-read changes it.
+     *
+     * @return list<mixed>
+     */
+    public function fingerprint(): array
+    {
+        return [
+            $this->state->value,
+            $this->draft,
+            $this->checks->value,
+            $this->conflicting,
+            $this->behind,
+            $this->approvalsCoveringHead,
+            $this->changesRequested,
+            $this->baseIsMergeTarget,
+            $this->baseIsEpicBranch,
+            $this->stacked,
+            $this->parentMerged,
+        ];
+    }
 }

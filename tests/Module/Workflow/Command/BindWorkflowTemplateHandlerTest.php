@@ -7,6 +7,7 @@ namespace App\Tests\Module\Workflow\Command;
 use App\Exception\DomainErrors;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
+use App\Module\Workflow\Contract\WorkflowRowCleanup;
 use App\Module\Workflow\Entity\WorkflowSlotLink;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
@@ -46,7 +47,7 @@ final class BindWorkflowTemplateHandlerTest extends KernelTestCase
 
         $links = [];
         foreach ($this->links()->findBy(['project' => $this->project->id]) as $link) {
-            $links[$link->slotKey] = $link->column?->id?->toRfc4122();
+            $links[$link->slotKey] = $link->columnId?->toRfc4122();
         }
         ksort($links);
         $expected = array_map(static fn (Uuid $id): string => $id->toRfc4122(), $columns);
@@ -176,13 +177,16 @@ final class BindWorkflowTemplateHandlerTest extends KernelTestCase
         self::assertNotNull($column->id);
 
         $this->em()->getConnection()->executeStatement('DELETE FROM board_columns WHERE id = :id', ['id' => $column->id->toRfc4122()]);
+        $cleanup = self::getContainer()->get(WorkflowRowCleanup::class);
+        self::assertInstanceOf(WorkflowRowCleanup::class, $cleanup);
+        $cleanup->forgetColumn($column->id);
         $this->em()->clear();
 
         $link = $this->links()->findOneBy(['project' => $this->project->id, 'slotKey' => 'in-review']);
         self::assertInstanceOf(WorkflowSlotLink::class, $link);
-        self::assertNull($link->column);
+        self::assertNull($link->columnId);
         $sibling = $this->links()->findOneBy(['project' => $this->project->id, 'slotKey' => 'next']);
-        self::assertNotNull($sibling?->column);
+        self::assertNotNull($sibling?->columnId);
     }
 
     /** @param non-empty-array<string, string> $errors */

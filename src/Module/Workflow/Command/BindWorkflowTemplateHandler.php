@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Workflow\Command;
 
 use App\Exception\DomainErrors;
-use App\Module\Board\Repository\BoardColumnRepository;
+use App\Module\Workflow\Contract\BoardColumns;
 use App\Module\Workflow\Entity\WorkflowBinding;
 use App\Module\Workflow\Entity\WorkflowSlotLink;
 use App\Module\Workflow\Repository\WorkflowBindingRepository;
@@ -24,7 +24,7 @@ final readonly class BindWorkflowTemplateHandler
     public function __construct(
         private ShippedTemplates $shippedTemplates,
         private TemplateParser $parser,
-        private BoardColumnRepository $boardColumns,
+        private BoardColumns $boardColumns,
         private WorkflowBindingRepository $workflowBindings,
         private EntityManagerInterface $em,
         private Auditor $auditor,
@@ -54,8 +54,8 @@ final readonly class BindWorkflowTemplateHandler
                 }
 
                 $projectColumns = [];
-                foreach ($this->boardColumns->findForProjectFresh($project) as $column) {
-                    $projectColumns[(string) $column->id?->toRfc4122()] = $column;
+                foreach ($this->boardColumns->forProjectFresh($projectId) as $column) {
+                    $projectColumns[$column->id->toRfc4122()] = $column;
                 }
 
                 $errors = [];
@@ -77,7 +77,7 @@ final readonly class BindWorkflowTemplateHandler
                         continue;
                     }
                     $usedColumnIds[$columnId->toRfc4122()] = true;
-                    $links[] = new WorkflowSlotLink($project, $slot->key, $column);
+                    $links[] = new WorkflowSlotLink($project, $slot->key, $column->id);
                 }
                 foreach (array_keys($command->slotColumns) as $slotKey) {
                     if (null === $template->slot((string) $slotKey)) {

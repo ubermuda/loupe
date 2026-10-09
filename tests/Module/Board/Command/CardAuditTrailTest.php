@@ -14,7 +14,6 @@ use App\Module\Board\Command\MoveCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardGroupOrder;
@@ -23,6 +22,7 @@ use App\Module\Board\Service\PullRequestTracking;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\InteractiveRuns;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
@@ -127,7 +127,7 @@ final class CardAuditTrailTest extends KernelTestCase
         $card = $this->card('Movable', 'backlog');
         $this->audit->forget();
 
-        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'in-progress')));
+        ($this->moveCard)(new MoveCardCommand($card, Actor::Human, $this->column($this->project, 'in-progress')));
 
         $record = $this->audit->record('board.card_moved');
         self::assertNotNull($record->subject);
@@ -151,7 +151,7 @@ final class CardAuditTrailTest extends KernelTestCase
         $cardNumber = $card->number;
         $this->audit->forget();
 
-        ($this->deleteCard)(new DeleteCardCommand($card, CardReporter::Human));
+        ($this->deleteCard)(new DeleteCardCommand($card, Actor::Human));
 
         $record = $this->audit->record('board.card_deleted');
         self::assertNotNull($record->subject);
@@ -177,7 +177,7 @@ final class CardAuditTrailTest extends KernelTestCase
 
         ($this->updateCard)(new UpdateCardCommand(
             card: $card,
-            actor: CardReporter::Agent,
+            actor: Actor::Agent,
             title: 'After',
             body: 'Body',
             type: 'bug',
@@ -207,7 +207,7 @@ final class CardAuditTrailTest extends KernelTestCase
         $card = $this->card('Promotable', 'backlog');
         $this->audit->forget();
 
-        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Agent, column: $this->column($this->project, 'done')));
+        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: Actor::Agent, column: $this->column($this->project, 'done')));
 
         $move = $this->audit->record('board.card_moved');
         self::assertSame('backlog', $move->context['fromStatus']);
@@ -221,7 +221,7 @@ final class CardAuditTrailTest extends KernelTestCase
         $card = $this->card('Promotable', 'backlog');
         $this->audit->forget();
 
-        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Agent, title: 'Promoted', column: $this->column($this->project, 'done')));
+        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: Actor::Agent, title: 'Promoted', column: $this->column($this->project, 'done')));
 
         $update = $this->audit->record('board.card_updated');
         self::assertTrue($update->context['titleChanged']);
@@ -238,7 +238,7 @@ final class CardAuditTrailTest extends KernelTestCase
 
         ($this->updateCard)(new UpdateCardCommand(
             card: $card,
-            actor: CardReporter::Agent,
+            actor: Actor::Agent,
             title: 'Unchanged',
             body: 'Body',
             type: 'bug',
@@ -253,7 +253,7 @@ final class CardAuditTrailTest extends KernelTestCase
         $card = $this->card('Draggable', 'backlog');
         $this->audit->forget();
 
-        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'next'), 0));
+        ($this->moveCard)(new MoveCardCommand($card, Actor::Human, $this->column($this->project, 'next'), 0));
 
         self::assertSame(['board.card_moved'], $this->audit->operations());
         self::assertSame('next', $this->audit->record('board.card_moved')->context['toStatus']);
@@ -287,7 +287,7 @@ final class CardAuditTrailTest extends KernelTestCase
             body: 'Body',
             type: 'bug',
             column: $this->column($this->project, $column),
-            reporter: CardReporter::Agent,
+            reporter: Actor::Agent,
         ));
     }
 }

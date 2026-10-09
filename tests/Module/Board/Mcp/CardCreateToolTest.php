@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Mcp;
 
 use App\Module\Board\Entity\CardLinkKind;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSourceKind;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Mcp\AgentRunCause;
@@ -14,6 +13,7 @@ use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkSubject;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Support\McpRefusalMessages;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
@@ -56,7 +56,7 @@ final class CardCreateToolTest extends KernelTestCase
         self::assertSame('feature', $card['type']);
         self::assertArrayNotHasKey('priority', $card);
         self::assertSame('backlog', $card['status']);
-        self::assertSame(CardReporter::Agent->value, $card['reporter']);
+        self::assertSame(Actor::Agent->value, $card['reporter']);
         self::assertNull($card['completedAt']);
         self::assertSame([], $card['pullRequests']);
     }
@@ -97,7 +97,7 @@ final class CardCreateToolTest extends KernelTestCase
 
         $card = ($this->tool)('Dictated', 'Body', 'idea', reporter: 'human');
 
-        self::assertSame(CardReporter::Human->value, $card['reporter']);
+        self::assertSame(Actor::Human->value, $card['reporter']);
         // The claimed person is not the account behind the call, so the history names the agent.
         self::assertSame('agent', $this->em->getConnection()->fetchOne(
             "SELECT actor_kind FROM board_card_events WHERE card_id = :card AND kind = 'created'",
@@ -112,7 +112,7 @@ final class CardCreateToolTest extends KernelTestCase
 
         $card = ($this->tool)('Old caller', 'Body', 'idea', origin: 'human');
 
-        self::assertSame(CardReporter::Human->value, $card['reporter']);
+        self::assertSame(Actor::Human->value, $card['reporter']);
     }
 
     public function test_reporter_wins_when_a_caller_sends_both_names(): void
@@ -121,7 +121,7 @@ final class CardCreateToolTest extends KernelTestCase
 
         $card = ($this->tool)('Both', 'Body', 'idea', reporter: 'human', origin: 'agent');
 
-        self::assertSame(CardReporter::Human->value, $card['reporter']);
+        self::assertSame(Actor::Human->value, $card['reporter']);
     }
 
     /** The widget owns `reviewer`, because it says the app could not name who raised the card. */

@@ -10,7 +10,6 @@ use App\Module\Board\Command\DeleteBoardColumnHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Messenger\ResumeAskingSession;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
@@ -38,6 +37,7 @@ use App\Module\Inbox\InboxEventType;
 use App\Module\Inbox\Install\InboxInstallFlags;
 use App\Module\Inbox\Service\InboxItemCloser;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Outbox\AgentPush;
 use App\Outbox\Command\DrainOutboxCommand;
 use App\Outbox\Command\DrainOutboxHandler;
@@ -338,7 +338,7 @@ final class InboxAskCloserTest extends KernelTestCase
         self::assertInstanceOf(Card::class, $managedCard);
         $handler = self::getContainer()->get(UpdateCardHandler::class);
         self::assertInstanceOf(UpdateCardHandler::class, $handler);
-        $handler(new UpdateCardCommand($managedCard, CardReporter::Human, column: $this->column($managedCard->project, 'done')));
+        $handler(new UpdateCardCommand($managedCard, Actor::Human, column: $this->column($managedCard->project, 'done')));
 
         $this->em->clear();
         $moved = $this->em->find(Card::class, $card->id);
@@ -367,7 +367,7 @@ final class InboxAskCloserTest extends KernelTestCase
         $handler = self::getContainer()->get(DeleteBoardColumnHandler::class);
         self::assertInstanceOf(DeleteBoardColumnHandler::class, $handler);
         $project = $this->managedProject();
-        $handler(new DeleteBoardColumnCommand($this->column($project, 'in-progress'), CardReporter::Human, $this->column($project, 'done')));
+        $handler(new DeleteBoardColumnCommand($this->column($project, 'in-progress'), Actor::Human, $this->column($project, 'done')));
 
         self::assertSame(InboxItemState::Obsolete, $this->reloadItem($item)->state);
         self::assertNotNull($this->reloadAsk($ask)->closedAt);
@@ -395,11 +395,11 @@ final class InboxAskCloserTest extends KernelTestCase
         self::assertInstanceOf(UpdateCardHandler::class, $move);
         $managedCard = $this->em->find(Card::class, $moved->id);
         self::assertInstanceOf(Card::class, $managedCard);
-        $move(new UpdateCardCommand($managedCard, CardReporter::Human, column: $this->column($managedCard->project, 'done')));
+        $move(new UpdateCardCommand($managedCard, Actor::Human, column: $this->column($managedCard->project, 'done')));
         $delete = self::getContainer()->get(DeleteBoardColumnHandler::class);
         self::assertInstanceOf(DeleteBoardColumnHandler::class, $delete);
         $project = $this->managedProject();
-        $delete(new DeleteBoardColumnCommand($this->column($project, 'in-progress'), CardReporter::Human, $this->column($project, 'done')));
+        $delete(new DeleteBoardColumnCommand($this->column($project, 'in-progress'), Actor::Human, $this->column($project, 'done')));
 
         self::assertSame(1, $this->countEvents('board.card_moved'));
         self::assertSame(1, $this->countEvents('board.column_deleted'));

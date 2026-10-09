@@ -125,7 +125,7 @@
                     </div>
                 </section>
                 {% endif %}
-                {{ workflow_card_panel(card) }}
+                {{ workflow_card_panel(card.snapshot()) }}
                 {% include '@Bridge/_card_worker_runs.html.twig' with {project: card.project, cardId: card.id ~ ''} only %}
             </div>
         </section>

@@ -10,7 +10,6 @@ use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardEventRepository;
@@ -18,6 +17,7 @@ use App\Module\Board\Service\CardExporter;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -69,7 +69,7 @@ final class CardExporterTest extends KernelTestCase
             body: 'The key is a year old.',
             number: 1,
             type: 'bug',
-            origin: CardReporter::Human,
+            origin: Actor::Human,
             position: 7,
             createdAt: $createdAt,
         );
@@ -144,7 +144,7 @@ final class CardExporterTest extends KernelTestCase
             body: '',
             number: 1,
             type: 'site-review',
-            origin: CardReporter::Reviewer,
+            origin: Actor::Reviewer,
             position: 0,
         );
         $this->em->persist($card);
@@ -251,8 +251,8 @@ final class CardExporterTest extends KernelTestCase
         $events = self::getContainer()->get(CardEventRepository::class);
         self::assertInstanceOf(CardEventRepository::class, $events);
         $createdAt = new \DateTimeImmutable('2026-03-01 09:00:00');
-        $events->record($card, CardEventKind::Created, CardReporter::Human, $owner, ['column' => ['slug' => 'backlog']], $createdAt);
-        $events->record($card, CardEventKind::Moved, CardReporter::System, null, ['cause' => ['type' => 'merged', 'pullRequest' => 5]], $createdAt->modify('+1 hour'));
+        $events->record($card, CardEventKind::Created, Actor::Human, $owner, ['column' => ['slug' => 'backlog']], $createdAt);
+        $events->record($card, CardEventKind::Moved, Actor::System, null, ['cause' => ['type' => 'merged', 'pullRequest' => 5]], $createdAt->modify('+1 hour'));
         $this->em->flush();
         $this->em->clear();
 

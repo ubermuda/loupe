@@ -4,16 +4,18 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Command;
 
-use App\Module\Board\Repository\CardRepository;
-use App\Module\Bridge\Service\CardHolds;
-use App\Module\Workflow\Action\ActionOutcomeKind;
+use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Workflow\Action\Actions;
+use App\Module\Workflow\Action\Ask;
+use App\Module\Workflow\Contract\ActionOutcomeKind;
+use App\Module\Workflow\Contract\CardDirectory;
 use App\Module\Workflow\Contract\CardEvaluations;
+use App\Module\Workflow\Contract\WorkLedger;
 use App\Module\Workflow\Engine\RuleSubject;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
+use App\Module\Workflow\Service\ActionContexts;
 use App\Module\Workflow\Service\FactsBuilder;
 use App\Module\Workflow\Service\WorkflowAutomation;
-use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\Rule;
 use App\Module\Workflow\Template\TemplateMissing;
 use App\Module\Workflow\Template\TemplateSource;
@@ -35,13 +37,15 @@ final readonly class AnswerRuleAskHandler
     public function __construct(
         private EntityManagerInterface $em,
         private WorkflowRuleStateRepository $workflowRuleStates,
-        private CardRepository $cards,
-        private CardHolds $cardHolds,
+        private CardDirectory $cards,
+        private ProjectRepository $projects,
+        private WorkLedger $ledger,
         private WorkflowAutomation $automation,
         private TemplateSource $templates,
         private FactsBuilder $factsBuilder,
         private RuleSubject $ruleSubject,
         private Actions $actions,
+        private ActionContexts $contexts,
         private CardEvaluations $evaluations,
         private ClockInterface $clock,
         private Auditor $auditor,
@@ -77,7 +81,7 @@ final readonly class AnswerRuleAskHandler
         if (null === $held) {
             return $this->skip('no-rule-state', $itemId);
         }
-        $this->workflowRuleStates->lockCard($held->card->id ?? throw new \LogicException('A persisted card has an id.'));
+        $this->workflowRuleStates->lockCard($held->cardId);
         // Read again under the lock: a withdrawal may have cleared the item while this message waited.
         $state = $this->workflowRuleStates->findOneByAskItemId($itemId);
         if (null === $state) {
@@ -85,10 +89,11 @@ final readonly class AnswerRuleAskHandler
         }
         $this->em->refresh($state);
 
-        $card = $state->card;
-        $cardId = $card->id ?? throw new \LogicException('A persisted card has an id.');
-        $projectId = $card->project->id ?? throw new \LogicException('A persisted project has an id.');
-        if ($this->cardHolds->isHeld($card->project, $cardId) || !$this->automation->runsFor($card->project)) {
+        $cardId = $state->cardId;
+        $snapshot = $this->cards->refresh($cardId) ?? throw new \LogicException('A rule state belongs to a card that exists.');
+        $projectId = $snapshot->projectId;
+        $project = $this->projects->find($projectId) ?? throw new \LogicException('A stored card has a project.');
+        if ($this->ledger->isHeld($projectId, $cardId) || !$this->automation->runsFor($project)) {
             return $this->skip('card-unmanaged', $itemId);
         }
 
@@ -98,16 +103,14 @@ final readonly class AnswerRuleAskHandler
             return $this->skip('no-template', $itemId);
         }
         $rule = array_find($template->rules, static fn (Rule $rule): bool => $rule->id === $state->ruleId);
-        $option = ActionType::Ask === $rule?->then->type ? ($rule->then->options[$optionIndex] ?? null) : null;
+        $option = Ask::KEY === $rule?->then->key ? ($rule->then->options[$optionIndex] ?? null) : null;
         if (null === $rule || null === $option) {
             return $this->skip('no-option', $itemId);
         }
 
-        $this->cards->refreshColumn($card);
-        $this->cards->refreshTypeAndParent($card);
         $now = $this->clock->now();
-        $facts = $this->factsBuilder->build($card, $now);
-        if (null !== $rule->slot && $facts->card->slot !== $rule->slot) {
+        $facts = $this->factsBuilder->build($snapshot, $now);
+        if (null !== $rule->slot && $facts->slot !== $rule->slot) {
             return $this->skip('left-slot', $itemId);
         }
         if (null === $rule->when->unreadable($facts) && !$this->ruleSubject->bind($rule, $facts)->truth) {
@@ -116,8 +119,9 @@ final readonly class AnswerRuleAskHandler
         $refusal = null;
         foreach ($option->actions as $call) {
             // Facts again for each action: the one before may have changed the card.
-            $facts = $this->factsBuilder->build($card, $now);
-            $result = $this->actions->get($call->type)->run(new Rule($rule->id, $rule->slot, $rule->when, $call, $rule->origin), $card, $facts, $state);
+            $facts = $this->factsBuilder->build($snapshot, $now);
+            $optionRule = new Rule($rule->id, $rule->slot, $rule->when, $call, $rule->origin);
+            $result = $this->actions->get($call->key)->run($this->contexts->for($optionRule, $snapshot, $facts, $state->fires));
             if (ActionOutcomeKind::Done !== $result->kind) {
                 $refusal = $result->code ?? $result->kind->value;
                 $state->lastRefusal = $refusal;

@@ -7,6 +7,7 @@ namespace App\Module\Board\Entity;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
@@ -45,8 +46,8 @@ class CardEvent
         #[ORM\Column(length: 20, enumType: CardEventKind::class)]
         public readonly CardEventKind $kind,
 
-        #[ORM\Column(length: 20, enumType: CardReporter::class)]
-        public readonly CardReporter $actorKind,
+        #[ORM\Column(length: 20, enumType: Actor::class)]
+        public readonly Actor $actorKind,
 
         /** The person behind a human or agent change. A deleted account leaves the row with no one. */
         #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]

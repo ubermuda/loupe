@@ -9,12 +9,12 @@ use App\Module\Board\Command\DeleteBoardColumnHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Install\InboxInstallFlags;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Inbox\InboxFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -127,7 +127,7 @@ final class MarkInboxItemsObsoleteOnCardMovedTest extends KernelTestCase
 
         $handler = self::getContainer()->get(DeleteBoardColumnHandler::class);
         self::assertInstanceOf(DeleteBoardColumnHandler::class, $handler);
-        $handler(new DeleteBoardColumnCommand($this->column($project, 'in-progress'), CardReporter::Human, $this->column($project, 'done')));
+        $handler(new DeleteBoardColumnCommand($this->column($project, 'in-progress'), Actor::Human, $this->column($project, 'done')));
 
         self::assertSame(InboxItemState::Obsolete, $this->reload($item)->state);
         self::assertSame(InboxItemState::Open, $this->reload($untouched)->state);
@@ -143,7 +143,7 @@ final class MarkInboxItemsObsoleteOnCardMovedTest extends KernelTestCase
 
         $handler = self::getContainer()->get(DeleteBoardColumnHandler::class);
         self::assertInstanceOf(DeleteBoardColumnHandler::class, $handler);
-        $handler(new DeleteBoardColumnCommand($this->column($project, 'in-progress'), CardReporter::Human, $this->column($project, 'next')));
+        $handler(new DeleteBoardColumnCommand($this->column($project, 'in-progress'), Actor::Human, $this->column($project, 'next')));
 
         self::assertSame(InboxItemState::Open, $this->reload($item)->state);
     }
@@ -183,7 +183,7 @@ final class MarkInboxItemsObsoleteOnCardMovedTest extends KernelTestCase
         $handler = self::getContainer()->get(UpdateCardHandler::class);
         self::assertInstanceOf(UpdateCardHandler::class, $handler);
 
-        $handler(new UpdateCardCommand($card, CardReporter::Human, column: $this->column($project, $slug)));
+        $handler(new UpdateCardCommand($card, Actor::Human, column: $this->column($project, $slug)));
     }
 
     private function reload(InboxItem $item): InboxItem

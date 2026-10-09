@@ -9,7 +9,7 @@ use App\Module\Board\Command\ConfigureBoardColumnCommand;
 use App\Module\Board\Command\ConfigureBoardColumnHandler;
 use App\Module\Board\Command\ListBoardColumnsCommand;
 use App\Module\Board\Command\ListBoardColumnsHandler;
-use App\Module\Board\Entity\CardReporter;
+use App\Module\Workflow\Contract\Actor;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -51,7 +51,7 @@ final readonly class ColumnUpdateTool
             // The handler keeps a seeded label's key only when it gets the translated label back.
             ($this->configureColumn)(new ConfigureBoardColumnCommand(
                 column: $column,
-                actor: CardReporter::Agent,
+                actor: Actor::Agent,
                 label: $label ?? $this->translator->trans($column->label),
                 terminal: $terminal ?? $column->terminal,
                 expectedLabel: $column->label,

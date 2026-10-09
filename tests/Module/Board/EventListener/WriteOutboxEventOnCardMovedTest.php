@@ -13,9 +13,9 @@ use App\Module\Board\Command\MoveCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\Actor;
 use App\Outbox\Entity\OutboxEvent;
 use App\Outbox\Repository\OutboxEventRepository;
 use App\Tests\Module\Board\BoardColumnFixtures;
@@ -76,7 +76,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
     {
         $card = $this->card('Draggable', 'backlog');
 
-        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'next'), 0));
+        ($this->moveCard)(new MoveCardCommand($card, Actor::Human, $this->column($this->project, 'next'), 0));
 
         $row = $this->onlyRow();
         self::assertSame([
@@ -94,7 +94,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
     {
         $card = $this->card('Routable', 'backlog');
 
-        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'in-progress')));
+        ($this->moveCard)(new MoveCardCommand($card, Actor::Human, $this->column($this->project, 'in-progress')));
 
         $topics = self::getContainer()->get(ProjectTopicBuilder::class);
         self::assertInstanceOf(ProjectTopicBuilder::class, $topics);
@@ -111,7 +111,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
     {
         $card = $this->card('Promotable', 'backlog');
 
-        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Agent, title: 'Promoted', column: $this->column($this->project, 'done')));
+        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: Actor::Agent, title: 'Promoted', column: $this->column($this->project, 'done')));
 
         $row = $this->onlyRow();
         self::assertSame([
@@ -126,7 +126,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
     }
 
     #[DataProvider('actors')]
-    public function test_the_payload_names_the_actor_the_command_carries(CardReporter $actor): void
+    public function test_the_payload_names_the_actor_the_command_carries(Actor $actor): void
     {
         $card = $this->card('Attributed', 'backlog');
 
@@ -135,10 +135,10 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
         self::assertSame($actor->value, $this->decode($this->onlyRow())['actor']);
     }
 
-    /** @return iterable<string, array{CardReporter}> */
+    /** @return iterable<string, array{Actor}> */
     public static function actors(): iterable
     {
-        foreach (CardReporter::cases() as $actor) {
+        foreach (Actor::cases() as $actor) {
             yield $actor->value => [$actor];
         }
     }
@@ -147,7 +147,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
     {
         $card = $this->card('Returnable', 'next');
 
-        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'backlog')));
+        ($this->moveCard)(new MoveCardCommand($card, Actor::Human, $this->column($this->project, 'backlog')));
 
         self::assertSame('backlog', $this->decode($this->onlyRow())['toStatus']);
     }
@@ -170,7 +170,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
         self::assertSame(0, $first->position);
         self::assertSame(1, $second->position);
 
-        ($this->moveCard)(new MoveCardCommand($second, CardReporter::Human, $this->column($this->project, 'next'), 0));
+        ($this->moveCard)(new MoveCardCommand($second, Actor::Human, $this->column($this->project, 'next'), 0));
 
         self::assertSame(0, $second->position, 'the rank must really change, or this test proves nothing');
 
@@ -184,7 +184,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
     {
         $card = $this->card('Editable', 'next');
 
-        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Human, title: 'Renamed'));
+        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: Actor::Human, title: 'Renamed'));
 
         self::assertSame('Renamed', $card->title);
         self::assertSame([], $this->rows());
@@ -214,7 +214,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
         }, -10);
 
         try {
-            ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'next'), 0));
+            ($this->moveCard)(new MoveCardCommand($card, Actor::Human, $this->column($this->project, 'next'), 0));
             self::fail('a failed transaction must propagate');
         } catch (\RuntimeException $e) {
             self::assertSame('the transaction failed after the move', $e->getMessage());
@@ -242,7 +242,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
             body: 'Body',
             type: 'bug',
             column: $this->column($this->project, $column),
-            reporter: CardReporter::Agent,
+            reporter: Actor::Agent,
         ));
     }
 

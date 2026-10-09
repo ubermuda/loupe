@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Service;
 
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\SiteReview\Command\ResolveSiteReviewCommentCommand;
 use App\Module\SiteReview\Command\ResolveSiteReviewCommentHandler;
+use App\Module\Workflow\Contract\Actor;
 
 /** Resolves the unresolved feedback of cards that reached a terminal column. */
 final readonly class CardFeedbackResolver
@@ -21,7 +21,7 @@ final readonly class CardFeedbackResolver
     }
 
     /** @param list<string> $cardIds */
-    public function resolveFor(array $cardIds, CardReporter $actor): void
+    public function resolveFor(array $cardIds, Actor $actor): void
     {
         foreach ($this->cardSiteReviewComments->findUnresolvedForCards($cardIds) as $link) {
             ($this->resolve)(new ResolveSiteReviewCommentCommand($link->comment, self::TRIGGER, $actor->value));

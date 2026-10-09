@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Form\MoveCardFormType;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\CardMovedOutbox;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -161,7 +161,7 @@ final class MoveCardControllerTest extends WebTestCase
 
         self::assertResponseRedirects();
         $payload = CardMovedOutbox::onlyPayload(static::getContainer(), $project);
-        self::assertSame(CardReporter::Human->value, $payload['actor'] ?? null);
+        self::assertSame(Actor::Human->value, $payload['actor'] ?? null);
     }
 
     public function test_a_stranger_cannot_move_a_card(): void

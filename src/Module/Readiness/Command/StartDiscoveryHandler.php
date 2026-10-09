@@ -7,12 +7,12 @@ namespace App\Module\Readiness\Command;
 use App\Exception\DomainErrors;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
-use App\Module\Board\Service\CardTypeCatalog;
 use App\Module\Readiness\Entity\DiscoveryRun;
 use App\Module\Readiness\Entity\DiscoveryRunState;
 use App\Module\Readiness\Repository\DiscoveryRunRepository;
 use App\Module\Readiness\Service\ReadinessChecklist;
 use App\Module\Workflow\Contract\CardEvaluations;
+use App\Module\Workflow\Contract\CardTypeCatalog;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
@@ -63,7 +63,7 @@ final readonly class StartDiscoveryHandler
                 return new DiscoveryRunning($latest->card->number);
             }
 
-            $types = $this->catalog->forProject($project);
+            $types = $this->catalog->forProject($project->requireId());
             $card = ($this->createCard)(new CreateCardCommand(
                 project: $project,
                 title: 'Discover what '.$project->name.' needs for agents', // @translation-check-ignore

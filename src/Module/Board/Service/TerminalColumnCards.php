@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Board\Service;
 
 use App\Module\Board\Entity\BoardColumn;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\BoardColumnTerminalChanged;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Workflow\Contract\Actor;
 use Psr\EventDispatcher\EventDispatcherInterface;
 
 /**
@@ -25,7 +25,7 @@ final readonly class TerminalColumnCards
     }
 
     /** Call inside the transaction that flipped the flag, so a listener's rows commit or roll back with it. */
-    public function follow(BoardColumn $column, \DateTimeImmutable $now, CardReporter $actor): void
+    public function follow(BoardColumn $column, \DateTimeImmutable $now, Actor $actor): void
     {
         if ($column->terminal) {
             $this->cards->stampCompletion($column, $now);

@@ -9,7 +9,6 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Entity\CardSourceKind;
 use App\Module\Board\Repository\CardRepository;
@@ -18,6 +17,7 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\SiteReview\Entity\SiteReviewComment;
+use App\Module\Workflow\Contract\Actor;
 use App\Tests\Module\Board\CardMovedOutbox;
 use App\Tests\Support\MercureCookies;
 use Doctrine\ORM\EntityManagerInterface;
@@ -162,7 +162,7 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertSame('next', $created->column->slug);
         self::assertSame('tooling', $created->type);
         // A form is a person writing the card down, whatever an agent does later.
-        self::assertSame(CardReporter::Human, $created->reporter);
+        self::assertSame(Actor::Human, $created->reporter);
         self::assertSame(CardSourceKind::Person, $created->source->kind);
         self::assertCount(2, $created->pullRequests);
     }
@@ -264,7 +264,7 @@ final class CardCrudControllerTest extends WebTestCase
 
         // The status changed, so the edit is also a move with an outbox row.
         $payload = CardMovedOutbox::onlyPayload(static::getContainer(), $project);
-        self::assertSame(CardReporter::Human->value, $payload['actor'] ?? null);
+        self::assertSame(Actor::Human->value, $payload['actor'] ?? null);
     }
 
     public function test_an_emptied_url_box_clears_every_link(): void

@@ -7,12 +7,12 @@ namespace App\Tests\Module\Board\Controller;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardEvent;
 use App\Module\Board\Entity\CardEventKind;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\CardEventRepository;
-use App\Module\Board\Service\CardEventCause;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkSubject;
+use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Contract\CardEventCause;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -32,9 +32,9 @@ final class CardHistoryTabTest extends WebTestCase
         $backlog = CardEvent::columnDetail($this->column($project, 'backlog'));
         $next = CardEvent::columnDetail($this->column($project, 'next'));
         $events = $this->events();
-        $events->record($card, CardEventKind::Created, CardReporter::Human, $owner, ['column' => $backlog], new \DateTimeImmutable('-3 hours'));
-        $events->record($card, CardEventKind::Moved, CardReporter::System, null, ['from' => $backlog, 'to' => $next, 'cause' => CardEventCause::merged(12)->detail()], new \DateTimeImmutable('-2 hours'));
-        $events->record($card, CardEventKind::FixRequested, CardReporter::System, null, ['reason' => 'checks-failed', 'pullRequest' => 12], new \DateTimeImmutable('-1 hour'));
+        $events->record($card, CardEventKind::Created, Actor::Human, $owner, ['column' => $backlog], new \DateTimeImmutable('-3 hours'));
+        $events->record($card, CardEventKind::Moved, Actor::System, null, ['from' => $backlog, 'to' => $next, 'cause' => CardEventCause::merged(12)->detail()], new \DateTimeImmutable('-2 hours'));
+        $events->record($card, CardEventKind::FixRequested, Actor::System, null, ['reason' => 'checks-failed', 'pullRequest' => 12], new \DateTimeImmutable('-1 hour'));
         $em->flush();
         $em->clear();
 
@@ -80,9 +80,9 @@ final class CardHistoryTabTest extends WebTestCase
         $card = $this->card($em, $project, 'A long story');
         $backlog = CardEvent::columnDetail($this->column($project, 'backlog'));
         $events = $this->events();
-        $events->record($card, CardEventKind::Created, CardReporter::Human, $owner, ['column' => $backlog], new \DateTimeImmutable('-100 minutes'));
+        $events->record($card, CardEventKind::Created, Actor::Human, $owner, ['column' => $backlog], new \DateTimeImmutable('-100 minutes'));
         for ($i = 50; $i >= 1; --$i) {
-            $events->record($card, CardEventKind::ReadyToMerge, CardReporter::System, null, ['pullRequest' => $i], new \DateTimeImmutable('-'.$i.' minutes'));
+            $events->record($card, CardEventKind::ReadyToMerge, Actor::System, null, ['pullRequest' => $i], new \DateTimeImmutable('-'.$i.' minutes'));
         }
         $em->flush();
         $em->clear();
@@ -125,9 +125,9 @@ final class CardHistoryTabTest extends WebTestCase
         $card = $this->card($em, $project, 'A busy story');
         $backlog = CardEvent::columnDetail($this->column($project, 'backlog'));
         $events = $this->events();
-        $events->record($card, CardEventKind::Created, CardReporter::Human, $owner, ['column' => $backlog], new \DateTimeImmutable('-100 minutes'));
+        $events->record($card, CardEventKind::Created, Actor::Human, $owner, ['column' => $backlog], new \DateTimeImmutable('-100 minutes'));
         for ($i = 50; $i >= 1; --$i) {
-            $events->record($card, CardEventKind::ReadyToMerge, CardReporter::System, null, ['pullRequest' => $i], new \DateTimeImmutable('-'.$i.' minutes'));
+            $events->record($card, CardEventKind::ReadyToMerge, Actor::System, null, ['pullRequest' => $i], new \DateTimeImmutable('-'.$i.' minutes'));
         }
         $em->flush();
         $em->clear();
@@ -139,7 +139,7 @@ final class CardHistoryTabTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $card = $em->find(Card::class, $card->id);
         self::assertInstanceOf(Card::class, $card);
-        $this->events()->record($card, CardEventKind::ReadyToMerge, CardReporter::System, null, ['pullRequest' => 99], new \DateTimeImmutable());
+        $this->events()->record($card, CardEventKind::ReadyToMerge, Actor::System, null, ['pullRequest' => 99], new \DateTimeImmutable());
         $em->flush();
 
         $older = $client->request(Request::METHOD_GET, $href);
@@ -160,7 +160,7 @@ final class CardHistoryTabTest extends WebTestCase
         $at = new \DateTimeImmutable('-1 hour');
         $events = $this->events();
         for ($i = 1; $i <= 52; ++$i) {
-            $events->record($card, CardEventKind::ReadyToMerge, CardReporter::System, null, ['pullRequest' => $i], $at);
+            $events->record($card, CardEventKind::ReadyToMerge, Actor::System, null, ['pullRequest' => $i], $at);
         }
         $em->flush();
         $em->clear();
@@ -216,7 +216,7 @@ final class CardHistoryTabTest extends WebTestCase
         $stranger = $this->user($em, 'history-stranger@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Private past');
-        $this->events()->record($card, CardEventKind::Created, CardReporter::Human, $owner, ['column' => CardEvent::columnDetail($this->column($project, 'backlog'))]);
+        $this->events()->record($card, CardEventKind::Created, Actor::Human, $owner, ['column' => CardEvent::columnDetail($this->column($project, 'backlog'))]);
         $em->flush();
         $em->clear();
 
@@ -236,7 +236,7 @@ final class CardHistoryTabTest extends WebTestCase
         $project = $this->project($em, $owner);
         $ownProject = $this->project($em, $intruder, 'intruder-app');
         $card = $this->card($em, $project, 'Someone else\'s past');
-        $this->events()->record($card, CardEventKind::Created, CardReporter::Human, $owner, ['column' => CardEvent::columnDetail($this->column($project, 'backlog'))]);
+        $this->events()->record($card, CardEventKind::Created, Actor::Human, $owner, ['column' => CardEvent::columnDetail($this->column($project, 'backlog'))]);
         $em->flush();
         $em->clear();
 
@@ -273,7 +273,7 @@ final class CardHistoryTabTest extends WebTestCase
         $em->persist($run);
         $em->flush();
         $runId = (string) $run->id;
-        $this->events()->record($card, CardEventKind::RunFinished, CardReporter::Agent, $owner, [
+        $this->events()->record($card, CardEventKind::RunFinished, Actor::Agent, $owner, [
             'runId' => $runId,
             'ruleName' => 'implement',
             'state' => 'succeeded',
@@ -319,7 +319,7 @@ final class CardHistoryTabTest extends WebTestCase
         $owner = $this->user($em, 'history-command@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Sync it');
-        $this->events()->record($card, CardEventKind::RunFinished, CardReporter::Agent, $owner, [
+        $this->events()->record($card, CardEventKind::RunFinished, Actor::Agent, $owner, [
             'runId' => (string) Uuid::v4(),
             'ruleName' => 'sync',
             'state' => 'failed',
