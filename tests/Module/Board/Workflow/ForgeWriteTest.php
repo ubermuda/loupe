@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Workflow;
 
+use App\Module\AgentReview\Entity\AgentReview;
+use App\Module\AgentReview\Entity\AgentReviewConclusion;
+use App\Module\AgentReview\Repository\AgentReviewRepository;
+use App\Module\AgentReview\Service\AgentReviewAnnotations;
+use App\Module\AgentReview\Service\AgentReviewCheckPublisher;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
@@ -523,6 +528,52 @@ final class ForgeWriteTest extends KernelTestCase
         self::assertSame([], $this->queuedEvaluations());
     }
 
+    public function test_agent_review_check_posts_each_unposted_review_and_is_done(): void
+    {
+        $card = $this->card($this->project(agentReview: true), 'in-review');
+        $pullRequest = $this->pullRequest($card, headSha: str_repeat('a', 40));
+        $review = $this->agentReview($card, $pullRequest);
+        $this->transport()->reset();
+
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'agent-review-check', fallback: null));
+
+        self::assertSame([[$pullRequest->number, 'loupe/agent-review', str_repeat('a', 40)]], array_map(static fn (array $call): array => [$call['number'], $call['name'], $call['sha']], $this->checkWriter->published));
+        self::assertSame(101, $review->checkRunId);
+        self::assertEquals([new EvaluateCard((string) $card->id)], $this->queuedEvaluations());
+    }
+
+    public function test_agent_review_check_is_refused_when_the_forge_refuses_the_check(): void
+    {
+        $card = $this->card($this->project(agentReview: true), 'in-review');
+        $pullRequest = $this->pullRequest($card);
+        $review = $this->agentReview($card, $pullRequest);
+        $this->checkWriter->failingNumbers = [$pullRequest->number];
+
+        self::assertEquals(ActionOutcome::refused('permission'), $this->write($card, 'agent-review-check', fallback: null));
+        self::assertNull($review->postedAt);
+    }
+
+    public function test_agent_review_check_does_nothing_while_the_switch_is_off(): void
+    {
+        $card = $this->card($this->project(), 'in-review');
+        $review = $this->agentReview($card, $this->pullRequest($card));
+
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'agent-review-check', fallback: null));
+
+        self::assertSame([], $this->checkWriter->published);
+        self::assertSame([], $this->liveKinds($card));
+        self::assertNull($review->postedAt);
+    }
+
+    private function agentReview(Card $card, ForgePullRequest $pullRequest): AgentReview
+    {
+        $review = new AgentReview($card->project, $card, $pullRequest, $pullRequest->headSha ?? str_repeat('b', 40), 'Fine.', AgentReviewConclusion::Success, []);
+        $this->em()->persist($review);
+        $this->em()->flush();
+
+        return $review;
+    }
+
     /** @return list<EvaluateCard> */
     private function queuedEvaluations(): array
     {
@@ -549,6 +600,7 @@ final class ForgeWriteTest extends KernelTestCase
         bool $openEpicPullRequests = false,
         bool $postWidgetReviews = false,
         bool $siteReviewCheck = false,
+        bool $agentReview = false,
     ): Project {
         $project = $this->workflowProject('forge-write');
         $this->em()->persist(new BoardAutomationSettings(
@@ -561,6 +613,7 @@ final class ForgeWriteTest extends KernelTestCase
             openEpicPullRequests: $openEpicPullRequests,
             postWidgetReviews: $postWidgetReviews,
             siteReviewCheck: $siteReviewCheck,
+            agentReview: $agentReview,
         ));
         $this->em()->flush();
 
@@ -605,6 +658,16 @@ final class ForgeWriteTest extends KernelTestCase
                 $this->service(SiteReviewCheckStateRepository::class),
                 $this->service(BoardAutomation::class),
                 new PullRequestCheckWriters([$this->checkWriter]),
+                $this->service(TranslatorInterface::class),
+                $this->service(EntityManagerInterface::class),
+                new MockClock('2026-10-02 12:00:00'),
+            ),
+            new AgentReviewCheckPublisher(
+                $this->service(CardPullRequestRepository::class),
+                $this->service(AgentReviewRepository::class),
+                $this->service(BoardAutomation::class),
+                new PullRequestCheckWriters([$this->checkWriter]),
+                new AgentReviewAnnotations(),
                 $this->service(TranslatorInterface::class),
                 $this->service(EntityManagerInterface::class),
                 new MockClock('2026-10-02 12:00:00'),

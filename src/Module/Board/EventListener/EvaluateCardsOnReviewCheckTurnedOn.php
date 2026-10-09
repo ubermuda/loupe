@@ -10,9 +10,9 @@ use App\Module\Board\Service\BoardAutomation;
 use App\Module\Workflow\Contract\CardEvaluations;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
-/** No fact changes when the check turns on, so the open pull requests would carry no check until something else moved. */
+/** No fact changes when a review check turns on, so the open pull requests would carry no check until something else moved. */
 #[AsEventListener]
-final readonly class EvaluateCardsOnSiteReviewCheckTurnedOn
+final readonly class EvaluateCardsOnReviewCheckTurnedOn
 {
     public function __construct(
         private CardPullRequestRepository $cardPullRequests,
@@ -23,7 +23,7 @@ final readonly class EvaluateCardsOnSiteReviewCheckTurnedOn
 
     public function __invoke(BoardAutomationSettingsSaved $event): void
     {
-        if (!$event->siteReviewCheckTurnedOn || !$this->evaluations->isOn() || !$this->automation->settingsOf($event->project)->enabled) {
+        if ((!$event->siteReviewCheckTurnedOn && !$event->agentReviewTurnedOn) || !$this->evaluations->isOn() || !$this->automation->settingsOf($event->project)->enabled) {
             return;
         }
 

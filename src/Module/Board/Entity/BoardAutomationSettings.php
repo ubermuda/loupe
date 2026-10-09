@@ -6,6 +6,7 @@ namespace App\Module\Board\Entity;
 
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
 use App\Module\Project\Entity\Project;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
@@ -31,6 +32,11 @@ class BoardAutomationSettings
     public const string EPIC_BRANCH_PATTERN_RULE = '/^\s*$|^\s*(?!.*\{number\}.*\{number\})(?!.*\.\.)(?!.*\.lock(?:\/|\s*$))(?=.*\{number\})(?:[A-Za-z0-9_]|\{number\})(?:[A-Za-z0-9._-]|\{number\}|\/(?![\/.-]))*(?<![.\/])\s*$/';
 
     public const int EPIC_BRANCH_PATTERN_MAX_LENGTH = 255;
+
+    /** The severities an agent review finding can have. AgentReviewSeverity holds the same values. */
+    public const array AGENT_REVIEW_SEVERITIES = ['important', 'nit', 'pre-existing'];
+
+    public const array DEFAULT_AGENT_REVIEW_FAILING_SEVERITIES = ['important'];
 
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
@@ -95,6 +101,18 @@ class BoardAutomationSettings
         /** Keeps a "Loupe site review" check on the open pull requests of a managed card. */
         #[ORM\Column(options: ['default' => false])]
         public bool $siteReviewCheck = false,
+
+        /** Asks an agent to review each pull request of a managed card, and posts its check. */
+        #[ORM\Column(options: ['default' => false])]
+        public bool $agentReview = false,
+
+        /**
+         * The finding severities that fail the agent review check.
+         *
+         * @var list<string>
+         */
+        #[ORM\Column(type: Types::JSON, options: ['default' => '["important"]'])]
+        public array $agentReviewFailingSeverities = self::DEFAULT_AGENT_REVIEW_FAILING_SEVERITIES,
 
         /** The branch the breakdown pushes for an epic, with the card number as the placeholder. Null means no epic branches. */
         #[ORM\Column(length: self::EPIC_BRANCH_PATTERN_MAX_LENGTH, nullable: true, options: ['default' => self::DEFAULT_EPIC_BRANCH_PATTERN])]

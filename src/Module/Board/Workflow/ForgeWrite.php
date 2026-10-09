@@ -10,6 +10,7 @@ use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\AgentReviewCheck;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardPullRequests;
 use App\Module\Board\Service\SiteReviewCheckPublisher;
@@ -50,7 +51,7 @@ final readonly class ForgeWrite implements Action, ChecksParameters
     public const string OPEN_EPIC_OFF = WorkflowRefusal::OPEN_EPIC_OFF;
 
     public const string KEY = 'forge-write';
-    private const array WRITES_WITHOUT_FALLBACK = ['draft', 'ready', 'close', 'open-epic', 'post-review', 'site-review-check'];
+    private const array WRITES_WITHOUT_FALLBACK = ['draft', 'ready', 'close', 'open-epic', 'post-review', 'site-review-check', 'agent-review-check'];
 
     public function __construct(
         private CardRepository $cards,
@@ -66,6 +67,7 @@ final readonly class ForgeWrite implements Action, ChecksParameters
         private UrlGeneratorInterface $urlGenerator,
         private VerdictReviewSettler $reviewSettler,
         private SiteReviewCheckPublisher $checkPublisher,
+        private AgentReviewCheck $agentReviewCheck,
         private CardEvaluations $evaluations,
         private CardTypeCatalog $catalog,
 
@@ -135,8 +137,13 @@ final readonly class ForgeWrite implements Action, ChecksParameters
         if (ForgeWriteKind::OpenEpic === $write) {
             return $this->openEpic($context->ruleId, $card, $pullRequests);
         }
-        if (ForgeWriteKind::PostReview === $write || ForgeWriteKind::SiteReviewCheck === $write) {
-            $result = ForgeWriteKind::PostReview === $write ? $this->reviewSettler->settle($card) : $this->checkPublisher->publish($card);
+        $result = match ($write) {
+            ForgeWriteKind::PostReview => $this->reviewSettler->settle($card),
+            ForgeWriteKind::SiteReviewCheck => $this->checkPublisher->publish($card),
+            ForgeWriteKind::AgentReviewCheck => $this->agentReviewCheck->publish($card),
+            default => null,
+        };
+        if (null !== $result) {
             // The engine keeps the truth of the facts it built before the write, so only a new evaluation resets it.
             if ($result->changed && $this->evaluations->isOn()) {
                 $this->evaluations->forCards([$card->id ?? throw new \LogicException('A stored card has an id.')]);
@@ -187,6 +194,7 @@ final readonly class ForgeWrite implements Action, ChecksParameters
             ForgeWriteKind::OpenEpic => $settings->openEpicPullRequests,
             ForgeWriteKind::PostReview => $settings->postWidgetReviews,
             ForgeWriteKind::SiteReviewCheck => $settings->siteReviewCheck,
+            ForgeWriteKind::AgentReviewCheck => $settings->agentReview,
             ForgeWriteKind::Comment => false,
         };
     }

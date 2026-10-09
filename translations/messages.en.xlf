@@ -2598,6 +2598,10 @@
                 <source>project.connect.tool.feedback_mark_addressed</source>
                 <target>Mark feedback items as addressed after fixing them. Accepts the feedback ids from feedback_list or card_get. Items that are unknown, already addressed or resolved are skipped, not fatal.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.agent_review_submit">
+                <source>project.connect.tool.agent_review_submit</source>
+                <target>Submit the review of a pull request of a card, with its findings on file lines. Only a running review worker of the card can call it. Loupe shows the review as a check on the pull request when the agent review is on.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.card_create">
                 <source>project.connect.tool.card_create</source>
                 <target>Add a card to the project board, with a type, a reporter, the pull requests that carry the work and the cards it links to (relatedCards).</target>
@@ -7018,6 +7022,10 @@
                 <source>board.automation.flash.saved</source>
                 <target>Automation settings saved.</target>
             </trans-unit>
+            <trans-unit id="board.automation.error.agent_review_failing_severities_invalid">
+                <source>board.automation.error.agent_review_failing_severities_invalid</source>
+                <target>Select at least one severity.</target>
+            </trans-unit>
             <trans-unit id="board.automation.error.epic_branch_pattern_invalid">
                 <source>board.automation.error.epic_branch_pattern_invalid</source>
                 <target>The pattern must be a branch name that holds {number} exactly once, or be empty.</target>
@@ -7149,6 +7157,34 @@
             <trans-unit id="board.form.save_board_automation_settings_form.site_review_check.help">
                 <source>board.form.save_board_automation_settings_form.site_review_check.help</source>
                 <target>Loupe posts a check named "Loupe site review" on each open pull request of a managed card. It fails while open site-review notes remain. The GitHub App needs "Checks: read and write".</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.agent_review.label">
+                <source>board.form.save_board_automation_settings_form.agent_review.label</source>
+                <target>Ask an agent to review each pull request</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.agent_review.help">
+                <source>board.form.save_board_automation_settings_form.agent_review.help</source>
+                <target>Loupe asks an agent to review each pull request of a managed card. It posts a check named "loupe/agent-review" with one note for each finding. The GitHub App needs "Checks: read and write".</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.agent_review_failing_severities.label">
+                <source>board.form.save_board_automation_settings_form.agent_review_failing_severities.label</source>
+                <target>Findings that fail the agent review check</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.agent_review_failing_severities.help">
+                <source>board.form.save_board_automation_settings_form.agent_review_failing_severities.help</source>
+                <target>The check fails when the review has a finding of a selected severity. Findings of other severities show as notes only.</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.agent_review_failing_severities.choice.important">
+                <source>board.form.save_board_automation_settings_form.agent_review_failing_severities.choice.important</source>
+                <target>Important</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.agent_review_failing_severities.choice.nit">
+                <source>board.form.save_board_automation_settings_form.agent_review_failing_severities.choice.nit</source>
+                <target>Nit</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.agent_review_failing_severities.choice.pre_existing">
+                <source>board.form.save_board_automation_settings_form.agent_review_failing_severities.choice.pre_existing</source>
+                <target>Pre-existing</target>
             </trans-unit>
             <trans-unit id="board.form.save_board_automation_settings_form.epic_branch_pattern.label">
                 <source>board.form.save_board_automation_settings_form.epic_branch_pattern.label</source>
@@ -8050,6 +8086,12 @@
             <trans-unit id="board.site_review_check.title_off"><source>board.site_review_check.title_off</source><target>Loupe no longer keeps this check</target></trans-unit>
             <trans-unit id="board.site_review_check.summary_off"><source>board.site_review_check.summary_off</source><target>The site review check is off for this project, so this check does not block the pull request.</target></trans-unit>
             <trans-unit id="board.site_review_check.summary_unlinked"><source>board.site_review_check.summary_unlinked</source><target>No card links this pull request any more, so this check does not block it.</target></trans-unit>
+            <trans-unit id="agent_review.check.title"><source>agent_review.check.title</source><target>Agent review: %findings%</target></trans-unit>
+            <trans-unit id="agent_review.check.title_clear"><source>agent_review.check.title_clear</source><target>Agent review: no findings</target></trans-unit>
+            <trans-unit id="agent_review.check.count.important"><source>agent_review.check.count.important</source><target>{0} no important findings|{1} 1 important finding|]1,Inf[ %count% important findings</target></trans-unit>
+            <trans-unit id="agent_review.check.count.nit"><source>agent_review.check.count.nit</source><target>{0} no nits|{1} 1 nit|]1,Inf[ %count% nits</target></trans-unit>
+            <trans-unit id="agent_review.check.count.pre-existing"><source>agent_review.check.count.pre-existing</source><target>{0} no pre-existing findings|{1} 1 pre-existing finding|]1,Inf[ %count% pre-existing findings</target></trans-unit>
+            <trans-unit id="agent_review.check.summary_more"><source>agent_review.check.summary_more</source><target>{0} No more findings.|{1} And one more finding.|]1,Inf[ And %count% more findings.</target></trans-unit>
             <trans-unit id="board.site_review_check.summary_more"><source>board.site_review_check.summary_more</source><target>{0} No more notes.|{1} And one more note.|]1,Inf[ And %count% more notes.</target></trans-unit>
         </body>
     </file>

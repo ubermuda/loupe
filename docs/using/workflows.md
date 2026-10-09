@@ -164,6 +164,16 @@ marks the delivery as skipped. The check write records what it would have
 posted. Turning an opt-in on later posts nothing for a verdict that was settled
 before.
 
+The `agent-review-check` write posts the reviews that a `review` worker sent
+with the `agent_review_submit` MCP tool. A review of an open GitHub pull request
+of the card gets a new check named `loupe/agent-review` on the commit it
+reviewed. The check fails when a finding has a severity that the project counts
+as failing. Each finding shows as a note on its lines. The write has no
+fallback. It does nothing while **Ask an agent to review each pull request** is
+off on the **Automation** tab. A review stays stored while the switch is off.
+When the owner turns the switch on, Loupe evaluates each active card with an
+open pull request, so the next write posts the stored reviews.
+
 ## The Lifecycle template
 
 Lifecycle has the slots Next, Product design, Tech design, Implementation and In

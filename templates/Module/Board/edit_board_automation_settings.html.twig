@@ -53,7 +53,7 @@
                         </div>
                     {% endif %}
                 </twig:Ds:FormField>
-                {% for field in [form.commentOnStaleApproval, form.syncBehind, form.mergePullRequests, form.changeBase, form.epicDraftSwitch, form.closeEpicPullRequests, form.openEpicPullRequests, form.postWidgetReviews, form.siteReviewCheck] %}
+                {% for field in [form.commentOnStaleApproval, form.syncBehind, form.mergePullRequests, form.changeBase, form.epicDraftSwitch, form.closeEpicPullRequests, form.openEpicPullRequests, form.postWidgetReviews, form.siteReviewCheck, form.agentReview] %}
                 <twig:Ds:FormField>
                     <label class="lp-choice">
                         {{ form_widget(field) }}
@@ -63,6 +63,18 @@
                     <twig:Ds:FieldErrors :fieldView="field" :data-field-errors="field.vars.name" />
                 </twig:Ds:FormField>
                 {% endfor %}
+                <twig:Ds:FormField as="fieldset">
+                    <twig:Ds:Label as="legend">{{ form.agentReviewFailingSeverities.vars.label|trans }}</twig:Ds:Label>
+                    <twig:Ds:Hint :id="form.agentReviewFailingSeverities.vars.id ~ '_help'">{{ form.agentReviewFailingSeverities.vars.help|trans }}</twig:Ds:Hint>
+                    {% for choice in form.agentReviewFailingSeverities %}
+                    <label class="lp-choice">
+                        {{ form_widget(choice) }}
+                        {{ choice.vars.label|trans }}
+                    </label>
+                    {% endfor %}
+                    <twig:Ds:FieldErrors :fieldView="form.agentReviewFailingSeverities" data-field-errors="agentReviewFailingSeverities" />
+                    {% do form.agentReviewFailingSeverities.setRendered %}
+                </twig:Ds:FormField>
                 <twig:Ds:FormField>
                     {{ form_label(form.epicBranchPattern, null, {label_attr: {class: ds_label_class()}}) }}
                     {{ form_widget(form.epicBranchPattern, {attr: {class: ds_input_class()}}) }}
