@@ -56,10 +56,10 @@ The breakdown changes the board, and the remote branches when the profile has an
    ```
 
    When the push fails, stop with `STAGE RESULT: blocked: epic branch push refused: <message>`. An epic with no epic branch and a child that links a pull request started on the old flow. Push nothing for it, so its children keep the profile base branch.
-7. For each entry with no child, call `card_create` with no `status`, so the child lands in `<default>`. Send the title of the entry, the entry line and the whole entry as the body, the card id as `parentCardId`, and `<design>` in `documentIds`. The type is the type step 4 noted, or `feature` when that type was `epic`.
+7. For each entry with no child, call `card_create` with no `status`, so the child lands in `<default>`, and the workflow moves it to Next. Send the title of the entry, the entry line and the whole entry as the body, the card id as `parentCardId`, and `<design>` in `documentIds`. The type is the type step 4 noted, or `feature` when that type was `epic`.
 8. Set the blockers in a second pass, because an entry can name a child that step 7 creates later. For each child whose entry names blockers, read the child with `card_get` just before the write. Send its `relatedCards` back, plus a `blocked-by` entry for each entry blocker that it does not already carry. Skip a decision blocker. `relatedCards` replaces every link of the card, so never send the new entries alone.
 
-The breakdown moves no child. The workflow of the board starts a child that links an approved tech design and has no open blocker. The result line is `STAGE RESULT: breakdown <n> children`. `<n>` is the number of children the epic has after step 7.
+The breakdown moves no child. The workflow of the board starts a child that links an approved tech design and has no open blocker, once the epic sits in Implementation. The result line is `STAGE RESULT: breakdown <n> children`. `<n>` is the number of children the epic has after step 7.
 
 After the result line, list each match on its own short line: the entry ID, the child number, and the reason. The reason is `entry line`, `judgement` or `owner`. Then list each child that step 7 created. The bridge keeps only the first 4 KB of the reply, so write nothing else on a line:
 

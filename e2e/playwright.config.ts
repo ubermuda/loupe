@@ -89,7 +89,8 @@ export default defineConfig({
     // not run" beside the failure, which reads as a deliberate skip: one red
     // test withheld three suites for hours and nobody noticed. The bound is per
     // process, so a sharded CI run reports at most one failure per shard.
-    maxFailures: 1,
+    // E2E_MEASURE turns the stop off, so the flake counter sees every failure.
+    maxFailures: process.env.E2E_MEASURE ? 0 : 1,
     reporter: [
         ['html', { open: 'never' }],
         // `just ci-report e2e-timing` reads this file from CI.
@@ -129,6 +130,7 @@ export default defineConfig({
                 /project\/project-switcher\.spec\.ts/,
                 /review\/mermaid-diagrams\.spec\.ts/,
                 /review\/decision-live\.spec\.ts/,
+                /landing\/try-it-demo\.spec\.ts/,
             ],
             use: {
                 ...devices['Desktop Chrome'],
@@ -146,8 +148,8 @@ export default defineConfig({
         {
             name: 'global-flags',
             // billing.enabled, inbox.enabled, search.topbar.enabled,
-            // review.mermaid.enabled, live_updates.enabled and the OAuth
-            // provider flags change what signed-in pages and the login form
+            // review.mermaid.enabled, live_updates.enabled, landing.enabled
+            // and the OAuth provider flags change what signed-in pages and the login form
             // render, so nothing else runs beside these.
             testMatch: [
                 /billing\/paywall\.spec\.ts/,
@@ -158,6 +160,7 @@ export default defineConfig({
                 /project\/project-switcher\.spec\.ts/,
                 /review\/mermaid-diagrams\.spec\.ts/,
                 /review\/decision-live\.spec\.ts/,
+                /landing\/try-it-demo\.spec\.ts/,
             ],
             workers: 1,
             use: {

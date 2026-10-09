@@ -72,7 +72,7 @@ final class UnplannedChildAskFlowTest extends KernelTestCase
         $project = $this->workflowProject('unplanned-flow');
         $this->bindLifecycle($project);
         $epic = $this->card($project, 'tech-design');
-        $child = $this->card($project, 'backlog');
+        $child = $this->card($project, 'next');
         $child->parent = $epic;
         $design = new Document($project->owner, $project, 'Design');
         $design->status = DocumentStatus::Approved;
