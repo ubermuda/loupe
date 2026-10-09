@@ -82,9 +82,10 @@ function card(id, quote, status = 'pending') {
         data-anchor-status="${status}" data-anchor-kind="comment"></div>`;
 }
 
-async function mount({ earlyStatus = 'pending' } = {}) {
+async function mount({ earlyStatus = 'pending', markers = false } = {}) {
     document.body.innerHTML = `<main class="lp-main"><div data-controller="comment-anchor">
         <div data-comment-anchor-target="block">
+            ${markers ? '<div class="lp-review-doc__head"></div><div data-comment-anchor-target="markers"></div>' : ''}
             <form data-comment-anchor-target="composer" hidden>
                 <textarea data-comment-anchor-target="composerBody"></textarea>
             </form>
@@ -288,4 +289,43 @@ it('skips the passage of a resolved thread the Open filter hides', async () => {
     );
 
     expect(opened).toEqual([cardOf('late')]);
+});
+
+it('draws the gutter markers once, and their redraw starts no new layout', async () => {
+    const offsetParent = Object.getOwnPropertyDescriptor(
+        HTMLElement.prototype,
+        'offsetParent',
+    );
+    const boundingBox = Element.prototype.getBoundingClientRect;
+    Object.defineProperty(HTMLElement.prototype, 'offsetParent', {
+        configurable: true,
+        get() {
+            return document.querySelector('.lp-main');
+        },
+    });
+    Element.prototype.getBoundingClientRect = function () {
+        return this.matches('.lp-main')
+            ? { top: 0, left: 0, right: 1200, width: 1200 }
+            : { top: 0, left: 0, right: 600, width: 600 };
+    };
+    try {
+        await mount({ markers: true });
+        const layer = document.querySelector(
+            '[data-comment-anchor-target="markers"]',
+        );
+        const marker = layer.firstElementChild;
+        expect(marker).not.toBeNull();
+
+        await nextFrame();
+        await nextFrame();
+
+        expect(layer.firstElementChild).toBe(marker);
+    } finally {
+        Object.defineProperty(
+            HTMLElement.prototype,
+            'offsetParent',
+            offsetParent,
+        );
+        Element.prototype.getBoundingClientRect = boundingBox;
+    }
 });

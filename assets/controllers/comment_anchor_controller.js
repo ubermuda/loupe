@@ -262,13 +262,15 @@ export default class extends Controller {
         }
         this.observedOrphans = null;
 
-        // Turbo Streams swap the thread list (add/delete/resolve replace the
-        // whole #comment-threads container; reply replaces a single thread), so
-        // observe the stable controller root — observing the container itself
-        // would miss its own replacement and stop firing after the first change.
-        this.threadObserver = new MutationObserver(() =>
-            this.#scheduleLayout(),
-        );
+        // Turbo Streams swap the whole #comment-threads container, so observe
+        // the stable controller root, which outlives each replacement. The
+        // layout redraws the gutter markers, so their layer starts no layout.
+        this.threadObserver = new MutationObserver((records) => {
+            const markers = this.hasMarkersTarget ? this.markersTarget : null;
+            if (records.some((record) => !markers?.contains(record.target))) {
+                this.#scheduleLayout();
+            }
+        });
         this.threadObserver.observe(this.element, {
             childList: true,
             subtree: true,
