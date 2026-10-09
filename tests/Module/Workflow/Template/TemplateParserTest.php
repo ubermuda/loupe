@@ -326,6 +326,19 @@ final class TemplateParserTest extends TestCase
         }
     }
 
+    public function test_a_comment_write_names_its_comment_and_needs_no_fallback(): void
+    {
+        $template = self::valid();
+        $template['rules'][2]['then'] = ['forge-write' => ['write' => 'comment', 'comment' => 'fix-run']];
+
+        self::assertSame(['write' => 'comment', 'comment' => 'fix-run'], $this->parser->parse($template)->rulesFor('review')[0]->then->params);
+
+        $template['rules'][2]['then'] = ['forge-write' => ['write' => 'comment']];
+        $this->expectException(InvalidTemplate::class);
+        $this->expectExceptionMessage('missing parameter "comment"');
+        $this->parser->parse($template);
+    }
+
     public function test_the_parameters_of_an_action_come_from_its_declarations(): void
     {
         $parser = new TemplateParser(new Conditions([new CardInSlot()]), new Actions([new PluggedAction()]));

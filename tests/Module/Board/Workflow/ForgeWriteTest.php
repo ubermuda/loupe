@@ -16,14 +16,21 @@ use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardVerdictDeliveryRepository;
+use App\Module\Board\Repository\PullRequestCommentRepository;
+use App\Module\Board\Repository\PullRequestNoticeRepository;
 use App\Module\Board\Repository\SiteReviewCheckStateRepository;
 use App\Module\Board\Service\CardPullRequests;
+use App\Module\Board\Service\FixRunCommentQueue;
 use App\Module\Board\Service\SiteReviewCheckPublisher;
+use App\Module\Board\Service\StaleApprovalNoticeQueue;
 use App\Module\Board\Service\VerdictReviewSettler;
 use App\Module\Board\Workflow\ForgeWrite;
 use App\Module\Board\Workflow\SiteReviewFactProvider;
+use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Repository\WorkRequestRepository;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkRequestContext;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Forge\Command\ReadPullRequestStateHandler;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
@@ -32,6 +39,7 @@ use App\Module\Forge\Service\ForgePullRequestWrites;
 use App\Module\Forge\Service\PullRequestBaseChangers;
 use App\Module\Forge\Service\PullRequestBranchUpdaters;
 use App\Module\Forge\Service\PullRequestCheckWriters;
+use App\Module\Forge\Service\PullRequestCommenters;
 use App\Module\Forge\Service\PullRequestMergers;
 use App\Module\Forge\Service\PullRequestOpeners;
 use App\Module\Forge\Service\PullRequestReviewFailed;
@@ -43,6 +51,7 @@ use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Contract\ActionOutcome;
 use App\Module\Workflow\Contract\EpicBranches;
 use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\RuleBudgets;
 use App\Module\Workflow\Messenger\EvaluateCard;
 use App\Module\Workflow\Service\EvaluationTrigger;
 use App\Tests\Module\Board\Fake\FakeCheckWriter;
@@ -50,13 +59,18 @@ use App\Tests\Module\Board\Fake\FakeReviewerForgeAccount;
 use App\Tests\Module\Board\Fake\FakeReviewPoster;
 use App\Tests\Module\Workflow\Action\ActionScenario;
 use App\Tests\Module\Workflow\Fact\FactsMother;
+use App\Tests\Support\RecordingLogger;
 use App\Tests\Support\ShippedCardTypes;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Psr\Log\LogLevel;
+use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class ForgeWriteTest extends KernelTestCase
@@ -327,13 +341,108 @@ final class ForgeWriteTest extends KernelTestCase
         self::assertSame([['close', $first->number], ['close', $second->number]], $this->writer->calls);
     }
 
-    public function test_a_comment_is_refused(): void
+    public function test_a_fix_run_comment_queues_the_comment_and_a_fresh_evaluation_of_the_card(): void
     {
         $card = $this->card($this->project(), 'in-review');
         $this->pullRequest($card);
+        $this->fixRun($card);
+        $this->transport()->reset();
 
-        self::assertEquals(ActionOutcome::refused('unsupported-write'), $this->write($card, 'comment'));
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'comment', fallback: null, comment: 'fix-run'));
+
+        self::assertCount(1, $this->service(PullRequestCommentRepository::class)->findBy(['cardId' => $card->id]));
+        self::assertEquals([new EvaluateCard((string) $card->id)], $this->queuedEvaluations());
         self::assertSame([], $this->liveKinds($card));
+    }
+
+    public function test_a_stale_approval_comment_queues_the_notice_and_a_fresh_evaluation_of_the_card(): void
+    {
+        $card = $this->card($this->project(), 'in-review');
+        $pullRequest = $this->pullRequest($card);
+        $pullRequest->approvalId = 'review-1';
+        $pullRequest->coveredSha = 'approved1';
+        $pullRequest->uncoveredSha = $pullRequest->headSha;
+        $this->em()->flush();
+        $this->transport()->reset();
+
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'comment', fallback: null, comment: 'stale-approval'));
+
+        self::assertCount(1, $this->service(PullRequestNoticeRepository::class)->findBy(['forgePullRequestId' => $pullRequest->id]));
+        self::assertEquals([new EvaluateCard((string) $card->id)], $this->queuedEvaluations());
+    }
+
+    public function test_a_failing_comment_queue_is_logged_and_done_and_leaves_the_evaluation_usable(): void
+    {
+        $card = $this->card($this->project(), 'in-review');
+        $this->pullRequest($card);
+        $connection = $this->em()->getConnection();
+        $comments = $this->createStub(PullRequestCommentRepository::class);
+        $comments->method('findUncommentedRecentRuns')->willReturnCallback(static function () use ($connection): never {
+            $connection->executeStatement('SELECT * FROM no_such_table');
+            throw new \LogicException('The statement above throws.');
+        });
+        $queue = new FixRunCommentQueue(
+            $this->service(PullRequestCommenters::class),
+            $comments,
+            $this->service(CardPullRequestRepository::class),
+            $this->service(ForgePullRequestRepository::class),
+            $this->service(WorkRequestRepository::class),
+            $this->createStub(RuleBudgets::class),
+            $this->em(),
+            $this->service(MessageBusInterface::class),
+            new MockClock('2026-10-02 12:00:00'),
+            new NullLogger(),
+        );
+        $logger = new RecordingLogger();
+        $this->transport()->reset();
+
+        [$outcome, $answer] = $this->em()->wrapInTransaction(fn (): array => [
+            $this->write($card, 'comment', fallback: null, comment: 'fix-run', fixRunComments: $queue, logger: $logger),
+            $connection->fetchOne('SELECT 1'),
+        ]);
+
+        self::assertEquals(ActionOutcome::done(), $outcome);
+        self::assertSame(1, $answer);
+        self::assertCount(1, $logger->records);
+        self::assertSame(LogLevel::ERROR, $logger->records[0]['level']);
+        self::assertSame('board.fix_run_comment_queue_failed', $logger->records[0]['message']);
+        self::assertSame((string) $card->id, $logger->records[0]['context']['cardId']);
+        self::assertSame('test-rule', $logger->records[0]['context']['ruleId']);
+        self::assertSame('fix-run', $logger->records[0]['context']['comment']);
+        self::assertSame([], $this->queuedEvaluations());
+    }
+
+    public function test_a_comment_with_nothing_to_post_is_done_and_queues_no_evaluation(): void
+    {
+        $card = $this->card($this->project(), 'in-review');
+        $this->transport()->reset();
+
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'comment', fallback: null, comment: 'fix-run'));
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'comment', fallback: null, comment: 'stale-approval'));
+
+        self::assertSame([], $this->queuedEvaluations());
+    }
+
+    public function test_a_comment_write_names_its_comment_on_the_settings_page(): void
+    {
+        $forgeWrite = $this->service(ForgeWrite::class);
+
+        self::assertSame('comment fix-run', $forgeWrite->describe(['write' => 'comment', 'comment' => 'fix-run'])->settingsDetail);
+        self::assertSame('merge', $forgeWrite->describe(['write' => 'merge', 'fallback' => 'merge'])->settingsDetail);
+    }
+
+    private function fixRun(Card $card): void
+    {
+        $this->em()->persist(new WorkerRun(
+            project: $card->project,
+            bridgeId: Uuid::v7(),
+            subjectType: WorkSubject::CARD,
+            subjectId: $card->id ?? throw new \LogicException('A flushed card has an id.'),
+            cardNumber: $card->number,
+            workKind: 'fix',
+            state: WorkerRunState::Queued,
+        ));
+        $this->em()->flush();
     }
 
     public function test_an_epic_opening_on_a_card_that_is_not_an_epic_does_nothing(): void
@@ -561,7 +670,7 @@ final class ForgeWriteTest extends KernelTestCase
         return $project;
     }
 
-    private function write(Card $card, string $write, ?string $fallback = 'fallback', bool $writers = true, ?Facts $facts = null): ActionOutcome
+    private function write(Card $card, string $write, ?string $fallback = 'fallback', bool $writers = true, ?Facts $facts = null, ?string $comment = null, ?FixRunCommentQueue $fixRunComments = null, ?RecordingLogger $logger = null): ActionOutcome
     {
         $registered = $writers ? [$this->writer] : [];
         $forgePullRequests = $this->service(ForgePullRequestRepository::class);
@@ -601,12 +710,18 @@ final class ForgeWriteTest extends KernelTestCase
                 $this->service(EntityManagerInterface::class),
                 new MockClock('2026-10-02 12:00:00'),
             ),
+            $fixRunComments ?? $this->service(FixRunCommentQueue::class),
+            $this->service(StaleApprovalNoticeQueue::class),
             $this->service(EvaluationTrigger::class),
             new ShippedCardTypes(),
+            $logger ?? new RecordingLogger(),
             'squash',
         );
 
         $params = null === $fallback ? ['write' => $write] : ['write' => $write, 'fallback' => $fallback];
+        if (null !== $comment) {
+            $params['comment'] = $comment;
+        }
 
         return $this->runAction($action, $this->rule('forge-write', $params), $card->snapshot(), $facts ?? FactsMother::facts(), $this->state($card));
     }

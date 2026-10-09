@@ -157,15 +157,14 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         self::assertSelectorNotExists('[data-fix-run-comment-failure]');
     }
 
-    public function test_the_failure_hides_while_the_setting_is_off(): void
+    public function test_the_failure_shows_while_the_old_setting_is_off(): void
     {
         $project = $this->ownedProject('automation-comment-off@example.com');
         $this->commentOnFixQueued($project, false);
         $this->settledComment($project, PullRequestCommentState::Failed, 'Acme/Widgets', 5, 'permission', new \DateTimeImmutable('-5 minutes'));
         $this->em->flush();
 
-        self::assertCount(1, $this->page($project)->filter('input[name="'.self::FORM.'[commentOnFixQueued]"]'));
-        self::assertSelectorNotExists('[data-fix-run-comment-failure]');
+        self::assertCount(1, $this->page($project)->filter('[data-fix-run-comment-failure]'));
     }
 
     public function test_a_suspended_installation_names_the_suspension(): void

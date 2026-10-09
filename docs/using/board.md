@@ -786,15 +786,15 @@ of the project settings, beside **Board columns**. Only a repository connected
 through the GitHub App gets a write from Loupe. The rules of the workflow decide
 each write. A write that a rule names happens when the rule fires. When the
 project has no GitHub App installation, the workflow asks a bridge for the
-work instead, as its template says. The sync, merge, base change, epic pull
+work instead, as its template says. The comment, sync, merge, base change, epic pull
 request, widget verdict and site-review check settings below no longer change
 anything.
 
 | Setting | Default | Does |
 |---|---|---|
 | **Run the workflow of the board** | on | When off, the workflow moves no card and asks for no work on this board. Loupe still records the pull request facts |
-| **Comment on the pull request when a fix run is queued** | off | When on, Loupe posts a comment on the pull request each time a bridge queues a fix run for it |
-| **Comment on a pull request when new commits follow its approval** | off | When on, Loupe posts one comment for each new head that the approval does not cover |
+| **Comment on the pull request when a fix run is queued** | off | Has no effect. The rule `comment-fix-run` of the Lifecycle template decides this comment |
+| **Comment on a pull request when new commits follow its approval** | off | Has no effect. The rule `comment-stale-approval` of the Lifecycle template decides this comment |
 | **Sync an approved pull request that is behind** | off | Has no effect. The rule of the workflow decides this write |
 | **Merge a pull request when the workflow asks** | off | Has no effect. The rule of the workflow decides this write |
 | **Change the base of a pull request when the workflow asks** | off | Has no effect. The rule of the workflow decides this write |
@@ -804,9 +804,11 @@ anything.
 | **Post a widget verdict as a review on GitHub** | off | Has no effect. The rule of the workflow decides this write |
 | **Keep a "Loupe site review" check on pull requests** | off | Has no effect. The rule of the workflow decides this write |
 
-The comment gives the reason for the fix and the failed checks. It also gives
-a link to the card. The card page lists the runs. A comment that fails never
-holds the run.
+In the Lifecycle template, Loupe posts a comment on the pull request each time
+a bridge queues a fix run for it. The comment gives the reason for the fix and
+the failed checks. It gives the round of the fix out of the `limit` of the fix
+rule, such as 2 of 3. It also gives a link to the card. The card page lists the
+runs. A comment that fails never holds the run.
 
 Loupe retries a comment 3 times when it fails for a passing reason, such as a
 GitHub server error. When GitHub limits the rate, Loupe waits as long as
@@ -815,16 +817,16 @@ not retry a comment that GitHub refuses, such as for a missing permission. Fix
 the cause, and the next queued fix run posts a new comment.
 
 After the last failure, the tab shows the failure, its pull request and its
-cause. The tab hides it when a later comment posts, or when you turn the
-setting off. The GitHub App must
+cause. The tab hides it when a later comment posts. The GitHub App must
 have Pull requests: read and write. The comment needs a bridge that reports
-the event that queued a run. An older bridge sends none, so no comment posts.
+a run when it is queued. An older bridge reports a run only after it ends, so
+no comment posts.
 
 An approval that does not cover the newest commit starts no merge. GitHub says
-which commit the approval covers. When the approval comment setting is on, Loupe posts
+which commit the approval covers. In the Lifecycle template, Loupe posts
 one comment on the pull request, such as "Not merged: commit `abc1234` came
 after your approval. Approve the new head to merge." Each head gets one
-comment at most. A push of another commit gets a new comment. The setting needs
+comment at most. A push of another commit gets a new comment. The rule needs
 **Run the workflow of the board** on, and the GitHub App must have Pull requests:
 read and write. A comment that fails retries like a fix run comment. The tab
 does not show its failure.

@@ -141,8 +141,8 @@ it. An agent ends a pause with the `card_pause_release` MCP tool.
 ## Writes to GitHub
 
 A rule can write to a pull request: merge it, update its branch, change its
-base, open an epic pull request, switch it between draft and ready, or close
-it. The rule
+base, open an epic pull request, switch it between draft and ready, close it,
+or post a comment on it. The rule
 alone decides each write, and the write happens when the rule fires. When the
 project has no GitHub App installation, the rule asks a bridge for the same work
 instead. See [Automation](board.md#automation).
@@ -220,6 +220,14 @@ Some rules act from any slot:
    worktree on the bridge.
 8. A child that reaches a terminal column with a pull request merged into its
    epic branch asks for an epic preview refresh.
+9. A fix run that a bridge queues gets one comment on its pull request. The
+   rule is `comment-fix-run`, with the condition `card.fix_run.uncommented`
+   and the write `comment` with `comment: fix-run`. The comment shows the round
+   out of the `limit` of the fix rule. See [Automation](board.md#automation).
+10. A pull request whose approval does not cover its newest commit gets one
+    comment for each such commit. The rule is `comment-stale-approval`, with
+    the condition `card.pr.approval_stale` and the write `comment` with
+    `comment: stale-approval`.
 
 An epic follows its children. An epic whose children all finished moves to In
 review when it has a pull request, and to the terminal column when it has none.
