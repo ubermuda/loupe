@@ -88,6 +88,16 @@ it('flips above the anchor when the tooltip does not fit below', () => {
     expect(tooltip().style.top).toBe('612px');
 });
 
+it('stays inside the window when it fits neither below nor above', () => {
+    const height = window.innerHeight;
+    window.innerHeight = 120;
+    anchor().getBoundingClientRect = () => rectangle(40, 50, 16, 16);
+    anchor().dispatchEvent(new Event('pointerenter'));
+    window.innerHeight = height;
+
+    expect(tooltip().style.top).toBe('32px');
+});
+
 it('stays inside the right edge of the window', () => {
     anchor().getBoundingClientRect = () => rectangle(900, 100, 16, 16);
     anchor().dispatchEvent(new Event('pointerenter'));

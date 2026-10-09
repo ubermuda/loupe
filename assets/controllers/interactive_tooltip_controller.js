@@ -108,6 +108,10 @@ export default class extends Controller {
         ) {
             top = above;
         }
+        top = Math.max(
+            MARGIN,
+            Math.min(top, window.innerHeight - origin.height - MARGIN),
+        );
         // A transformed ancestor moves the fixed origin, so offset from where 0,0 landed.
         tooltip.style.left = `${left - origin.left}px`;
         tooltip.style.top = `${top - origin.top}px`;
