@@ -248,9 +248,12 @@ test('A revised draft stays a draft until Publish sends it to review', async ({
     await reviseDialog
         .getByRole('button', { name: 'Save new version' })
         .click();
-    await expect(page.locator('.lp-topbar__trail .lp-version-pill')).toHaveText('v2', {
-        timeout: 20000,
-    });
+    await expect(page.locator('.lp-topbar__trail .lp-version-pill')).toHaveText(
+        'v2',
+        {
+            timeout: 20000,
+        },
+    );
     await expect(page.locator('[data-document-publish]')).toBeVisible();
 
     await page.getByRole('button', { name: 'Publish', exact: true }).click();
@@ -300,9 +303,12 @@ test('Revise saves a new version and preserves the previous text', async ({
         dialog.getByLabel('Revision note', { exact: true }),
     ).toHaveValue('Clarify the document.');
     await dialog.getByRole('button', { name: 'Save new version' }).click();
-    await expect(page.locator('.lp-topbar__trail .lp-version-pill')).toHaveText('v2', {
-        timeout: 20000,
-    });
+    await expect(page.locator('.lp-topbar__trail .lp-version-pill')).toHaveText(
+        'v2',
+        {
+            timeout: 20000,
+        },
+    );
     await expect(page.locator(DOC)).toContainText('Revised content');
     await expect(
         page.getByRole('heading', {
@@ -353,7 +359,9 @@ test('Revise retains a stale draft and offers the current version', async ({
         .getByRole('link', { name: 'Go to the current version' })
         .click();
     await expect(page.locator(DOC)).toContainText('Concurrent revision');
-    await expect(page.locator('.lp-topbar__trail .lp-version-pill')).toHaveText('v2');
+    await expect(page.locator('.lp-topbar__trail .lp-version-pill')).toHaveText(
+        'v2',
+    );
 });
 
 /**
@@ -835,7 +843,9 @@ test('a stale review page cannot approve a newer version', async ({
         page.getByRole('textbox', { name: 'Review note' }),
     ).toHaveValue('Keep this draft.');
     await page.getByRole('link', { name: 'Go to the current version' }).click();
-    await expect(page.locator('.lp-topbar__trail .lp-version-pill')).toHaveText('v2');
+    await expect(page.locator('.lp-topbar__trail .lp-version-pill')).toHaveText(
+        'v2',
+    );
     await expect(page.locator('.lp-verdict-chip')).toHaveCount(0);
     await page
         .getByRole('button', { name: 'Finish review', exact: true })

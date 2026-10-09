@@ -107,9 +107,12 @@ test('S7: the byline opens the diff, and next steps through the changes', async 
         .getByLabel('Revision note', { exact: true })
         .fill('Phase the rollout.');
     await revise.getByRole('button', { name: 'Save new version' }).click();
-    await expect(page.locator('.lp-topbar__trail .lp-version-pill')).toHaveText('v2', {
-        timeout: 20000,
-    });
+    await expect(page.locator('.lp-topbar__trail .lp-version-pill')).toHaveText(
+        'v2',
+        {
+            timeout: 20000,
+        },
+    );
 
     await page
         .locator('.lp-review-doc__byline')

@@ -940,9 +940,7 @@
    typography plugin's `prose` rules sit in the utilities layer. Every rule is
    scoped under .lp-review, so the landing page's review mock keeps its look. */
 
-/* ── Top bar ──────────────────────────────────────────────────── */
-/* The review action comes first, then a hairline, then the bell and New
-   work. */
+/* Top bar: the review action, a hairline, then the bell and New work. */
 .lp-topbar:has(> .lp-review-topbar-actions) > .lp-review-topbar-actions {
     @apply order-1 ml-auto;
 }
@@ -1295,13 +1293,16 @@
             (
                     100% - var(--review-column) - var(--doc-margin-gap) -
                         var(--doc-margin)
-                ) / 2
+                ) /
+                2
         );
     }
     /* The side-by-side view keeps the compare bar in the text column of the
        other views, so a switch of view moves no control. The sticky wrapper
        stays there too, or it covers the panel column. */
-    .lp-review .lp-review-doc--wide > :is(.lp-doc-meta-bar, .lp-review-doc__head) {
+    .lp-review
+        .lp-review-doc--wide
+        > :is(.lp-doc-meta-bar, .lp-review-doc__head) {
         margin-left: var(--review-column-start);
         max-width: var(--review-column);
     }
@@ -1418,7 +1419,9 @@
     .lp-decision__prompt::before {
     content: 'Pick any';
 }
-.lp-review .lp-decision:has(> .lp-decision__clear) .lp-decision__prompt::before {
+.lp-review
+    .lp-decision:has(> .lp-decision__clear)
+    .lp-decision__prompt::before {
     content: 'Pick one \00A0\00B7';
 }
 .lp-review
@@ -1558,7 +1561,9 @@
     font-size: calc(var(--spacing) * 3.75);
 }
 @media (width >= 37.5rem) {
-    .lp-review .lp-review-doc__prose table:not(.lp-front-matter, .lp-option-table) {
+    .lp-review
+        .lp-review-doc__prose
+        table:not(.lp-front-matter, .lp-option-table) {
         display: table;
     }
 }
@@ -1574,11 +1579,7 @@
 .lp-review .lp-review-doc__prose table:not(.lp-front-matter) tbody tr {
     @apply border-0;
 }
-.lp-review
-    .lp-review-doc__prose
-    table:not(.lp-front-matter)
-    tr:last-child
-    td {
+.lp-review .lp-review-doc__prose table:not(.lp-front-matter) tr:last-child td {
     @apply border-b-0;
 }
 .lp-review .lp-review-doc__prose table:not(.lp-front-matter) td:first-child {
@@ -1616,10 +1617,16 @@
     @apply mb-0.5 block text-xs font-bold tracking-wider text-fg-dim uppercase;
 }
 /* Pros read green and Cons red, as the headings the author wrote say. */
-.lp-review .lp-review-doc__prose table.lp-option-table td[data-label='Pros' i]::before {
+.lp-review
+    .lp-review-doc__prose
+    table.lp-option-table
+    td[data-label='Pros' i]::before {
     @apply text-status-ok-deep;
 }
-.lp-review .lp-review-doc__prose table.lp-option-table td[data-label='Cons' i]::before {
+.lp-review
+    .lp-review-doc__prose
+    table.lp-option-table
+    td[data-label='Cons' i]::before {
     @apply text-review-strike-ink;
 }
 .lp-review .lp-review-doc__prose table.lp-option-table td:first-child::before {

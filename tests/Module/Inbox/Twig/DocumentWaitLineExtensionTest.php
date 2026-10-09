@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Module\Inbox\Twig;
 
 use App\Module\Inbox\Entity\InboxCardWait;
+use App\Module\Inbox\Entity\InboxCardWaitReason;
 use App\Module\Inbox\Entity\InboxCardWaitTrigger;
+use App\Module\Inbox\Entity\InboxCardWaitType;
 use App\Module\Inbox\Entity\InboxCardWatch;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemKind;
@@ -107,7 +109,7 @@ final class DocumentWaitLineExtensionTest extends KernelTestCase
         $item = new InboxItem(project: $this->project, number: $itemNumber, kind: InboxItemKind::Wait, title: 'Waiting', blocking: false);
         $this->em->persist($item);
         $watch = new InboxCardWatch($item, $card->id ?? \Symfony\Component\Uid\Uuid::v4(), $cardNumber);
-        $wait = new InboxCardWait($watch, InboxCardWaitTrigger::DocumentInReview, 'In review', $document->id, 1);
+        $wait = new InboxCardWait($watch, InboxCardWaitTrigger::DocumentInReview, InboxCardWaitType::Document, InboxCardWaitReason::WaitingForReview, $document->id, 1);
         $watch->waits->add($wait);
         $this->em->persist($watch);
 

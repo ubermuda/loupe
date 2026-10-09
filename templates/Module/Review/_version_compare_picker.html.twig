@@ -1,9 +1,7 @@
-{# The from/to picker that starts another comparison. app_document_review_compare
-   swaps a backwards pair and sends an unreal one to the history, so no
-   client-side guard has to keep the selects in step.
-   Params: document, versions, fromVersionNumber, toVersionNumber, viewValue,
-   idPrefix, and autoSubmit, which submits on a change and keeps the button for
-   a reader with no JavaScript. #}
+{# The from/to picker. app_document_review_compare swaps a backwards pair and
+   sends an unreal one to the history. Params: document, versions,
+   fromVersionNumber, toVersionNumber, viewValue, idPrefix, and autoSubmit,
+   which submits on a change and keeps the button for no-JS readers. #}
 {% set autoSubmit = autoSubmit|default(false) %}
 <form class="lp-version-compare" method="GET"{% if autoSubmit %} data-controller="submit-on-change"{% endif %}
       action="{{ path('app_document_review_compare', {projectId: document.project.id, documentId: document.id}) }}">
