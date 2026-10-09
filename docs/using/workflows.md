@@ -213,8 +213,8 @@ Four conditions of the **Agent review** group read the reviews:
 
 | Condition | True when |
 |---|---|
-| `agent_review.due` | the switch is on, the card is not an epic, and the head commit of an open pull request has no review |
-| `agent_review.failed` | the switch is on and the newest review of the head commit of an open pull request failed |
+| `agent_review.due` | the switch is on, the card is not an epic, and the head commit of the pull request that the rule acts on has no review |
+| `agent_review.failed` | the switch is on and the newest review of the head commit of the pull request that the rule acts on failed |
 | `agent_review.passed` | the switch is off, the card is an epic, or every open pull request has a head commit and a review of it that passed. It is false when the switch is on and no open pull request has a head commit |
 | `agent_review.unposted` | the switch is on and a stored review of the card has no check on the forge yet |
 

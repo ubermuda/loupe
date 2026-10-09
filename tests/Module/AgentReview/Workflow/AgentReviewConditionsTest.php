@@ -12,31 +12,38 @@ use App\Module\AgentReview\Workflow\Condition\AgentReviewPassed;
 use App\Module\AgentReview\Workflow\Condition\AgentReviewUnposted;
 use App\Module\AgentReview\Workflow\ReviewedHead;
 use App\Module\Workflow\Contract\Condition;
+use App\Module\Workflow\Contract\EngineFact;
 use App\Module\Workflow\Contract\Facts;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Uid\Uuid;
 
 final class AgentReviewConditionsTest extends TestCase
 {
+    private const string BOUND = '01a1218c-0000-7000-8000-000000000001';
+    private const string OTHER = '01a1218c-0000-7000-8000-000000000002';
+
     /** @return iterable<string, array{Condition, AgentReviewFacts, bool}> */
     public static function cases(): iterable
     {
         $none = self::head(null);
         $success = self::head(AgentReviewConclusion::Success);
         $failure = self::head(AgentReviewConclusion::Failure);
-        $headless = new ReviewedHead('headless', '', null);
+        $headless = new ReviewedHead(self::BOUND, '', null);
 
         yield 'due: switch off' => [new AgentReviewDue(), self::review([$none], enabled: false), false];
         yield 'due: epic' => [new AgentReviewDue(), self::review([$none], epic: true), false];
         yield 'due: no pull request head' => [new AgentReviewDue(), self::review([]), false];
-        yield 'due: head without review' => [new AgentReviewDue(), self::review([$success, $none]), true];
+        yield 'due: bound head without review' => [new AgentReviewDue(), self::review([self::head(AgentReviewConclusion::Success, self::OTHER), $none]), true];
+        yield 'due: bound head reviewed, another head without review' => [new AgentReviewDue(), self::review([$success, self::head(null, self::OTHER)]), false];
         yield 'due: every head reviewed' => [new AgentReviewDue(), self::review([$success, $failure]), false];
 
         yield 'failed: switch off' => [new AgentReviewFailed(), self::review([$failure], enabled: false), false];
         yield 'failed: head without review' => [new AgentReviewFailed(), self::review([$none]), false];
         yield 'failed: every head passed' => [new AgentReviewFailed(), self::review([$success]), false];
-        yield 'failed: one head failed' => [new AgentReviewFailed(), self::review([$success, $failure]), true];
+        yield 'failed: bound head failed' => [new AgentReviewFailed(), self::review([self::head(AgentReviewConclusion::Success, self::OTHER), $failure]), true];
+        yield 'failed: bound head passed, another head failed' => [new AgentReviewFailed(), self::review([$success, self::head(AgentReviewConclusion::Failure, self::OTHER)]), false];
 
         yield 'passed: switch off' => [new AgentReviewPassed(), self::review([$none], enabled: false), true];
         yield 'passed: epic' => [new AgentReviewPassed(), self::review([], epic: true), true];
@@ -45,7 +52,7 @@ final class AgentReviewConditionsTest extends TestCase
         yield 'passed: a pull request without a head' => [new AgentReviewPassed(), self::review([$success, $headless]), false];
         yield 'due: a pull request without a head' => [new AgentReviewDue(), self::review([$headless]), false];
         yield 'passed: one head failed' => [new AgentReviewPassed(), self::review([$success, $failure]), false];
-        yield 'passed: every head passed' => [new AgentReviewPassed(), self::review([$success, self::head(AgentReviewConclusion::Success, 'other')]), true];
+        yield 'passed: every head passed' => [new AgentReviewPassed(), self::review([$success, self::head(AgentReviewConclusion::Success, self::OTHER)]), true];
 
         yield 'unposted: switch off' => [new AgentReviewUnposted(), self::review([], enabled: false, unposted: true), false];
         yield 'unposted: all posted' => [new AgentReviewUnposted(), self::review([$success]), false];
@@ -55,8 +62,23 @@ final class AgentReviewConditionsTest extends TestCase
     #[DataProvider('cases')]
     public function test_the_condition_reads_the_agent_review_facts(Condition $condition, AgentReviewFacts $review, bool $expected): void
     {
-        self::assertSame([AgentReviewFacts::class], $condition->reads([]));
+        self::assertContains(AgentReviewFacts::class, $condition->reads([]));
         self::assertSame($expected, $condition->evaluate(self::facts($review), []));
+    }
+
+    public function test_due_and_failed_read_the_bound_pull_request(): void
+    {
+        self::assertSame([AgentReviewFacts::class, EngineFact::PullRequest], new AgentReviewDue()->reads([]));
+        self::assertSame([AgentReviewFacts::class, EngineFact::PullRequest], new AgentReviewFailed()->reads([]));
+        self::assertSame([AgentReviewFacts::class], new AgentReviewPassed()->reads([]));
+    }
+
+    public function test_due_and_failed_are_false_without_a_bound_pull_request(): void
+    {
+        $facts = FactsMother::facts(provided: [AgentReviewFacts::class => self::review([self::head(AgentReviewConclusion::Failure), self::head(null, self::OTHER)])]);
+
+        self::assertFalse(new AgentReviewDue()->evaluate($facts, []));
+        self::assertFalse(new AgentReviewFailed()->evaluate($facts, []));
     }
 
     public function test_each_condition_has_a_key_and_a_waiting_message_for_both_senses(): void
@@ -68,7 +90,7 @@ final class AgentReviewConditionsTest extends TestCase
         }
     }
 
-    private static function head(?AgentReviewConclusion $conclusion, string $pullRequestId = 'pull-request'): ReviewedHead
+    private static function head(?AgentReviewConclusion $conclusion, string $pullRequestId = self::BOUND): ReviewedHead
     {
         return new ReviewedHead($pullRequestId, str_repeat('a', 40), $conclusion);
     }
@@ -81,6 +103,6 @@ final class AgentReviewConditionsTest extends TestCase
 
     private static function facts(AgentReviewFacts $review): Facts
     {
-        return FactsMother::facts(provided: [AgentReviewFacts::class => $review]);
+        return FactsMother::facts(pullRequest: FactsMother::pullRequest(id: Uuid::fromString(self::BOUND)), provided: [AgentReviewFacts::class => $review]);
     }
 }

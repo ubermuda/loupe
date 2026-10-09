@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Module\AgentReview\Workflow\Condition;
 
 use App\Module\AgentReview\Workflow\AgentReviewFacts;
-use App\Module\AgentReview\Workflow\ReviewedHead;
 use App\Module\Workflow\Contract\Condition;
+use App\Module\Workflow\Contract\EngineFact;
 use App\Module\Workflow\Contract\Facts;
 use Symfony\Component\Translation\TranslatableMessage;
 
-/** The project asks for agent reviews, and the head of an open pull request has none. */
+/** The project asks for agent reviews, and the head of the pull request the rule acts on has none. */
 final readonly class AgentReviewDue implements Condition
 {
     #[\Override]
@@ -34,7 +34,7 @@ final readonly class AgentReviewDue implements Condition
     #[\Override]
     public function reads(array $params): array
     {
-        return [AgentReviewFacts::class];
+        return [AgentReviewFacts::class, EngineFact::PullRequest];
     }
 
     #[\Override]
@@ -42,7 +42,9 @@ final readonly class AgentReviewDue implements Condition
     {
         $review = $facts->get(AgentReviewFacts::class);
 
-        return $review->enabled && !$review->epic && array_any($review->heads, static fn (ReviewedHead $head): bool => '' !== $head->headSha && null === $head->conclusion);
+        $head = $review->boundHead($facts);
+
+        return $review->enabled && !$review->epic && null !== $head && '' !== $head->headSha && null === $head->conclusion;
     }
 
     #[\Override]

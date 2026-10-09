@@ -12,6 +12,7 @@ use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Contract\DocumentFacts;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\PullRequestState;
+use App\Module\Workflow\Engine\RuleSubject;
 use App\Module\Workflow\Template\ActionCall;
 use App\Module\Workflow\Template\ManualMoveActor;
 use App\Module\Workflow\Template\ShippedTemplates;
@@ -22,6 +23,7 @@ use App\Tests\Module\Workflow\Fact\FactsMother;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Translation\TranslatorBagInterface;
+use Symfony\Component\Uid\Uuid;
 
 final class ShippedTemplatesTest extends KernelTestCase
 {
@@ -172,6 +174,36 @@ final class ShippedTemplatesTest extends KernelTestCase
         self::assertNotContains('agent-review'.$suffix, $this->firingRuleIds($facts));
     }
 
+    /** @return iterable<string, array{string, AgentReviewConclusion|null}> */
+    public static function boundAgentReviewRules(): iterable
+    {
+        yield 'review' => ['agent-review', null];
+        yield 'fix' => ['fix-agent-review', AgentReviewConclusion::Failure];
+    }
+
+    #[DataProvider('boundAgentReviewRules')]
+    public function test_an_agent_review_rule_acts_on_the_pull_request_whose_head_needs_it(string $ruleId, ?AgentReviewConclusion $conclusion): void
+    {
+        $passed = FactsMother::pullRequest(checks: ChecksState::Passed, id: Uuid::v7());
+        $needing = FactsMother::pullRequest(checks: ChecksState::Passed, id: Uuid::v7());
+        $facts = FactsMother::facts(
+            card: FactsMother::card(slot: 'implementation'),
+            pullRequest: $passed,
+            pullRequests: [$passed, $needing],
+            provided: [AgentReviewFacts::class => new AgentReviewFacts([
+                new ReviewedHead((string) $passed->id, str_repeat('a', 40), AgentReviewConclusion::Success),
+                new ReviewedHead((string) $needing->id, str_repeat('b', 40), $conclusion),
+            ], enabled: true, epic: false, unposted: false)],
+        );
+        $rule = array_find($this->lifecycle()->rulesFor('implementation'), static fn ($rule): bool => $ruleId === $rule->id);
+        self::assertNotNull($rule);
+
+        $bound = new RuleSubject()->bind($rule, $facts);
+
+        self::assertTrue($bound->truth);
+        self::assertEquals($needing->id, $bound->subject);
+    }
+
     public function test_a_draft_that_passed_the_agent_review_is_marked_ready(): void
     {
         $passed = self::withAgentReview('implementation', [AgentReviewConclusion::Success], draft: true);
@@ -207,11 +239,12 @@ final class ShippedTemplatesTest extends KernelTestCase
     /** @param list<AgentReviewConclusion|null> $conclusions the newest review conclusion of each open pull request head */
     private static function withAgentReview(string $slot, array $conclusions, bool $draft = false, bool $epic = false, int $approvals = 0, bool $epicBranch = false): Facts
     {
-        $heads = array_map(static fn (?AgentReviewConclusion $conclusion): ReviewedHead => new ReviewedHead('pull-request', str_repeat('a', 40), $conclusion), $conclusions);
+        $id = Uuid::v7();
+        $heads = array_map(static fn (?AgentReviewConclusion $conclusion): ReviewedHead => new ReviewedHead((string) $id, str_repeat('a', 40), $conclusion), $conclusions);
 
         return FactsMother::facts(
             card: FactsMother::card(slot: $slot, type: $epic ? 'epic' : 'feature'),
-            pullRequest: FactsMother::pullRequest(draft: $draft, checks: ChecksState::Passed, approvalsCoveringHead: $approvals, baseIsMergeTarget: !$epicBranch, baseIsEpicBranch: $epicBranch),
+            pullRequest: FactsMother::pullRequest(draft: $draft, checks: ChecksState::Passed, approvalsCoveringHead: $approvals, baseIsMergeTarget: !$epicBranch, baseIsEpicBranch: $epicBranch, id: $id),
             provided: [AgentReviewFacts::class => new AgentReviewFacts($heads, enabled: true, epic: $epic, unposted: false)],
         );
     }
