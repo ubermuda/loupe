@@ -17,12 +17,8 @@
  * parallel ones by using run-unique provider identities and email addresses.
  */
 
-import {
-    test,
-    expect,
-    type Page,
-    type APIRequestContext,
-} from '@playwright/test';
+import { expect, type Page, type APIRequestContext } from '@playwright/test';
+import { hubStubbedTest as test } from '../fixtures';
 import { registerAndVerify, logout } from '../helpers';
 
 // Guest by default — make the unauthenticated starting state explicit.

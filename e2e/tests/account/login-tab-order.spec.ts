@@ -1,5 +1,9 @@
-import { expect, test } from '@playwright/test';
-import { suppressToolbar, suppressWidget } from '../fixtures';
+import { expect } from '@playwright/test';
+import {
+    hubStubbedTest as test,
+    suppressToolbar,
+    suppressWidget,
+} from '../fixtures';
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
