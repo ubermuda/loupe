@@ -1,10 +1,7 @@
-{#
-  The card of every thread on the version, each one a closed popover that its
-  row or its highlight opens. Outside the Comments panel, because a popover
-  under a display:none ancestor does not render. The add, delete, resolve and
-  reopen streams replace #comment-threads.
-  Vars: comments, list<Comment>; readOnly, bool, true on an earlier version.
-#}
+{# Every thread's card, as a popover that its row or its highlight opens.
+   Outside the Comments panel: a popover under display:none does not render.
+   Vars: comments, every comment on the version; readOnly, true on an
+   earlier version. #}
 {% set readOnly = readOnly ?? false %}
 {% set rootComments = comments|filter(c => c.parent is null)|map(c => c) %}
 {% set resolvedCount = rootComments|filter(c => c.threadStatus.value == 'resolved')|length %}

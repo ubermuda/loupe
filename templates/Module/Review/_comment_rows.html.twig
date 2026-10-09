@@ -1,10 +1,6 @@
-{#
-  The Comments panel list: one row per thread. Rendered on page load and by
-  the add, delete, resolve and reopen streams, which replace #comment-rows.
-  General comments lead. Threads whose text is gone sit under their own
-  heading. comment_anchor_controller sorts the other rows in passage order.
-  Vars: comments, list<Comment>, every comment on the version.
-#}
+{# One row per thread. The add, delete, resolve and reopen streams replace
+   #comment-rows. comment_anchor_controller sorts the anchored rows in
+   passage order. Vars: comments, every comment on the version. #}
 {% set rootComments = comments|filter(c => c.parent is null)|map(c => c) %}
 {# `is empty` would call a comment anchored to the literal text 0 general. #}
 {% set generalComments = rootComments|filter(c => c.anchor.quote == '')|map(c => c) %}
