@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Workflow;
 
-/** The open fix runs of one card that no pull request comment announces yet. */
+/** The open or recently received fix runs of one card that no pull request comment announces yet. */
 final readonly class FixRunFacts
 {
     /** @param list<string> $uncommentedRunIds sorted */

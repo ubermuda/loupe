@@ -36,6 +36,7 @@ use App\Module\Workflow\Contract\EpicBranches;
 use App\Module\Workflow\Contract\Parameter;
 use App\Module\Workflow\Contract\ParameterType;
 use App\Module\Workflow\Contract\RefiresOnFactChange;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -69,6 +70,7 @@ final readonly class ForgeWrite implements Action, ChecksParameters, RefiresOnFa
         private StaleApprovalNoticeQueue $staleApprovalNotices,
         private CardEvaluations $evaluations,
         private CardTypeCatalog $catalog,
+        private LoggerInterface $logger,
 
         #[Autowire(param: 'app.workflow.merge_method')]
         private string $mergeMethod,
@@ -160,11 +162,25 @@ final readonly class ForgeWrite implements Action, ChecksParameters, RefiresOnFa
             return null === $result->failure ? ActionOutcome::done() : ActionOutcome::refused($result->failure);
         }
         if (ForgeWriteKind::Comment === $write) {
-            $queued = match ($context->string('comment')) {
-                'fix-run' => $this->fixRunComments->queue($card),
-                'stale-approval' => $this->staleApprovalNotices->queue($card),
-                default => throw new \LogicException(\sprintf('The rule "%s" names an unknown comment.', $context->ruleId)),
-            };
+            $comment = $context->string('comment');
+            if (!\in_array($comment, self::COMMENTS, true)) {
+                throw new \LogicException(\sprintf('The rule "%s" names an unknown comment.', $context->ruleId));
+            }
+            // The queue runs in a savepoint, so a failure leaves the evaluation usable for the later rules.
+            // The rule stays true, and the next change of its facts tries again.
+            try {
+                $queued = 'fix-run' === $comment ? $this->fixRunComments->queue($card) : $this->staleApprovalNotices->queue($card);
+            } catch (\Throwable $e) {
+                $this->logger->error('fix-run' === $comment ? 'board.fix_run_comment_queue_failed' : 'board.pull_request_notice_queue_failed', [
+                    'cardId' => (string) $card->id,
+                    'ruleId' => $context->ruleId,
+                    'comment' => $comment,
+                    'error' => $e->getMessage(),
+                    'exception' => $e,
+                ]);
+
+                return ActionOutcome::done();
+            }
             // The stored row turns the condition false, and only a new evaluation reads it.
             if ($queued && $this->evaluations->isOn()) {
                 $this->evaluations->forCards([$card->id ?? throw new \LogicException('A stored card has an id.')]);

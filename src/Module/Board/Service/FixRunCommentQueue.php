@@ -24,13 +24,16 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
- * Stores and queues one comment for each open fix run of a card. The run fixes a pull request of its card:
+ * Stores and queues one comment for each open or recent fix run of a card. The run fixes a pull request of its card:
  * the link its work request names, by URL and then by a number that one link alone holds. A request that
  * names no link of the card falls back to the first open one the forge tracks, else the first one the card links.
  */
 final readonly class FixRunCommentQueue
 {
     private const string FIX_KIND = 'fix';
+
+    /** A run received in this window counts after it ends, and an older closed run is history. */
+    private const string RECENT = '-1 hour';
 
     public function __construct(
         private PullRequestCommenters $commenters,
@@ -49,7 +52,7 @@ final readonly class FixRunCommentQueue
     /**
      * A card that links no pull request on a forge with a commenter has none, so no rule waits for a comment that cannot post.
      *
-     * @return list<WorkerRun> the open fix runs of the card with no comment, by id
+     * @return list<WorkerRun> the open or recently received fix runs of the card with no comment, by id
      */
     public function uncommentedRuns(Card $card): array
     {
@@ -57,11 +60,16 @@ final readonly class FixRunCommentQueue
             return [];
         }
 
-        return $this->pullRequestComments->findUncommentedOpenRuns($card->id ?? throw new \LogicException('A stored card has an id.'), self::FIX_KIND);
+        return $this->pullRequestComments->findUncommentedRecentRuns($card->id ?? throw new \LogicException('A stored card has an id.'), self::FIX_KIND, $this->clock->now()->modify(self::RECENT));
     }
 
-    /** Answers whether it stored a comment. */
+    /** Answers whether it stored a comment. One savepoint holds the reads too, so a failed statement leaves the transaction of the caller usable. */
     public function queue(Card $card): bool
+    {
+        return $this->em->getConnection()->transactional(fn (): bool => $this->queueAll($card));
+    }
+
+    private function queueAll(Card $card): bool
     {
         $keys = $this->commentableKeys($card);
         if ([] === $keys) {
@@ -69,7 +77,7 @@ final readonly class FixRunCommentQueue
         }
         $projectId = $card->project->id ?? throw new \LogicException('A stored card has a project id.');
         $cardId = $card->id ?? throw new \LogicException('A stored card has an id.');
-        $runs = $this->pullRequestComments->findUncommentedOpenRuns($cardId, self::FIX_KIND);
+        $runs = $this->pullRequestComments->findUncommentedRecentRuns($cardId, self::FIX_KIND, $this->clock->now()->modify(self::RECENT));
         if ([] === $runs) {
             return false;
         }

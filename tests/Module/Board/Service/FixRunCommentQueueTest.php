@@ -234,13 +234,32 @@ final class FixRunCommentQueueTest extends KernelTestCase
         self::assertSame([], $this->queue()->uncommentedRuns($card));
     }
 
-    public function test_a_closed_run_or_a_run_of_another_kind_gets_no_comment(): void
+    public function test_an_old_closed_run_or_a_run_of_another_kind_gets_no_comment(): void
     {
         $card = $this->linkedCard();
-        $this->workerRun($card, state: WorkerRunState::Succeeded);
+        $this->workerRun($card, state: WorkerRunState::Succeeded, receivedAt: $this->ago('2 hours'));
         $this->workerRun($card, workKind: 'implement');
         // The guard: an open fix run of the same card is found, so the query reads the card.
         $open = $this->workerRun($card);
+
+        self::assertSame([$open], $this->queue()->uncommentedRuns($card));
+    }
+
+    public function test_a_recent_run_that_ended_before_the_evaluation_still_gets_its_comment(): void
+    {
+        $card = $this->linkedCard();
+        $receivedAt = $this->ago('20 minutes');
+        $ended = $this->workerRun($card, state: WorkerRunState::Succeeded, receivedAt: $receivedAt, endedAt: $receivedAt->modify('+10 minutes'));
+
+        self::assertSame([$ended], $this->queue()->uncommentedRuns($card));
+        self::assertTrue($this->queue()->queue($card));
+        self::assertEquals($ended->id, $this->comments()[0]->runId);
+    }
+
+    public function test_an_open_run_received_long_ago_still_gets_its_comment(): void
+    {
+        $card = $this->linkedCard();
+        $open = $this->workerRun($card, state: WorkerRunState::Running, receivedAt: $this->ago('3 hours'));
 
         self::assertSame([$open], $this->queue()->uncommentedRuns($card));
     }
@@ -371,7 +390,15 @@ final class FixRunCommentQueueTest extends KernelTestCase
         return $request;
     }
 
-    private function workerRun(Card $card, WorkerRunState $state = WorkerRunState::Queued, string $workKind = 'fix', ?WorkRequest $request = null): WorkerRun
+    private function ago(string $interval): \DateTimeImmutable
+    {
+        $clock = self::getContainer()->get(ClockInterface::class);
+        self::assertInstanceOf(ClockInterface::class, $clock);
+
+        return $clock->now()->modify('-'.$interval);
+    }
+
+    private function workerRun(Card $card, WorkerRunState $state = WorkerRunState::Queued, string $workKind = 'fix', ?WorkRequest $request = null, ?\DateTimeImmutable $receivedAt = null, ?\DateTimeImmutable $endedAt = null): WorkerRun
     {
         $run = new WorkerRun(
             project: $this->project,
@@ -382,6 +409,8 @@ final class FixRunCommentQueueTest extends KernelTestCase
             workKind: $workKind,
             state: $state,
             runKey: Uuid::v4(),
+            endedAt: $endedAt,
+            receivedAt: $receivedAt ?? new \DateTimeImmutable(),
             workRequestId: $request?->id,
             ruleId: $request?->ruleId,
         );

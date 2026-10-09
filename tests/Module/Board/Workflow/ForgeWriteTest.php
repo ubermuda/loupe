@@ -39,6 +39,7 @@ use App\Module\Forge\Service\ForgePullRequestWrites;
 use App\Module\Forge\Service\PullRequestBaseChangers;
 use App\Module\Forge\Service\PullRequestBranchUpdaters;
 use App\Module\Forge\Service\PullRequestCheckWriters;
+use App\Module\Forge\Service\PullRequestCommenters;
 use App\Module\Forge\Service\PullRequestMergers;
 use App\Module\Forge\Service\PullRequestOpeners;
 use App\Module\Forge\Service\PullRequestReviewFailed;
@@ -50,6 +51,7 @@ use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Contract\ActionOutcome;
 use App\Module\Workflow\Contract\EpicBranches;
 use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\RuleBudgets;
 use App\Module\Workflow\Messenger\EvaluateCard;
 use App\Module\Workflow\Service\EvaluationTrigger;
 use App\Tests\Module\Board\Fake\FakeCheckWriter;
@@ -57,11 +59,15 @@ use App\Tests\Module\Board\Fake\FakeReviewerForgeAccount;
 use App\Tests\Module\Board\Fake\FakeReviewPoster;
 use App\Tests\Module\Workflow\Action\ActionScenario;
 use App\Tests\Module\Workflow\Fact\FactsMother;
+use App\Tests\Support\RecordingLogger;
 use App\Tests\Support\ShippedCardTypes;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Psr\Log\LogLevel;
+use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Uid\Uuid;
@@ -365,6 +371,47 @@ final class ForgeWriteTest extends KernelTestCase
         self::assertEquals([new EvaluateCard((string) $card->id)], $this->queuedEvaluations());
     }
 
+    public function test_a_failing_comment_queue_is_logged_and_done_and_leaves_the_evaluation_usable(): void
+    {
+        $card = $this->card($this->project(), 'in-review');
+        $this->pullRequest($card);
+        $connection = $this->em()->getConnection();
+        $comments = $this->createStub(PullRequestCommentRepository::class);
+        $comments->method('findUncommentedRecentRuns')->willReturnCallback(static function () use ($connection): never {
+            $connection->executeStatement('SELECT * FROM no_such_table');
+            throw new \LogicException('The statement above throws.');
+        });
+        $queue = new FixRunCommentQueue(
+            $this->service(PullRequestCommenters::class),
+            $comments,
+            $this->service(CardPullRequestRepository::class),
+            $this->service(ForgePullRequestRepository::class),
+            $this->service(WorkRequestRepository::class),
+            $this->createStub(RuleBudgets::class),
+            $this->em(),
+            $this->service(MessageBusInterface::class),
+            new MockClock('2026-10-02 12:00:00'),
+            new NullLogger(),
+        );
+        $logger = new RecordingLogger();
+        $this->transport()->reset();
+
+        [$outcome, $answer] = $this->em()->wrapInTransaction(fn (): array => [
+            $this->write($card, 'comment', fallback: null, comment: 'fix-run', fixRunComments: $queue, logger: $logger),
+            $connection->fetchOne('SELECT 1'),
+        ]);
+
+        self::assertEquals(ActionOutcome::done(), $outcome);
+        self::assertSame(1, $answer);
+        self::assertCount(1, $logger->records);
+        self::assertSame(LogLevel::ERROR, $logger->records[0]['level']);
+        self::assertSame('board.fix_run_comment_queue_failed', $logger->records[0]['message']);
+        self::assertSame((string) $card->id, $logger->records[0]['context']['cardId']);
+        self::assertSame('test-rule', $logger->records[0]['context']['ruleId']);
+        self::assertSame('fix-run', $logger->records[0]['context']['comment']);
+        self::assertSame([], $this->queuedEvaluations());
+    }
+
     public function test_a_comment_with_nothing_to_post_is_done_and_queues_no_evaluation(): void
     {
         $card = $this->card($this->project(), 'in-review');
@@ -623,7 +670,7 @@ final class ForgeWriteTest extends KernelTestCase
         return $project;
     }
 
-    private function write(Card $card, string $write, ?string $fallback = 'fallback', bool $writers = true, ?Facts $facts = null, ?string $comment = null): ActionOutcome
+    private function write(Card $card, string $write, ?string $fallback = 'fallback', bool $writers = true, ?Facts $facts = null, ?string $comment = null, ?FixRunCommentQueue $fixRunComments = null, ?RecordingLogger $logger = null): ActionOutcome
     {
         $registered = $writers ? [$this->writer] : [];
         $forgePullRequests = $this->service(ForgePullRequestRepository::class);
@@ -663,10 +710,11 @@ final class ForgeWriteTest extends KernelTestCase
                 $this->service(EntityManagerInterface::class),
                 new MockClock('2026-10-02 12:00:00'),
             ),
-            $this->service(FixRunCommentQueue::class),
+            $fixRunComments ?? $this->service(FixRunCommentQueue::class),
             $this->service(StaleApprovalNoticeQueue::class),
             $this->service(EvaluationTrigger::class),
             new ShippedCardTypes(),
+            $logger ?? new RecordingLogger(),
             'squash',
         );
 

@@ -8,7 +8,7 @@ use App\Module\Workflow\Contract\Condition;
 use App\Module\Workflow\Contract\Facts;
 use Symfony\Component\Translation\TranslatableMessage;
 
-/** An open fix run of the card has no pull request comment yet. */
+/** An open or recent fix run of the card has no pull request comment yet. */
 final readonly class FixRunUncommented implements Condition
 {
     #[\Override]

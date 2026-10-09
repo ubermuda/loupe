@@ -47,8 +47,13 @@ final readonly class StaleApprovalNoticeQueue
         }));
     }
 
-    /** Answers whether it stored a notice. */
+    /** Answers whether it stored a notice. One savepoint holds the reads too, so a failed statement leaves the transaction of the caller usable. */
     public function queue(Card $card): bool
+    {
+        return $this->em->getConnection()->transactional(fn (): bool => $this->queueAll($card));
+    }
+
+    private function queueAll(Card $card): bool
     {
         $queued = false;
         foreach ($this->unnoticed($card) as $pullRequest) {

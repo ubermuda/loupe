@@ -20,14 +20,14 @@ final class CommentFactProvidersTest extends KernelTestCase
 {
     use ActionScenario;
 
-    public function test_the_fix_run_facts_list_the_open_fix_runs_with_no_comment_by_id(): void
+    public function test_the_fix_run_facts_list_the_open_or_recent_fix_runs_with_no_comment_by_id(): void
     {
         self::bootKernel();
         $card = $this->card($this->workflowProject('fix-run-facts'), 'in-review');
         $this->pullRequest($card);
         $second = $this->fixRun($card, WorkerRunState::Running);
         $first = $this->fixRun($card, WorkerRunState::Queued);
-        $this->fixRun($card, WorkerRunState::Failed);
+        $this->fixRun($card, WorkerRunState::Failed, new \DateTimeImmutable('-2 hours'));
         $ids = [(string) $first->id, (string) $second->id];
         sort($ids);
 
@@ -58,7 +58,7 @@ final class CommentFactProvidersTest extends KernelTestCase
         self::assertSame([(string) $stale->id => 'head2'], $provider->fingerprint($facts));
     }
 
-    private function fixRun(Card $card, WorkerRunState $state): WorkerRun
+    private function fixRun(Card $card, WorkerRunState $state, \DateTimeImmutable $receivedAt = new \DateTimeImmutable()): WorkerRun
     {
         $run = new WorkerRun(
             project: $card->project,
@@ -68,6 +68,7 @@ final class CommentFactProvidersTest extends KernelTestCase
             cardNumber: $card->number,
             workKind: 'fix',
             state: $state,
+            receivedAt: $receivedAt,
         );
         $this->em()->persist($run);
         $this->em()->flush();
