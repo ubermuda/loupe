@@ -6585,7 +6585,6 @@
             <trans-unit id="board.card_state.reason.run_open"><source>board.card_state.reason.run_open</source><target>A worker runs on this card.</target></trans-unit>
             <trans-unit id="board.card_state.reason.forge_request_pending"><source>board.card_state.reason.forge_request_pending</source><target>Loupe asked the forge to change pull request #%number%, and the forge has not answered.</target></trans-unit>
             <trans-unit id="board.card_state.reason.held_by_blocker"><source>board.card_state.reason.held_by_blocker</source><target>Card #%number% blocks this card: %title%</target></trans-unit>
-            <trans-unit id="board.card_state.since"><source>board.card_state.since</source><target>Since %date%</target></trans-unit>
             <trans-unit id="board.card_state.open_card"><source>board.card_state.open_card</source><target>Open card</target></trans-unit>
             <trans-unit id="board.card.badge.unmanaged"><source>board.card.badge.unmanaged</source><target>Unmanaged</target></trans-unit>
             <trans-unit id="board.card.history.reason.conflict"><source>board.card.history.reason.conflict</source><target>the pull request has a merge conflict</target></trans-unit>
