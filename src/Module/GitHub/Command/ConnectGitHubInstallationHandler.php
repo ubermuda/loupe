@@ -49,7 +49,7 @@ final readonly class ConnectGitHubInstallationHandler
         }
 
         try {
-            $token = $this->gitHubUserApi->exchangeCode($command->code, $command->codeVerifier, $command->redirectUri);
+            $token = $this->gitHubUserApi->exchangeCode($command->code, $command->codeVerifier, $command->redirectUri)->accessToken;
             $listed = array_find($this->gitHubUserApi->installations($token), static fn ($installation): bool => $installation->id === $command->installationId);
             if (null === $listed) {
                 $this->refused($project, $command->installationId, 'not_listed_for_user');

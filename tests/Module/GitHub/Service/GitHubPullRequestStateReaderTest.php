@@ -66,6 +66,7 @@ final class GitHubPullRequestStateReaderTest extends KernelTestCase
         $pullRequest = $this->tracked('Ubermuda/Loupe', 70_001);
         $graphql = $this->fixture('graphql');
         $graphql['data']['repository']['pullRequest']['headRefName'] = 'card-604';
+        $graphql['data']['repository']['pullRequest']['author'] = ['login' => 'ubermuda', 'databaseId' => 1234];
         $this->responses = [
             $this->answer(['token' => 'ghs_token'], 201),
             $this->answer($graphql),
@@ -79,6 +80,8 @@ final class GitHubPullRequestStateReaderTest extends KernelTestCase
         self::assertSame(PullRequestMergeability::Blocked, $snapshot->mergeability);
         self::assertSame(self::HEAD, $snapshot->headSha);
         self::assertSame('card-604', $snapshot->headBranch);
+        self::assertSame('1234', $snapshot->authorId);
+        self::assertSame('ubermuda', $snapshot->authorLogin);
         self::assertCount(4, $this->requests);
         self::assertSame('https://api.github.com/app/installations/70001/access_tokens', $this->requests[0]['url']);
         self::assertSame('https://api.github.com/graphql', $this->requests[1]['url']);
@@ -92,6 +95,7 @@ final class GitHubPullRequestStateReaderTest extends KernelTestCase
         self::assertStringNotContainsString('reviews(last:1', $body['query']);
         self::assertStringContainsString(' createdAt mergedAt ', $body['query']);
         self::assertStringContainsString(' headRefOid headRefName baseRefName ', $body['query']);
+        self::assertStringContainsString('author{login ... on User{databaseId}}', $body['query']);
         self::assertSame('https://api.github.com/repos/Ubermuda/Loupe/rules/branches/main?per_page=100&page=1', $this->requests[2]['url']);
         self::assertSame('https://api.github.com/repos/Ubermuda/Loupe/compare/main...'.self::HEAD, $this->requests[3]['url']);
     }

@@ -15,6 +15,7 @@ use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardDocumentsChanged;
 use App\Module\Board\Event\CardParentChanged;
+use App\Module\Board\Event\CardPullRequestsChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardRepository;
@@ -149,7 +150,14 @@ final readonly class CreateCardHandler
             // from exists. Inside the transaction, so the card and its vector
             // commit together.
             $this->searchIndexer->index($card);
-            $this->pullRequestTracking->apply($command->project, [], $this->pullRequestTracking->referencesOf($card));
+            $changedPullRequests = $this->pullRequestTracking->apply($command->project, [], $this->pullRequestTracking->referencesOf($card));
+            if ([] !== $changedPullRequests) {
+                $this->events->dispatch(new CardPullRequestsChanged(
+                    $command->project->id ?? throw new \LogicException('Project has no id.'),
+                    $card->id ?? throw new \LogicException('Card has no id.'),
+                    $changedPullRequests,
+                ));
+            }
 
             if ([] !== $documents) {
                 $this->events->dispatch(new CardDocumentsChanged(

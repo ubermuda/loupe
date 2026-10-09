@@ -70,6 +70,8 @@ final readonly class GitHubPullRequestStateMapper
             headParents: $this->headParents($pullRequest),
             approvalId: $approvalId,
             headBranch: $this->headBranch($pullRequest),
+            authorId: $this->authorId($pullRequest),
+            authorLogin: $this->authorLogin($pullRequest),
         );
     }
 
@@ -83,6 +85,26 @@ final readonly class GitHubPullRequestStateMapper
         $name = $pullRequest['headRefName'] ?? null;
 
         return \is_string($name) && '' !== $name ? $name : null;
+    }
+
+    /**
+     * Only a user account has an id. A bot or a deleted account reads null.
+     *
+     * @param array<mixed> $pullRequest
+     */
+    private function authorId(array $pullRequest): ?string
+    {
+        $id = $pullRequest['author']['databaseId'] ?? null;
+
+        return \is_int($id) && $id > 0 ? (string) $id : null;
+    }
+
+    /** @param array<mixed> $pullRequest */
+    private function authorLogin(array $pullRequest): ?string
+    {
+        $login = $pullRequest['author']['login'] ?? null;
+
+        return \is_string($login) && '' !== $login ? $login : null;
     }
 
     /**
