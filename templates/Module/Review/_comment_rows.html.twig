@@ -15,7 +15,7 @@
                 aria-controls="general-comments-list" aria-expanded="true" data-disclosure-target="trigger"
                 data-action="click->disclosure#toggle">
             <twig:ux:icon name="lucide:chevron-right" class="lp-general-comments__caret" />
-            {{ 'review.document.group.general'|trans }} · {{ generalComments|length }}
+            {{ 'review.document.group.general'|trans }} <span class="lp-comment-group-title__count">{{ generalComments|length }}</span>
         </button>
         <div id="general-comments-list" class="lp-general-comments__list open" data-disclosure-target="content">
             {% for comment in generalComments %}
@@ -37,7 +37,7 @@
                     data-action="click->disclosure#toggle">
                 <twig:ux:icon name="lucide:chevron-right" class="lp-orphan-group__caret" />
                 <twig:ux:icon name="lucide:bell-off" class="lp-orphan-group__icon" />
-                {{ 'review.document.orphan_group'|trans({'%count%': orphanedComments|length}) }}
+                {{ 'review.document.group.not_in_text'|trans }} <span class="lp-comment-group-title__count">{{ orphanedComments|length }}</span>
             </button>
             <div id="orphaned-threads" class="lp-orphan-group__list open" data-disclosure-target="content">
                 {% for comment in orphanedComments %}
@@ -45,6 +45,9 @@
                 {% endfor %}
             </div>
         </div>
+        {% endif %}
+        {% if anchoredComments|length > 0 %}
+        <p class="lp-comment-group-title" data-review-panels-target="inTextTitle">{{ 'review.document.group.in_text'|trans }} <span class="lp-comment-group-title__count" data-review-panels-target="inTextCount">{{ anchoredComments|length }}</span></p>
         {% endif %}
         {% for comment in anchoredComments %}
             {% include '@Review/_comment_row.html.twig' with {comment: comment} only %}

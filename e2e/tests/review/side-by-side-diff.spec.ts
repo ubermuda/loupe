@@ -127,7 +127,6 @@ test('the visible picker compares equal versions and keeps the view', async ({
     await toolbar
         .getByLabel('Compare from version', { exact: true })
         .selectOption('2');
-    await toolbar.getByRole('button', { name: 'Compare', exact: true }).click();
     await expect(page).toHaveURL(`${reviewPath}/diff/2/2?view=source`, VISIT);
     await expect(page.locator('.lp-empty')).toContainText('identical');
     await expect(
@@ -142,7 +141,6 @@ test('the visible picker compares equal versions and keeps the view', async ({
     await toolbar
         .getByLabel('Compare from version', { exact: true })
         .selectOption('1');
-    await toolbar.getByRole('button', { name: 'Compare', exact: true }).click();
     await expect(page).toHaveURL(`${reviewPath}/diff/1/2?view=source`, VISIT);
     const notes = page.locator('.lp-diff-notes');
     await expect(notes).not.toHaveAttribute('open');

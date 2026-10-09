@@ -1,4 +1,4 @@
-<twig:Ds:Dialog aria-labelledby="finish-review-title" data-action="cancel->modal#close">
+<twig:Ds:Dialog class="lp-finish-review" aria-labelledby="finish-review-title" data-action="cancel->modal#close">
     <h2 class="lp-dialog-title" id="finish-review-title">{{ 'review.document.finish.title'|trans }}</h2>
     <p class="lp-dialog-desc">{{ 'review.document.finish.context'|trans({
         '%version%': submitReviewForm.versionNumber.vars.value,
@@ -25,7 +25,7 @@
             {% endfor %}
             <twig:Ds:FieldErrors :fieldView="submitReviewForm.verdict" />
         </twig:Ds:FormField>
-        <twig:Ds:FormField :fieldView="submitReviewForm.note" widgetKind="textarea" :widgetAttr="{rows: 4, 'data-form-draft-target': 'text'}" :hintText="submitReviewForm.note.vars.help|trans" />
+        <twig:Ds:FormField :fieldView="submitReviewForm.note" widgetKind="textarea" :widgetAttr="{rows: 3, 'data-form-draft-target': 'text'}" :hintText="submitReviewForm.note.vars.help|trans" />
         {% if not submitReviewForm.versionNumber.vars.valid or not submitReviewForm.expectedReviewId.vars.valid %}
         <twig:Ds:Button href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">{{ 'review.document.version.back_to_latest'|trans }}</twig:Ds:Button>
         {% endif %}

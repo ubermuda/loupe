@@ -940,69 +940,91 @@
    typography plugin's `prose` rules sit in the utilities layer. Every rule is
    scoped under .lp-review, so the landing page's review mock keeps its look. */
 
+/* ── Top bar ──────────────────────────────────────────────────── */
+/* The review action comes first, then a hairline, then the bell and New
+   work. */
+.lp-topbar:has(> .lp-review-topbar-actions) > .lp-review-topbar-actions {
+    @apply order-1 ml-auto;
+}
+.lp-topbar:has(> .lp-review-topbar-actions) > .lp-topbar__global-actions {
+    @apply order-2 ml-0;
+}
+@media (width >= 64rem) {
+    .lp-topbar:has(> .lp-review-topbar-actions) > .lp-topbar__global-actions {
+        @apply border-l border-line pl-3.5;
+    }
+}
+
 /* ── Header ─────────────────────────────────────────────────────── */
+/* The page is white, as the paper the document sits on. */
+.lp-main:has(.lp-review) {
+    @apply bg-surface-1;
+}
 .lp-review .lp-review-doc__head {
-    @apply mb-5 gap-0;
-}
-.lp-review .lp-review-doc__heading {
-    @apply mb-4 flex items-center justify-between gap-5;
-}
-/* The back button lines up with the title row, not with the title and the
-   byline together. */
-.lp-review .lp-review-doc__identity {
-    @apply flex min-w-0 items-start gap-3;
-}
-.lp-review .lp-review-doc__back {
-    @apply size-8 rounded-lg;
-}
-.lp-review .lp-review-doc__identity-text {
-    @apply min-w-0;
-}
-.lp-review .lp-review-doc__title-row {
-    @apply min-h-8 gap-2.5;
+    @apply mb-12 gap-0;
 }
 .lp-review .lp-review-doc__title {
-    @apply text-2xl leading-snug font-bold tracking-tight break-words;
-}
-.lp-review .lp-review-doc__version {
-    @apply rounded-md bg-surface-3 px-1.75 py-0.75 font-sans text-xs leading-4 font-semibold text-fg-dim;
+    @apply m-0 mb-4 font-display text-4xl leading-tight font-extrabold tracking-normal break-words text-ink;
 }
 .lp-review .lp-review-doc__byline {
-    @apply mt-1.75 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm text-fg-dim;
+    @apply m-0 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm text-fg-dim;
 }
 .lp-review .lp-review-doc__middot {
-    @apply shrink-0 text-fg-faint;
+    @apply shrink-0;
 }
-.lp-review .lp-review-doc__author {
-    @apply inline-flex items-center gap-1.5;
+/* Revise and the "⋯" menu sit at the right end of the byline. */
+.lp-review .lp-review-doc__byline-actions {
+    @apply relative ml-auto inline-flex items-center gap-0.5;
 }
-.lp-review .lp-review-doc__avatar {
-    @apply inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-tint text-xs font-bold text-fg-mute;
+.lp-review .lp-review-doc__byline .lp-btn {
+    @apply min-h-8 gap-1.5 border-0 bg-transparent px-2.5 py-0 font-medium text-fg-label;
+}
+.lp-review .lp-review-doc__byline .lp-btn:hover,
+.lp-review .lp-review-doc__byline .lp-btn[aria-expanded='true'] {
+    @apply bg-surface-3 text-ink;
+}
+.lp-review .lp-review-doc__byline .lp-btn svg {
+    @apply size-4 shrink-0;
+}
+/* The way into the comparison reads as a quiet link with an icon. */
+.lp-review .lp-review-doc__byline .lp-doc-meta__unread {
+    @apply ml-0.5 h-7 min-h-7 rounded-lg px-2;
+}
+.lp-review .lp-review-doc__byline .lp-doc-meta__unread svg {
+    @apply size-3.5;
+}
+/* A checkbox drawn before the words, filled green while the new text shows. */
+.lp-review .lp-new-text-switch {
+    @apply relative h-7 cursor-pointer rounded-lg border-0 bg-transparent pr-2.25 pl-7 text-sm text-fg-label transition-colors hover:bg-surface-3;
+}
+.lp-review .lp-new-text-switch::before {
+    @apply absolute top-1/2 left-2 size-3.5 -translate-y-1/2 rounded border-2 border-fg-faint bg-surface-1;
+    content: '';
+}
+.lp-review .lp-new-text-switch[aria-checked='true'] {
+    @apply bg-transparent text-fg-label;
+}
+.lp-review .lp-new-text-switch[aria-checked='true']::before {
+    @apply border-status-ok bg-status-ok ring-2 ring-surface-1 ring-inset;
+}
+.lp-review .lp-new-text-switch[aria-disabled='true'] {
+    @apply cursor-not-allowed opacity-60 hover:bg-transparent;
 }
 .lp-review .lp-review-doc__verdict-detail {
-    @apply mb-4 flex max-w-3xl flex-col gap-1 text-sm text-fg-dim;
+    @apply -mt-8 mb-8 flex max-w-3xl flex-col gap-1 text-sm text-fg-dim;
 }
 .lp-review .lp-review-doc__verdict-word {
     @apply font-semibold text-ink;
 }
 .lp-review .lp-review-doc__wait {
-    @apply mt-1.5 mb-0 text-sm text-fg-dim;
+    @apply mt-2 mb-0 text-sm text-fg-dim;
 }
 .lp-review .lp-review-doc__wait a {
     @apply font-semibold text-ink;
 }
-.lp-review .lp-review-doc__actions {
-    @apply ml-0 flex shrink-0 flex-wrap items-center justify-end gap-2;
-}
-.lp-review .lp-review-doc__actions svg {
-    @apply size-4 shrink-0;
-}
-@media (width < 37.5rem) {
-    .lp-review .lp-review-doc__heading {
-        @apply flex-col items-stretch gap-3;
-    }
-    .lp-review .lp-review-doc__actions {
-        @apply ml-11 justify-start;
+@media (width < 56.25rem) {
+    .lp-review .lp-review-doc__title {
+        @apply text-3xl;
     }
 }
 
@@ -1037,52 +1059,159 @@
     @apply mb-6;
 }
 .lp-review .lp-review-panels__inner {
-    @apply flex flex-col gap-3;
+    @apply flex flex-col gap-3 text-sm;
 }
-/* A panel that is on fills its button with a light green. */
+/* Icon buttons on a tinted strip at the right of the panel column. A panel
+   that is on fills its button with the accent tint. */
 .lp-review .lp-review-toolbar {
-    @apply flex flex-wrap items-center justify-end gap-1;
+    @apply inline-flex items-center gap-0.5 self-end rounded-xl bg-surface-2 p-0.75;
 }
 .lp-review .lp-review-toolbar__button {
-    @apply inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md border-0 bg-transparent px-2.5 py-1 text-sm font-medium text-fg-dim transition-colors hover:bg-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
+    @apply inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border-0 bg-transparent px-2.5 text-sm font-semibold text-fg-label transition-colors hover:bg-surface-3 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink;
 }
 .lp-review .lp-review-toolbar__button svg {
     @apply size-4 shrink-0;
 }
 .lp-review .lp-review-toolbar__button[aria-pressed='true'] {
-    @apply bg-review-resolved font-semibold text-review-tab-ink hover:bg-review-resolved;
+    @apply bg-accent-faint text-accent-ink hover:bg-accent-faint hover:text-accent-ink;
 }
 /* Pointer events stay on, or the title that says why never appears. */
 .lp-review .lp-review-toolbar__button[aria-disabled='true'] {
     @apply cursor-not-allowed text-fg-faint hover:bg-transparent hover:text-fg-faint;
 }
 .lp-review .lp-review-panel {
-    @apply flex flex-col rounded-lg bg-surface-2 p-4;
+    @apply flex flex-col rounded-2xl bg-surface-2 p-2;
 }
 .lp-review .lp-review-panel[hidden] {
     @apply hidden;
 }
 .lp-review .lp-review-panel__head {
-    @apply mb-1 flex min-h-8 items-center gap-2;
+    @apply flex items-baseline justify-between gap-2 px-2 pt-1 pb-1.5;
 }
 .lp-review .lp-review-panel__head h2 {
-    @apply m-0 font-sans text-sm font-semibold text-ink;
+    @apply m-0 font-display text-sm font-extrabold text-ink;
+}
+/* The Outline names itself as a quiet label rather than a heading. */
+.lp-review .lp-review-panel__head--label h2 {
+    @apply font-sans text-xs font-semibold text-fg-dim;
 }
 .lp-review .lp-review-panel__count {
-    @apply text-xs text-fg-dim;
+    @apply text-xs font-semibold text-status-ok-deep;
 }
 .lp-review .lp-review-panel__hint {
-    @apply m-0 pt-3 text-sm leading-relaxed text-fg-dim;
+    @apply m-0 mx-2.5 mt-1 mb-1.5 text-xs leading-normal text-fg-dim;
+}
+.lp-review .lp-review-panel .lp-review-contents__item {
+    @apply items-center gap-0;
 }
 .lp-review .lp-review-panel .lp-review-contents__link {
-    @apply whitespace-normal px-0 py-1.25 text-sm leading-normal text-fg-mute hover:bg-transparent hover:text-ink;
+    @apply flex-none truncate rounded-lg px-2.5 py-1.25 text-sm leading-snug text-fg-dim hover:bg-surface-3 hover:text-ink;
+    max-width: calc(100% - var(--spacing) * 8);
 }
 .lp-review .lp-review-panel .lp-review-contents__link--current {
     @apply bg-transparent font-semibold text-ink;
 }
-/* While comparing, the changes a section holds, after its name. */
+/* While comparing, the changes a section holds, as a green count after its
+   name. */
 .lp-review .lp-review-contents__changes {
-    @apply shrink-0 text-xs font-semibold whitespace-nowrap text-review-tab-ink;
+    @apply ml-0.5 inline-flex h-4.5 min-w-4.5 shrink-0 items-center justify-center rounded-full bg-status-ok-bg px-1.25 text-xs leading-none font-bold whitespace-nowrap text-status-ok-deep;
+}
+
+/* ── Decisions panel ────────────────────────────────────────────── */
+.lp-review .lp-review-panel .lp-decision-summary__list {
+    @apply m-0 flex list-none flex-col gap-0.5 p-0;
+}
+.lp-review .lp-decision-summary__item {
+    @apply m-0 block border-0 p-0;
+}
+.lp-review .lp-decision-summary__link {
+    @apply flex items-start gap-2.5 rounded-xl p-2.5 text-ink no-underline transition-colors hover:bg-surface-3;
+}
+/* The tag is green once the decision has an answer, and grey while it waits. */
+.lp-review .lp-decision-summary__tag {
+    @apply inline-flex h-5.5 min-w-6.5 shrink-0 items-center justify-center rounded-md bg-surface-3 px-1.25 font-mono text-xs font-medium text-fg-dim transition-colors;
+}
+.lp-review .lp-decision-summary__tag--answered {
+    @apply bg-status-ok-bg text-status-ok-deep;
+}
+.lp-review .lp-decision-summary__text {
+    @apply flex min-w-0 flex-col gap-0.5 leading-snug;
+}
+.lp-review .lp-decision-summary__title {
+    @apply font-semibold;
+}
+.lp-review
+    :is(
+        .lp-decision-summary__answer,
+        .lp-decision-summary__note,
+        .lp-decision-summary__pending
+    ) {
+    @apply text-sm font-normal text-fg-dim;
+}
+/* While comparing, the decisions only point back at the document. */
+.lp-review .lp-review-panels--compare .lp-decision-summary__tag {
+    @apply opacity-75;
+}
+
+/* ── Comments panel ─────────────────────────────────────────────── */
+.lp-review .lp-review-filter {
+    @apply ml-0;
+}
+.lp-review .lp-review-filter__toggle {
+    @apply h-6.5 w-auto gap-1.25 rounded-md border border-line bg-surface-1 px-2 text-xs text-fg-label hover:bg-surface-1 hover:text-ink;
+}
+.lp-review .lp-review-filter__toggle svg {
+    @apply size-3.5;
+}
+.lp-review .lp-review-filter__toggle--filtered {
+    @apply border-review-addressed-ink/30 bg-review-addressed text-review-addressed-ink;
+}
+.lp-review .lp-comment-group-title,
+.lp-review .lp-orphan-group__title,
+.lp-review .lp-general-comments__toggle {
+    @apply m-0 flex w-full cursor-default items-baseline gap-1 border-0 bg-transparent px-2 pt-3 pb-0.5 text-left font-sans text-xs font-semibold tracking-normal text-fg-dim normal-case;
+}
+.lp-review :is(.lp-orphan-group__caret, .lp-general-comments__caret) {
+    @apply hidden;
+}
+.lp-review :is(.lp-orphan-group__title, .lp-general-comments__toggle) {
+    @apply cursor-pointer hover:text-ink;
+}
+.lp-review .lp-comment-group-title[hidden] {
+    @apply hidden;
+}
+.lp-review .lp-comment-group-title__count {
+    @apply font-normal;
+}
+.lp-review .lp-orphan-group__icon {
+    @apply hidden;
+}
+.lp-review .lp-review-panel .lp-review-margin {
+    @apply gap-0;
+}
+.lp-review .lp-review-panel .lp-orphan-group {
+    @apply order-1;
+}
+.lp-review .lp-comment-row {
+    @apply flex w-full cursor-pointer flex-col gap-0.5 rounded-lg border-0 bg-transparent p-2 text-left text-ink transition-colors hover:bg-surface-3;
+}
+.lp-review .lp-comment-row__quote {
+    @apply truncate text-xs text-fg-dim;
+}
+.lp-review .lp-comment-row--orphaned .lp-comment-row__quote {
+    @apply line-through;
+}
+.lp-review .lp-comment-row__body {
+    @apply line-clamp-2 text-sm leading-snug;
+}
+.lp-review .lp-comment-row--resolved {
+    @apply opacity-50;
+}
+.lp-review .lp-comment-whole-document {
+    @apply mt-2.5 h-8.5 min-h-8.5 w-full rounded-lg border-0 bg-surface-3 text-sm font-normal text-fg-label hover:bg-tint-strong hover:text-ink;
+}
+.lp-review .lp-comment-whole-document svg {
+    @apply hidden;
 }
 
 /* ── "⋯" page menu ──────────────────────────────────────────────── */
@@ -1134,49 +1263,58 @@
 }
 
 /* ── Column ─────────────────────────────────────────────────────── */
-/* One text column of 48rem with no card or border. From 87.5rem the panel
-   column sits to its right. The text column centres when the room allows, and
-   moves left only as far as the panel column needs. Below 87.5rem the toolbar
-   and the open panels stack above the document. */
+/* One text column of 48rem with no card or border, and the panel column of
+   16.5rem 3.5rem to its right. The two centre as a pair. Below 75rem the
+   toolbar and the open panels stack above the document. */
+.lp-review .lp-review-block {
+    --doc-margin: calc(var(--spacing) * 66);
+    --doc-margin-gap: calc(var(--spacing) * 14);
+}
+@media (width >= 56.25rem) {
+    .lp-review .lp-review-block {
+        @apply mx-12 pt-10 pb-40;
+    }
+}
 .lp-review .lp-review-doc__prose {
-    @apply min-h-0 max-w-3xl rounded-none border-0 bg-transparent px-0 py-7 text-lg leading-8 text-ink;
+    @apply min-h-0 max-w-175 rounded-none border-0 bg-transparent p-0 leading-7 text-prose;
+    font-size: calc(var(--spacing) * 4.25);
     box-shadow: none;
 }
-.lp-review .lp-review-doc__heading {
-    @apply max-w-3xl;
-}
-@media (width >= 87.5rem) {
+@media (width >= 75rem) {
     /* Both views drop the cap, so the toolbar in each measures one width. */
     .lp-review .lp-review-block {
         max-width: none;
     }
     .lp-review .lp-review-doc {
+        --review-column: min(
+            var(--container-3xl),
+            100% - var(--doc-margin-gap) - var(--doc-margin)
+        );
         --review-column-start: max(
             0rem,
-            min(
-                (100% - var(--container-3xl)) / 2,
-                100% - var(--container-3xl) - var(--doc-margin-gap) -
-                    var(--doc-margin)
-            )
+            (
+                    100% - var(--review-column) - var(--doc-margin-gap) -
+                        var(--doc-margin)
+                ) / 2
         );
     }
     /* The side-by-side view keeps the compare bar in the text column of the
        other views, so a switch of view moves no control. The sticky wrapper
        stays there too, or it covers the panel column. */
-    .lp-review .lp-review-doc--wide > .lp-doc-meta-bar {
+    .lp-review .lp-review-doc--wide > :is(.lp-doc-meta-bar, .lp-review-doc__head) {
         margin-left: var(--review-column-start);
-        max-width: var(--container-3xl);
+        max-width: var(--review-column);
     }
     .lp-review .lp-review-doc:not(.lp-review-doc--wide) {
         padding-left: var(--review-column-start);
         padding-right: calc(
-            100% - var(--container-3xl) - var(--review-column-start)
+            100% - var(--review-column) - var(--review-column-start)
         );
     }
     .lp-review .lp-review-panels {
         @apply absolute top-0 bottom-0 mb-0;
         left: calc(
-            var(--review-column-start) + var(--container-3xl) +
+            var(--review-column-start) + var(--review-column) +
                 var(--doc-margin-gap)
         );
         width: var(--doc-margin);
@@ -1189,25 +1327,28 @@
         )
         > :is(.lp-diff-columns, .lp-diff-notes, .lp-empty) {
         margin-right: calc(
-            100% - var(--review-column-start) - var(--container-3xl)
+            100% - var(--review-column-start) - var(--review-column)
         );
     }
-    /* The panel column scrolls on its own when the open panels are taller
-       than the window, or than a short document. */
+    /* The panel column stays in view and scrolls on its own when the open
+       panels are taller than the window. */
     .lp-review .lp-review-panels__inner {
-        @apply overflow-y-auto;
+        @apply overflow-y-auto overscroll-contain pb-1;
         position: sticky;
-        top: calc(var(--spacing) * 4);
-        max-height: min(calc(100dvh - var(--spacing) * 24), 100%);
+        top: calc(var(--spacing) * 6);
+        max-height: min(calc(100dvh - var(--spacing) * 26), 100%);
         scrollbar-width: thin;
     }
 }
-@media (width < 87.5rem) {
+@media (width < 75rem) {
     .lp-review .lp-review-doc:not(.lp-review-doc--wide) {
-        @apply flex flex-col;
+        @apply mx-auto flex max-w-3xl flex-col;
     }
     .lp-review .lp-review-doc:not(.lp-review-doc--wide) > * {
         order: 20;
+    }
+    .lp-review .lp-review-doc:not(.lp-review-doc--wide) > .lp-review-panels {
+        order: 0;
     }
     .lp-review
         .lp-review-doc:not(.lp-review-doc--wide)
@@ -1217,15 +1358,7 @@
             .lp-doc-meta-bar,
             .lp-decision-status
         ) {
-        order: 0;
-    }
-    .lp-review .lp-review-doc:not(.lp-review-doc--wide) > .lp-review-panels {
         order: 10;
-    }
-}
-@media (width < 37.5rem) {
-    .lp-review .lp-review-doc__prose {
-        @apply py-5;
     }
 }
 .lp-review .lp-review-doc__prose > :first-child {
@@ -1236,19 +1369,27 @@
     @apply my-10 border-0;
 }
 .lp-review .lp-review-doc__prose :is(h1, h2) {
-    @apply mt-11 mb-2.5 font-display text-lg leading-normal font-bold tracking-tight text-ink;
-}
-.lp-review .lp-review-doc__prose h1 {
-    @apply text-xl;
+    @apply mt-14 mb-3.5 font-display text-2xl leading-tight font-bold tracking-normal text-ink;
 }
 .lp-review .lp-review-doc__prose :is(h3, h4, h5, h6) {
-    @apply mt-8 mb-2 font-display text-base leading-normal font-bold text-ink;
+    @apply mt-9 mb-2.5 font-display text-lg leading-snug font-bold text-ink;
 }
-.lp-review .lp-review-doc__prose :is(p, li) {
-    @apply leading-7.5;
+.lp-review .lp-review-doc__prose p {
+    @apply mt-0 mb-4;
 }
-.lp-review .lp-review-doc__prose :is(h1, h2, h3, h4, h5, h6) + :is(p, ul, ol) {
-    @apply mt-0;
+.lp-review .lp-review-doc__prose :is(ul, ol) {
+    @apply mt-0 mb-4.5 pl-6.5;
+}
+.lp-review .lp-review-doc__prose li {
+    @apply mt-0 mb-2.5 pl-1;
+}
+.lp-review .lp-review-doc__prose a {
+    @apply text-accent-ink;
+}
+.lp-review .lp-review-doc__prose code {
+    @apply rounded-sm bg-surface-3 px-1.25 py-px font-normal text-ink;
+    font-size: 0.82em;
+    overflow-wrap: anywhere;
 }
 /* A code block reads as a quiet inset of the paper, not a dark slab. */
 .lp-review .lp-review-doc__prose pre {
@@ -1259,45 +1400,63 @@
 }
 /* ── Decision blocks ────────────────────────────────────────────── */
 .lp-review .lp-decision {
-    @apply mt-6 mb-0 rounded-lg border border-review-decision-line bg-review-decision p-5;
+    @apply mt-2 mb-7 flex flex-col gap-0.5 rounded-xl border border-line bg-surface-1 px-4 pt-4 pb-3 leading-normal;
+    font-size: calc(var(--spacing) * 3.75);
 }
-/* The question leads as a heading, and the kind of answer it takes floats at
-   its right as a quiet chip. A flex prompt would split inline code into
-   columns. Still generated content, so it never joins the text every comment
-   anchor is measured against. */
+/* The question leads as a heading, and the kind of answer it takes sits at
+   its right in quiet words. Still generated content, so it never joins the
+   text every comment anchor is measured against. */
 .lp-review .lp-decision__prompt {
-    @apply mb-3.5 font-display text-base leading-normal font-bold text-ink;
+    @apply float-left mb-0 w-full pb-2.5 font-display text-base leading-normal font-bold text-ink;
 }
 .lp-review .lp-decision__prompt::before {
     content: 'Pick one';
-    @apply float-right mb-0 ml-3 rounded-md bg-surface-1 px-1.75 py-0.75 font-sans text-xs leading-4 font-semibold tracking-normal text-fg-dim normal-case;
+    @apply float-right mb-0 ml-3 bg-transparent p-0 font-sans text-xs leading-6 font-normal tracking-normal text-fg-dim normal-case;
 }
 .lp-review
     .lp-decision[data-decision-type='multiple']
     .lp-decision__prompt::before {
     content: 'Pick any';
 }
+.lp-review .lp-decision:has(> .lp-decision__clear) .lp-decision__prompt::before {
+    content: 'Pick one \00A0\00B7';
+}
+.lp-review
+    .lp-decision[data-decision-type='multiple']:has(> .lp-decision__clear)
+    .lp-decision__prompt::before {
+    content: 'Pick any \00A0\00B7';
+}
 .lp-review .lp-decision__options {
-    @apply gap-2.5;
+    @apply clear-both flex flex-col gap-0.5;
 }
 .lp-review .lp-decision__option {
-    @apply rounded-lg border border-line bg-surface-1 px-4 py-3.5 text-base font-normal text-ink;
+    @apply flex items-center gap-3 rounded-lg border-0 bg-transparent px-2.5 py-2.25 font-normal text-ink;
+    font-size: inherit;
 }
 .lp-review .lp-decision__option:has(input:checked) {
-    @apply border-accent-border bg-accent-faint;
+    @apply bg-accent-faint;
+}
+.lp-review .lp-decision__option label {
+    @apply flex-1;
+}
+.lp-review .lp-decision__option input {
+    @apply m-0 shrink-0;
 }
 .lp-review .lp-decision__option input:checked {
-    @apply border-review-tab bg-review-tab;
+    @apply border-accent-ink bg-accent-ink;
 }
 /* Three stars show the confidence of a recommendation: filled for the steps it
    reaches, outlined for the rest. The star elements hold no text, so they
    never join the anchor basis. The words sit in `title` and `aria-label`.
    The star shape is the committed Lucide star, inlined as a mask. */
 .lp-review .lp-decision__badge {
-    @apply relative ml-auto inline-flex shrink-0 items-center gap-0.5 rounded-md bg-accent-faint px-1.75 py-0.75 font-sans text-xs leading-4 font-semibold text-review-tab;
+    @apply relative z-1 ml-auto inline-flex shrink-0 cursor-help items-center gap-px rounded-md bg-transparent px-1.25 py-0.75 font-sans text-xs leading-4 font-semibold text-accent-ink hover:bg-accent-faint;
+}
+.lp-review .lp-decision__star:not(.lp-decision__star--filled) {
+    @apply opacity-45;
 }
 .lp-review .lp-decision__star {
-    @apply inline-block size-3.5 bg-current;
+    @apply inline-block size-3 bg-current;
     -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.12 2.12 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.12 2.12 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.12 2.12 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.12 2.12 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.12 2.12 0 0 0 1.597-1.16z'/%3E%3C/svg%3E");
     mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.12 2.12 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.12 2.12 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.12 2.12 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.12 2.12 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.12 2.12 0 0 0 1.597-1.16z'/%3E%3C/svg%3E");
     -webkit-mask-size: contain;
@@ -1362,12 +1521,12 @@
     @apply relative;
 }
 .lp-review .lp-decision__clear {
-    @apply absolute top-4.5 right-5;
+    @apply absolute top-4 right-4 z-2 m-0 h-6 min-h-6 border-0 bg-transparent p-0 text-xs leading-6 font-semibold text-accent-ink hover:bg-transparent hover:underline;
 }
 .lp-review
     .lp-decision:has(> .lp-decision__clear)
     .lp-decision__prompt::before {
-    @apply mr-28;
+    @apply mr-21;
 }
 @media (width < 37.5rem) {
     .lp-review .lp-decision__clear {
@@ -1380,34 +1539,50 @@
     }
 }
 .lp-review .lp-decision__note {
-    @apply mt-3 flex items-start gap-2;
+    @apply mt-2 flex items-start gap-3;
 }
 .lp-review .lp-decision__note-field {
-    @apply min-h-16 flex-1 resize-y text-sm;
+    @apply min-h-10 flex-1 resize-y rounded-lg border border-line bg-surface-1 px-2.5 py-2 text-sm;
 }
 .lp-review .lp-decision__note-field[readonly] {
     @apply cursor-default bg-surface-1 text-fg-mute;
 }
 
 /* ── Tables in the document ─────────────────────────────────────── */
-/* Roomier than the typography default: 15px text, taller rows, a bold first
-   column and small-capital headings. A wide table scrolls inside its own box
-   rather than pushing the paper sideways. Front matter keeps its own look. */
+/* Roomier than the typography default: 15px text, taller rows, a semibold
+   first column and small-capital headings, with no inset at the left edge. A
+   wide table scrolls inside its own box rather than pushing the column
+   sideways. Front matter keeps its own look. */
 .lp-review .lp-review-doc__prose table:not(.lp-front-matter) {
-    @apply my-6 block max-w-full overflow-x-auto border-collapse;
-    font-size: 0.9375rem;
+    @apply mt-2 mb-6.5 block w-full max-w-full overflow-x-auto border-collapse leading-normal text-prose;
+    font-size: calc(var(--spacing) * 3.75);
+}
+@media (width >= 37.5rem) {
+    .lp-review .lp-review-doc__prose table:not(.lp-front-matter, .lp-option-table) {
+        display: table;
+    }
 }
 .lp-review .lp-review-doc__prose table:not(.lp-front-matter) :is(th, td) {
-    @apply px-4 py-3.5 text-left align-top leading-normal;
+    @apply text-left align-top;
 }
 .lp-review .lp-review-doc__prose table:not(.lp-front-matter) th {
-    @apply border-b border-line-strong text-xs font-bold tracking-wider text-fg-dim uppercase;
+    @apply border-b border-line-strong pt-0 pr-4 pb-2 pl-0 text-xs font-bold tracking-wider text-fg-dim uppercase;
 }
 .lp-review .lp-review-doc__prose table:not(.lp-front-matter) td {
-    @apply border-b border-line;
+    @apply border-b border-line py-3.5 pr-4 pl-0;
+}
+.lp-review .lp-review-doc__prose table:not(.lp-front-matter) tbody tr {
+    @apply border-0;
+}
+.lp-review
+    .lp-review-doc__prose
+    table:not(.lp-front-matter)
+    tr:last-child
+    td {
+    @apply border-b-0;
 }
 .lp-review .lp-review-doc__prose table:not(.lp-front-matter) td:first-child {
-    @apply font-bold text-ink;
+    @apply w-1/4 font-semibold text-ink;
 }
 
 /* An option table from an options fence: each row is a tinted block with the
@@ -1422,36 +1597,51 @@
     @apply sr-only;
 }
 .lp-review .lp-review-doc__prose table.lp-option-table tbody {
-    @apply grid gap-3;
+    @apply grid gap-2.5;
 }
 .lp-review .lp-review-doc__prose table.lp-option-table tr {
-    @apply grid gap-x-6 gap-y-3 rounded-lg bg-surface-2 p-4;
-    grid-template-columns: repeat(
-        auto-fit,
-        minmax(calc(var(--spacing) * 40), 1fr)
-    );
+    @apply flex flex-wrap gap-x-4 gap-y-2 rounded-xl bg-surface-2 px-4 py-3.5;
 }
 .lp-review .lp-review-doc__prose table.lp-option-table td {
-    @apply min-w-0 border-0 p-0;
+    @apply w-auto min-w-40 flex-1 basis-40 border-0 p-0 font-normal text-fg-label;
 }
 .lp-review .lp-review-doc__prose table.lp-option-table td:first-child {
-    grid-column: 1 / -1;
-    @apply text-base;
+    @apply w-full basis-full text-base leading-snug font-semibold text-ink;
 }
 .lp-review .lp-review-doc__prose table.lp-option-table td:empty {
     @apply hidden;
 }
 .lp-review .lp-review-doc__prose table.lp-option-table td::before {
     content: attr(data-label);
-    @apply mb-1 block text-xs font-bold tracking-wider text-fg-dim uppercase;
+    @apply mb-0.5 block text-xs font-bold tracking-wider text-fg-dim uppercase;
+}
+/* Pros read green and Cons red, as the headings the author wrote say. */
+.lp-review .lp-review-doc__prose table.lp-option-table td[data-label='Pros' i]::before {
+    @apply text-status-ok-deep;
+}
+.lp-review .lp-review-doc__prose table.lp-option-table td[data-label='Cons' i]::before {
+    @apply text-review-strike-ink;
 }
 .lp-review .lp-review-doc__prose table.lp-option-table td:first-child::before {
     content: none;
 }
 @media (width < 37.5rem) {
-    .lp-review .lp-review-doc__prose table.lp-option-table tr {
-        grid-template-columns: 1fr;
+    .lp-review .lp-review-doc__prose table.lp-option-table td {
+        @apply basis-full;
     }
+}
+
+/* ── Gutter markers ─────────────────────────────────────────────── */
+/* A count of the threads on a line, in the gutter at the right of the text
+   column. A click opens the thread. */
+.lp-review .lp-comment-markers {
+    @apply absolute top-0 left-0 z-10 size-0;
+}
+.lp-review .lp-comment-marker {
+    @apply absolute flex h-6.5 cursor-pointer items-center gap-1 rounded-full border border-accent-border bg-accent-soft px-2 font-sans text-xs font-bold text-accent-ink transition-colors hover:bg-accent-faint;
+}
+.lp-review .lp-comment-marker svg {
+    @apply size-3.5 shrink-0;
 }
 
 /* ── Comment cards ──────────────────────────────────────────────── */
@@ -1524,57 +1714,60 @@
 }
 
 /* ── Compare bar ────────────────────────────────────────────────── */
-/* One tinted row under the byline. Its wrapper is sticky, so the bar stays in
+/* One tinted row under the byline: the way back, the two versions, the view
+   switch and the change counter. Its wrapper is sticky, so the bar stays in
    view while the reviewer scrolls. */
 .lp-review .lp-doc-meta-bar {
-    @apply pt-2 pb-1;
+    @apply -mt-7 mb-6 bg-transparent pt-0 pb-0;
 }
 .lp-review .lp-diff-bar {
-    @apply gap-x-4 gap-y-2 rounded-lg border-b-0 bg-accent-faint px-3 py-2;
+    @apply gap-x-3 gap-y-2.5 rounded-xl border-b-0 bg-surface-2 px-3 py-2 text-sm;
 }
 .lp-review .lp-diff-bar__back {
-    @apply min-h-9 gap-1 px-2 text-sm font-semibold text-fg-mute hover:text-ink;
+    @apply -ml-1 min-h-8 gap-1.5 border-0 bg-transparent px-2.5 font-medium text-fg-label hover:bg-surface-3 hover:text-ink;
 }
 .lp-review .lp-diff-bar__back svg {
     @apply size-4 shrink-0;
 }
-/* The wrapper steps out of the way, so the bar wraps as one row in the
-   reading column: the way back and the pickers first, then the switch, and the
-   counter at the right end. */
+/* The wrapper steps out of the way, so the bar wraps as one row. */
 .lp-review .lp-diff-bar__main {
     @apply contents;
 }
 .lp-review .lp-version-compare {
-    @apply w-auto gap-2;
+    @apply w-auto gap-2 text-fg-dim;
 }
-.lp-review .lp-version-compare__label {
-    @apply text-sm text-fg-dim;
+.lp-review .lp-diff-bar .lp-version-compare__label {
+    @apply sr-only;
 }
 .lp-review .lp-version-compare__arrow {
-    @apply size-4 shrink-0 text-fg-faint;
+    @apply size-4 shrink-0 text-fg-dim;
 }
-.lp-review .lp-version-compare select {
-    @apply min-h-9 w-auto min-w-18;
+.lp-review .lp-diff-bar .lp-version-compare select {
+    @apply h-8 min-h-8 w-auto min-w-16 rounded-lg border-line-strong bg-surface-1 py-0 pr-8 pl-2 text-sm;
 }
-/* The three views read as one segmented control, sized like the buttons
-   beside it. */
+/* The three views read as one segmented control at the right of the bar. */
 .lp-review .lp-diff-views {
-    @apply gap-1 rounded-lg bg-surface-3 p-1;
+    @apply ml-auto gap-0.5 rounded-lg bg-surface-3 p-0.75;
 }
 .lp-review .lp-diff-views__link {
-    @apply border-transparent bg-transparent font-semibold text-fg-mute hover:bg-tint hover:text-ink;
+    @apply h-7 min-h-7 rounded-md border-0 bg-transparent px-2.5 py-0 text-sm font-normal text-fg-label hover:bg-transparent hover:text-ink;
 }
 .lp-review .lp-diff-views__link[aria-current] {
-    @apply border-line bg-surface-1 text-ink shadow-xs;
+    @apply bg-surface-1 font-semibold text-ink shadow-xs hover:bg-surface-1;
 }
 .lp-review .lp-diff-nav {
-    @apply flex-none justify-end;
+    @apply ml-0 flex-none justify-end gap-0.5 text-fg-label;
 }
 .lp-review .lp-diff-nav__count {
-    @apply font-sans text-sm tracking-normal text-fg-dim normal-case;
+    @apply m-0 mr-1.5 font-sans text-sm tracking-normal text-fg-label normal-case tabular-nums;
 }
 .lp-review .lp-diff-nav .lp-btn--icon {
-    @apply border-transparent bg-transparent text-fg-mute;
+    @apply size-8 min-h-8 rounded-lg border-transparent bg-transparent text-fg-label hover:bg-surface-3;
+}
+@media (width < 56.25rem) {
+    .lp-review .lp-diff-views {
+        @apply ml-0;
+    }
 }
 .lp-review .lp-diff-notes {
     @apply m-0 mt-2 max-w-none rounded-none border-0 bg-transparent p-0 text-sm text-fg-dim;
@@ -1598,11 +1791,29 @@
 }
 
 /* ── Finish review dialog ───────────────────────────────────────── */
+/* A compact dialog of 27.5rem: the title, one line of context, the two
+   verdicts and the note. */
+.lp-review .lp-finish-review {
+    @apply max-w-110 rounded-2xl border border-line p-5 text-sm;
+}
+.lp-review .lp-finish-review .lp-dialog-title {
+    @apply text-xl tracking-normal;
+}
+.lp-review .lp-finish-review .lp-dialog-desc {
+    @apply mt-0.5 mb-3.5 text-xs text-fg-dim;
+}
+.lp-review .lp-finish-review :is(legend, label).lp-label,
+.lp-review .lp-finish-review .lp-label {
+    @apply pb-1.5 text-sm font-semibold text-fg-label;
+}
+.lp-review .lp-finish-review .lp-form {
+    @apply gap-3.5;
+}
 .lp-review .lp-review-verdict-choice {
-    @apply items-start gap-3.5 px-4 py-3.5 transition-colors;
+    @apply items-start gap-2.5 rounded-lg px-3 py-2.5 transition-colors;
 }
 .lp-review .lp-review-verdict-choice + .lp-review-verdict-choice {
-    @apply mt-2.5;
+    @apply mt-2;
 }
 .lp-review .lp-review-verdict-choice:has(input:checked) {
     @apply border-accent-border bg-accent-faint;
@@ -1611,13 +1822,19 @@
     @apply mt-0.5;
 }
 .lp-review .lp-review-verdict-choice__text {
-    @apply flex flex-col gap-0.5;
+    @apply flex flex-col gap-0;
 }
 .lp-review .lp-review-verdict-choice__label {
-    @apply text-base font-semibold text-ink;
+    @apply text-sm font-bold text-ink;
 }
 .lp-review .lp-review-verdict-choice__hint {
-    @apply text-sm text-fg-dim;
+    @apply text-sm text-fg-label;
+}
+.lp-review .lp-finish-review textarea {
+    @apply min-h-0;
+}
+.lp-review .lp-finish-review .lp-review-verdict-actions {
+    @apply pt-0;
 }
 
 /* ── Composers ──────────────────────────────────────────────────── */
@@ -1669,24 +1886,23 @@
 
 /* ── Diff pane ──────────────────────────────────────────────────── */
 
-/* The comparison is one changed block after another, so it reads tighter than
-   a document a person is reading through. */
-.lp-review .lp-diff-doc :is(h1, h2) {
-    @apply mt-7;
+/* The comparison reads as the document does. An inline insertion is green
+   with a green rule under it, and a deletion is struck through on red. A
+   whole changed block is one tinted box that steps into the gutter. */
+.lp-review .lp-diff-doc .lp-diff__mark--inserted {
+    @apply rounded-sm bg-status-ok-bg text-inherit underline decoration-status-ok-border decoration-2 underline-offset-4;
 }
-.lp-review .lp-diff-doc :is(h3, h4, h5, h6) {
-    @apply mt-5;
+.lp-review .lp-diff-doc .lp-diff__mark--deleted {
+    @apply rounded-sm bg-status-danger-bg text-status-danger-deep line-through decoration-status-danger/60 decoration-1;
 }
-.lp-review .lp-diff-doc :is(p, ul, ol, pre) {
-    @apply my-3;
+.lp-review .lp-diff-doc > .lp-diff__mark {
+    @apply -mx-3 mt-0 mb-4 block rounded-lg border-l-0 px-3 py-0.5 no-underline;
 }
-.lp-review .lp-diff-doc .lp-decision {
-    @apply mt-4;
+.lp-review .lp-diff-doc > .lp-diff__mark + .lp-diff__mark {
+    @apply rounded-t-none;
 }
-/* A changed block carries its own tint, so it needs less air around it than a
-   paragraph of prose. */
-.lp-review .lp-diff-doc > :is(ins, del) {
-    @apply my-2;
+.lp-review .lp-diff-doc > .lp-diff__mark:has(+ .lp-diff__mark) {
+    @apply mb-0 rounded-b-none;
 }
 
 .lp-review .lp-comment-reply-form__actions {
@@ -1717,30 +1933,48 @@
 
 /* ── Side-by-side comparison ────────────────────────────────────── */
 
-/* One paper holding both columns, the way the reading view holds one. A card
-   per block turned a document into a stack of cards. */
+/* Two bare columns under small capital headings that stay in view below the
+   compare bar. A block one side lacks is a hatched gap. */
 .lp-review .lp-diff-columns {
-    @apply gap-0 overflow-hidden rounded-lg border border-line bg-surface-1;
+    @apply gap-x-8 gap-y-0 overflow-visible rounded-none border-0 bg-transparent;
 }
 .lp-review .lp-diff-columns__title {
-    @apply bg-surface-2 px-6 py-3 font-sans text-xs font-semibold tracking-normal text-fg-dim normal-case;
+    @apply sticky top-17 z-5 m-0 mb-4 border-b border-line bg-surface-1/95 px-0 py-1.5 font-sans text-xs font-bold tracking-wider text-fg-dim uppercase;
 }
 .lp-review .lp-diff-columns__cell {
-    @apply px-6 py-3;
+    @apply min-w-0 border-0 p-0;
 }
 .lp-review .lp-diff-columns__cell > .lp-diff-doc {
-    @apply rounded-none border-0 bg-transparent p-0 shadow-none;
+    @apply rounded-none border-0 bg-transparent p-0 leading-relaxed shadow-none;
+    font-size: calc(var(--spacing) * 3.75);
 }
-/* The one rule the comparison needs: which version a column belongs to. The
-   blocks pair by row, so nothing has to be drawn between them. */
-@media (width >= 64rem) {
-    .lp-review .lp-diff-columns__title + .lp-diff-columns__title,
-    .lp-review .lp-diff-columns__cell[data-diff-side='new'] {
-        @apply border-l border-line;
-    }
+.lp-review .lp-diff-columns__cell > .lp-diff-doc :is(h1, h2) {
+    @apply mt-10 text-xl;
+}
+.lp-review .lp-diff-columns__cell > .lp-diff-doc > :first-child {
+    @apply mt-0;
+}
+.lp-review .lp-diff-columns__cell > .lp-diff-doc > :last-child {
+    @apply mb-4;
+}
+.lp-review .lp-diff-columns__cell > .lp-diff-doc > .lp-diff__mark {
+    @apply -mx-2.5 px-2.5;
 }
 .lp-review .lp-diff-columns__cell--void {
-    @apply min-h-0 rounded-none border-0 bg-surface-2 p-0 px-6 py-4;
+    @apply mb-4 min-h-6 rounded-lg border-0 bg-transparent p-0;
+    background-image: repeating-linear-gradient(
+        135deg,
+        transparent 0 calc(var(--spacing) * 1.5),
+        var(--surface-3) calc(var(--spacing) * 1.5) calc(var(--spacing) * 1.75)
+    );
+}
+.lp-review .lp-diff-columns__cell--void .lp-diff-columns__note {
+    @apply sr-only;
+}
+@media (width < 64rem) {
+    .lp-review .lp-diff-columns__cell--void {
+        @apply hidden;
+    }
 }
 
 /* The Markdown comparison reads on the same paper as the other two views. */
@@ -2820,19 +3054,6 @@
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236f6f66' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
         background-position: right calc(var(--spacing) * 3.5) center;
         background-size: calc(var(--spacing) * 4);
-    }
-
-    /* ── Comment signals ────────────────────────────────────────────────
-       What a document's comment threads say about it. Sized like .lp-badge, so
-       the two sit level beside each other on a list row and in the topbar. */
-    .lp-signal {
-        @apply inline-flex items-center shrink-0 py-1 px-3 rounded-md text-sm font-bold whitespace-nowrap;
-    }
-    .lp-signal--addressed {
-        @apply bg-status-pending-bg text-status-pending-deep;
-    }
-    .lp-signal--answered {
-        @apply bg-status-ok-bg text-status-ok-deep;
     }
 
     /* ── System status checks ───────────────────────────────────────────
@@ -5024,8 +5245,7 @@
        a version pill beside it leave the title nothing to truncate into. */
     .lp-topbar__crumb,
     .lp-topbar__sep,
-    .lp-topbar__trail .lp-version-pill,
-    .lp-topbar__lead .lp-signal {
+    .lp-topbar__trail .lp-version-pill {
         @apply hidden lg:inline-flex;
     }
     .lp-topbar__crumb {
@@ -5100,8 +5320,7 @@
         }
         .lp-topbar__crumb,
         .lp-topbar__sep,
-        .lp-topbar__trail .lp-version-pill,
-        .lp-topbar__lead .lp-signal {
+        .lp-topbar__trail .lp-version-pill {
             @apply inline-flex;
         }
         .lp-topbar__meta {
@@ -7912,24 +8131,25 @@
    must be text-decoration and never box-shadow. */
 
 ::highlight(lp-anchor) {
-    background-color: var(--review-anchor);
+    background-color: var(--accent-faint);
 }
 ::highlight(lp-anchor-active) {
-    background-color: var(--review-anchor-strong);
+    background-color: var(--accent-soft);
     text-decoration-line: underline;
-    text-decoration-color: var(--review-anchor-line);
+    text-decoration-color: var(--accent-hover);
     @apply decoration-2;
 }
-/* Open and addressed threads share the warm tint, because both still ask the
+/* Open and addressed threads share the accent tint, because both still ask the
    reader for something. The underline tells them apart, in the colour of the
    card's status badge. */
 ::highlight(lp-anchor-pending) {
-    background-color: var(--review-anchor);
+    background-color: var(--accent-faint);
     text-decoration-line: underline;
-    text-decoration-color: var(--review-anchor-line);
+    text-decoration-color: var(--accent-hover);
+    @apply decoration-2;
 }
 ::highlight(lp-anchor-addressed) {
-    background-color: var(--review-anchor);
+    background-color: var(--accent-faint);
     text-decoration-line: underline;
     text-decoration-color: var(--review-addressed-ink);
     @apply decoration-2;
@@ -7958,7 +8178,7 @@
    stronger fill rather than a ring: ::highlight() honours neither outline nor
    box-shadow, so the card carries the ring and the passage carries this. */
 ::highlight(lp-anchor-hover) {
-    background-color: var(--review-anchor-strong);
+    background-color: var(--accent-soft);
 }
 
 /* The agent's own marks. The wavy underline carries the rung: under tritanopia
@@ -7973,13 +8193,11 @@
     @apply decoration-2 underline-offset-4;
 }
 
-/* Text the version added since the one before it. The solid underline carries
-   the rung for a reader who cannot tell the green from the page. */
+/* Text the version added since the one before it. The darker green ink carries
+   the rung for a reader who cannot tell the tint from the page. */
 ::highlight(lp-new-text) {
-    background-color: var(--status-ok-border);
-    text-decoration-line: underline;
-    text-decoration-color: var(--status-ok-deep);
-    text-underline-offset: 3px;
+    background-color: var(--status-ok-bg);
+    color: var(--status-ok-ink);
 }
 
 /* ── Keyframes ──────────────────────────────────────────────────────── */

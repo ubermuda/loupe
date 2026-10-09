@@ -107,17 +107,17 @@ test('S7: the byline opens the diff, and next steps through the changes', async 
         .getByLabel('Revision note', { exact: true })
         .fill('Phase the rollout.');
     await revise.getByRole('button', { name: 'Save new version' }).click();
-    await expect(page.locator('.lp-review-doc__version')).toHaveText('v2', {
+    await expect(page.locator('.lp-topbar__trail .lp-version-pill')).toHaveText('v2', {
         timeout: 20000,
     });
 
     await page
         .locator('.lp-review-doc__byline')
-        .getByRole('link', { name: /New since v1/ })
+        .getByRole('link', { name: /v2, new since your last visit/ })
         .click();
     await expect(page).toHaveURL(`${reviewPath}/diff/1/2`, VISIT);
 
-    // The page keeps its chrome: the compare bar replaces the view tabs, and
+    // The page keeps its chrome: the compare bar sits under the byline, and
     // the Outline opens to count the changes of each section.
     const bar = page.locator('.lp-diff-bar');
     await expect(

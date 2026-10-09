@@ -65,6 +65,7 @@ export default class extends Controller {
         'row',
         'agentHighlight',
         'prototype',
+        'markers',
     ];
 
     // Anchor highlight names keyed by a thread's data-anchor-status. Each maps to
@@ -141,6 +142,7 @@ export default class extends Controller {
         diff: Boolean,
         deletedMessage: String,
         unanchorableMessage: String,
+        markerLabel: String,
     };
 
     // Marks a run of text the newer version also holds, and carries that run's
@@ -160,6 +162,10 @@ export default class extends Controller {
 
     // Space kept between an open thread popover, its passage and the viewport.
     static POPOVER_MARGIN = 8;
+
+    // A gutter marker's height, and the gap between the text column and it.
+    static MARKER_HEIGHT = 26;
+    static MARKER_GAP = 12;
 
     connect() {
         this.transport = this.demoValue
@@ -1733,6 +1739,11 @@ export default class extends Controller {
             this.newTextHighlight?.clear();
         }
         try {
+            this.#placeMarkers();
+        } catch {
+            this.markersTarget?.replaceChildren();
+        }
+        try {
             if (this.#threadsInMargin()) {
                 this.#positionThreads();
             } else {
@@ -1769,6 +1780,90 @@ export default class extends Controller {
         if (this.threadIdFromHash !== null) {
             this.#openThreadFromHash(this.threadIdFromHash);
             this.threadIdFromHash = null;
+        }
+    }
+
+    /**
+     * Draws one count in the gutter beside each line that carries a thread.
+     * Threads whose passages start on the same line share one marker, and a
+     * click opens the first of them.
+     */
+    #placeMarkers() {
+        if (!this.hasMarkersTarget) {
+            return;
+        }
+        const layer = this.markersTarget;
+        layer.replaceChildren();
+        const origin = layer.offsetParent;
+        const column = this.element.querySelector('.lp-review-doc__head');
+        if (origin === null || column === null) {
+            return;
+        }
+        const originBox = origin.getBoundingClientRect();
+        const left = Math.min(
+            column.getBoundingClientRect().right -
+                originBox.left +
+                this.constructor.MARKER_GAP,
+            originBox.width - this.constructor.MARKER_HEIGHT * 2,
+        );
+        const hiddenRowIds = this.#hiddenRowIds();
+        const lines = [];
+        for (const thread of this.threadTargets) {
+            const range = this.anchorRanges.get(thread);
+            if (
+                range === undefined ||
+                this.#isFilteredOut(thread, hiddenRowIds)
+            ) {
+                continue;
+            }
+            const box = range.getClientRects()[0];
+            if (box === undefined) {
+                continue;
+            }
+            const top =
+                box.top -
+                originBox.top +
+                (box.height - this.constructor.MARKER_HEIGHT) / 2;
+            const line = lines.find(
+                (each) =>
+                    Math.abs(each.top - top) < this.constructor.MARKER_HEIGHT,
+            );
+            if (line === undefined) {
+                lines.push({ top, threads: [thread] });
+            } else {
+                line.threads.push(thread);
+            }
+        }
+        for (const line of lines) {
+            const marker = document.createElement('button');
+            marker.type = 'button';
+            marker.className = 'lp-comment-marker';
+            marker.style.top = `${Math.round(line.top)}px`;
+            marker.style.left = `${Math.round(left)}px`;
+            marker.setAttribute(
+                'aria-label',
+                this.markerLabelValue.replace(
+                    '%count%',
+                    String(line.threads.length),
+                ),
+            );
+            const icon = this.element.querySelector(
+                '[data-comment-marker-icon]',
+            );
+            if (icon !== null) {
+                marker.append(icon.content.cloneNode(true));
+            }
+            marker.append(String(line.threads.length));
+            marker.addEventListener('click', (event) => {
+                event.stopPropagation();
+                const [first] = line.threads;
+                if (first === this.openCard) {
+                    this.#closeThread();
+                } else {
+                    this.#openThread(first);
+                }
+            });
+            layer.append(marker);
         }
     }
 

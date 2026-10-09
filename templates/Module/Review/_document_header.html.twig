@@ -1,79 +1,69 @@
 <div class="lp-review-doc__head">
-    <div class="lp-review-doc__heading">
-    <div class="lp-review-doc__identity">
-        <a class="lp-review-doc__back" href="{{ path('app_project_documents', {id: document.project.id}) }}"
-           aria-label="{{ 'review.document.navigation.back'|trans }}"
-           title="{{ 'review.document.navigation.back'|trans }}">
-            <twig:ux:icon name="lucide:arrow-left" />
-        </a>
-        <div class="lp-review-doc__identity-text">
-            <h1 class="lp-review-doc__title" id="review-document-title">{{ document.title }}</h1>
-            <div class="lp-review-doc__byline">
-                <span class="lp-review-doc__author">
-                    <span class="lp-review-doc__avatar" aria-hidden="true">{{ document.owner.fullName|first|upper }}</span>
-                    {{ document.owner.fullName }}
-                </span>
-                <span class="lp-review-doc__middot" aria-hidden="true">·</span>
-                <span>{{ 'review.document.byline_updated'|trans({'%updated%': version.createdAt|relative_time}) }}</span>
-                <span class="lp-review-doc__middot" aria-hidden="true">·</span>
-                <span class="lp-review-doc__version">{{ 'v' ~ version.versionNumber }}</span>
-                {% set lastSeen = lastSeenVersionNumber|default(null) %}
-                {% if lastSeen is not null and lastSeen < version.versionNumber %}
-                <twig:Ds:Button variant="ghost" size="sm" class="lp-doc-meta__unread"
-                   href="{{ path('app_document_review_diff', {projectId: document.project.id, documentId: document.id, fromVersionNumber: lastSeen, toVersionNumber: version.versionNumber}) }}">
-                    {{ 'review.document.since_last_visit.chip'|trans({'%from%': lastSeen, '%to%': version.versionNumber}) }}
+    <h1 class="lp-review-doc__title" id="review-document-title">{{ document.title }}</h1>
+    <div class="lp-review-doc__byline">
+        <span class="lp-review-doc__author">{{ document.owner.fullName }}</span>
+        <span class="lp-review-doc__middot" aria-hidden="true">·</span>
+        <span>{{ 'review.document.byline_updated'|trans({'%updated%': version.createdAt|relative_time}) }}</span>
+        {# The document page names its version in the breadcrumb, which the
+           history page holds no pill in. #}
+        {% if activeView == 'history' %}
+        <span class="lp-review-doc__middot" aria-hidden="true">·</span>
+        <span class="lp-review-doc__version">{{ 'v' ~ version.versionNumber }}</span>
+        {% endif %}
+        {% set lastSeen = lastSeenVersionNumber|default(null) %}
+        {% if lastSeen is not null and lastSeen < version.versionNumber %}
+        <twig:Ds:Button variant="ghost" size="sm" class="lp-doc-meta__unread"
+           href="{{ path('app_document_review_diff', {projectId: document.project.id, documentId: document.id, fromVersionNumber: lastSeen, toVersionNumber: version.versionNumber}) }}">
+            <twig:ux:icon name="lucide:git-compare" />
+            {{ 'review.document.since_last_visit.chip'|trans({'%from%': lastSeen, '%to%': version.versionNumber}) }}
+        </twig:Ds:Button>
+        {% endif %}
+        {% if showNewTextSwitch|default(false) %}
+        {% set newTextUnavailable = version.versionNumber == 1 ? 'review.document.new_text.no_previous'|trans : null %}
+        <button type="button" class="lp-new-text-switch" role="switch" aria-checked="false"
+                {% if newTextUnavailable %}aria-disabled="true"{% endif %}
+                title="{{ newTextUnavailable ?? 'review.document.new_text.title'|trans({'%from%': version.versionNumber - 1, '%to%': version.versionNumber}) }}"
+                data-controller="review-new-text"
+                data-action="click->review-new-text#toggle review-new-text:paint->comment-anchor#paintNewText"
+                data-review-new-text-url-value="{{ path('app_document_new_text', {projectId: document.project.id, documentId: document.id, versionNumber: version.versionNumber}) }}"
+                data-review-new-text-no-previous-message-value="{{ 'review.document.new_text.no_previous'|trans }}"
+                data-review-new-text-refused-message-value="{{ 'review.document.new_text.refused'|trans }}"
+                data-review-new-text-error-message-value="{{ 'review.document.new_text.error'|trans }}">{{ 'review.document.new_text.label'|trans }}</button>
+        {% endif %}
+        <span class="lp-review-doc__byline-actions">
+            {% if showDocumentActions %}
+            {% include '@Review/_revise_document.html.twig' with {form: reviseDocumentForm, document: document} only %}
+            {% if document.status.value == 'draft' and is_granted(constant('App\\Module\\Review\\Security\\DocumentVoter::MANAGE'), document) %}
+            <form method="post" action="{{ path('app_document_publish', {projectId: document.project.id, documentId: document.id}) }}" data-document-publish>
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('document-publish') }}">
+                <twig:Ds:Button variant="ghost" size="sm" type="submit">
+                    <twig:ux:icon name="lucide:send" />
+                    {{ 'review.publish.submit'|trans }}
                 </twig:Ds:Button>
-                {% endif %}
-                {% if showNewTextSwitch|default(false) %}
-                {% set newTextUnavailable = version.versionNumber == 1 ? 'review.document.new_text.no_previous'|trans : null %}
-                <twig:Ds:Button variant="ghost" size="sm" type="button" class="lp-new-text-switch" role="switch" aria-checked="false"
-                        :aria-disabled="newTextUnavailable ? 'true' : null"
-                        title="{{ newTextUnavailable ?? 'review.document.new_text.label'|trans }}"
-                        data-controller="review-new-text"
-                        data-action="click->review-new-text#toggle review-new-text:paint->comment-anchor#paintNewText"
-                        data-review-new-text-url-value="{{ path('app_document_new_text', {projectId: document.project.id, documentId: document.id, versionNumber: version.versionNumber}) }}"
-                        data-review-new-text-no-previous-message-value="{{ 'review.document.new_text.no_previous'|trans }}"
-                        data-review-new-text-refused-message-value="{{ 'review.document.new_text.refused'|trans }}"
-                        data-review-new-text-error-message-value="{{ 'review.document.new_text.error'|trans }}">
-                    <twig:ux:icon name="lucide:eye" />
-                    {{ 'review.document.new_text.label'|trans }}
-                </twig:Ds:Button>
-                {% endif %}
-                {% if showDocumentActions %}
-                {% include '@Review/_revise_document.html.twig' with {form: reviseDocumentForm, document: document} only %}
-                {% if document.status.value == 'draft' and is_granted(constant('App\\Module\\Review\\Security\\DocumentVoter::MANAGE'), document) %}
-                <form method="post" action="{{ path('app_document_publish', {projectId: document.project.id, documentId: document.id}) }}" data-document-publish>
-                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('document-publish') }}">
-                    <twig:Ds:Button variant="ghost" size="sm" type="submit">
-                        <twig:ux:icon name="lucide:send" />
-                        {{ 'review.publish.submit'|trans }}
-                    </twig:Ds:Button>
-                </form>
-                {% endif %}
-                {% endif %}
-                {% if showPageMenu %}
-                {% include '@Review/_page_menu.html.twig' with {document: document, version: version, versionCount: versionCount} only %}
-                {% endif %}
-            </div>
-            {% if showWaitLine|default(false) %}{{ inbox_document_wait_line(document) }}{% endif %}
-        </div>
+            </form>
+            {% endif %}
+            {% endif %}
+            {% if showPageMenu %}
+            {% include '@Review/_page_menu.html.twig' with {document: document, version: version, versionCount: versionCount} only %}
+            {% endif %}
+        </span>
     </div>
-    </div>
-    {# The compare bar holds the way back while comparing. #}
-    {% if activeView != 'diff' %}
+    {% if showWaitLine|default(false) %}{{ inbox_document_wait_line(document) }}{% endif %}
+    {# The document page reaches its history and its comparison from the "⋯"
+       menu. The history page keeps the tabs, which are its way back. #}
+    {% if activeView == 'history' %}
     <div class="lp-review-workspace-nav">
     <twig:Ds:Tabs aria-label="{{ 'review.document.navigation.label'|trans }}">
-        <a class="lp-tabs__tab" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}"
-           {% if activeView == 'document' %}aria-current="page"{% endif %}><twig:ux:icon name="lucide:file-text" />{{ 'review.document.navigation.document'|trans }}</a>
+        <a class="lp-tabs__tab" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}"><twig:ux:icon name="lucide:file-text" />{{ 'review.document.navigation.document'|trans }}</a>
         {% if versionCount > 1 %}
         <a class="lp-tabs__tab" href="{{ path('app_document_review_diff', {
             projectId: document.project.id,
             documentId: document.id,
             fromVersionNumber: version.versionNumber > 1 ? version.versionNumber - 1 : 1,
             toVersionNumber: version.versionNumber > 1 ? version.versionNumber : 2,
-        }) }}" {% if activeView == 'diff' %}aria-current="page"{% endif %}><twig:ux:icon name="lucide:git-compare" />{{ 'review.document.navigation.diff'|trans }}</a>
+        }) }}"><twig:ux:icon name="lucide:git-compare" />{{ 'review.document.navigation.diff'|trans }}</a>
         {% endif %}
-        <a class="lp-tabs__tab" href="{{ path('app_document_review_history', {projectId: document.project.id, documentId: document.id}) }}" {% if activeView == 'history' %}aria-current="page"{% endif %}><twig:ux:icon name="lucide:history" />{{ 'review.document.navigation.history'|trans }}</a>
+        <a class="lp-tabs__tab" href="{{ path('app_document_review_history', {projectId: document.project.id, documentId: document.id}) }}" aria-current="page"><twig:ux:icon name="lucide:history" />{{ 'review.document.navigation.history'|trans }}</a>
     </twig:Ds:Tabs>
     </div>
     {% endif %}

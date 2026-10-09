@@ -175,9 +175,8 @@ test('the review bar is one row of the height of the desktop bar', async ({
     });
     expect(widths.here).toBeGreaterThan(widths.lead * 0.8);
 
-    await expect(page.locator('.lp-topbar__meta')).toHaveText(
-        '0 open · 0 resolved',
-    );
+    // The thread counts live in the Comments panel, so the bar holds the title alone.
+    await expect(page.locator('.lp-topbar__meta')).toHaveCount(0);
 });
 
 test('a title that fits the bar is not clipped', async ({ page }) => {

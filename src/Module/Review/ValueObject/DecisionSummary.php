@@ -56,18 +56,29 @@ final readonly class DecisionSummary
      * out in the template, because it is the same id the rendered fieldset
      * carries and a second spelling of the prefix is a link that breaks silently.
      *
-     * @return list<array{tag: string, label: string, elementId: string, answered: bool, selected: list<string>, note: string|null}>
+     * @return list<array{tag: string, label: string, title: string, elementId: string, answered: bool, selected: list<string>, note: string|null}>
      */
     public function rows(): array
     {
         return array_map(fn (Decision $decision, int $position): array => [
             'tag' => $this->tag($decision, $position),
             'label' => $decision->label(),
+            'title' => $this->title($decision),
             'elementId' => DecisionBlockService::blockElementId($decision->id),
             'answered' => $this->isAnswered($decision),
             'selected' => $this->selectedOptions($decision),
             'note' => $this->notesByDecisionId[$decision->id] ?? null,
         ], $this->decisions, array_keys($this->decisions));
+    }
+
+    /** "How do we ship?" from a heading such as "D4: How do we ship?", else the block's label. */
+    private function title(Decision $decision): string
+    {
+        if (1 === preg_match('~^D\d+(?!\d)\s*[:.]?\s*(.+)$~u', $this->headingsByDecisionId[$decision->id] ?? '', $matches)) {
+            return trim($matches[1]);
+        }
+
+        return $decision->label();
     }
 
     /** "D4" from a heading such as "D4: How do we ship?", else the block's place in the list. */

@@ -13,6 +13,10 @@ export default class extends Controller {
         'option',
         'empty',
         'count',
+        'openCount',
+        'filterLabel',
+        'inTextTitle',
+        'inTextCount',
     ];
 
     // `compare` opens the outline over the stored choice, and `columns` starts
@@ -157,6 +161,28 @@ export default class extends Controller {
         }
         for (const count of this.countTargets) {
             count.textContent = counts.all;
+        }
+        for (const count of this.openCountTargets) {
+            count.textContent = counts.open;
+        }
+        const activeOption = this.optionTargets.find(
+            (option) =>
+                option.dataset.reviewPanelsFilterParam === this.activeFilter,
+        );
+        if (this.hasFilterLabelTarget && activeOption !== undefined) {
+            this.filterLabelTarget.textContent = `${activeOption.dataset.filterLabel} · ${counts[this.activeFilter]}`;
+        }
+        const inText = this.threadTargets.filter(
+            (thread) =>
+                !thread.hidden &&
+                thread.dataset.commentOrphaned !== 'true' &&
+                thread.closest('.lp-general-comments') === null,
+        ).length;
+        for (const count of this.inTextCountTargets) {
+            count.textContent = inText;
+        }
+        for (const title of this.inTextTitleTargets) {
+            title.hidden = inText === 0;
         }
         this.filterTarget
             .querySelector('summary')

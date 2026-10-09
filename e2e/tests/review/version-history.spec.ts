@@ -51,7 +51,10 @@ test('the History tab records a verdict and its withdrawal', async ({
     seeded,
 }) => {
     await page.goto(seeded.reviewUrl);
-    await page.getByRole('link', { name: 'History', exact: true }).click();
+    await page
+        .getByRole('button', { name: 'More about this document' })
+        .click();
+    await page.getByRole('link', { name: /^Version history/ }).click();
     await expect(page).toHaveURL(`${seeded.reviewUrl}/history`);
     await expect(
         page.locator(
@@ -187,7 +190,10 @@ test('the History tab compares two distant versions', async ({
         },
         { times: 1 },
     );
-    await page.getByRole('link', { name: 'History', exact: true }).click();
+    await page
+        .getByRole('button', { name: 'More about this document' })
+        .click();
+    await page.getByRole('link', { name: /^Version history/ }).click();
     await expect(
         page.getByRole('heading', { name: 'Version history' }),
     ).toBeVisible();
@@ -227,7 +233,7 @@ test('the History tab compares two distant versions', async ({
         .getByRole('button', { name: 'Save new version', exact: true })
         .click();
     // The save redirects to the review page, whose render can pass 5s on a loaded runner.
-    await expect(page.locator('.lp-review-doc__version')).toHaveText('v5', {
+    await expect(page.locator('.lp-topbar__trail .lp-version-pill')).toHaveText('v5', {
         timeout: 20000,
     });
     // A visit rather than a click, which the save re-render can swallow.

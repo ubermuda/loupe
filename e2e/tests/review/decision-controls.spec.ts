@@ -249,7 +249,7 @@ test('the Decisions panel reports the saved answer', async ({ page }) => {
     await expect(row).toHaveCount(1);
     // The block declared a question, so the row is titled with it rather than
     // falling back to the raw decision id.
-    await expect(row.locator('.lp-decision-summary__link')).toHaveText(PROMPT);
+    await expect(row.locator('.lp-decision-summary__title')).toHaveText(PROMPT);
     await expect(row).toContainText('Not chosen yet');
 
     await saving(page, () =>
@@ -330,7 +330,7 @@ ${SECOND_PROMPT}
     await expect(rows.nth(0).locator('.lp-decision-summary__tag')).toHaveText(
         'D1',
     );
-    await expect(rows.nth(0).locator('.lp-decision-summary__link')).toHaveText(
+    await expect(rows.nth(0).locator('.lp-decision-summary__title')).toHaveText(
         PROMPT,
     );
     await expect(
@@ -339,7 +339,7 @@ ${SECOND_PROMPT}
     await expect(rows.nth(1).locator('.lp-decision-summary__tag')).toHaveText(
         'D2',
     );
-    await expect(rows.nth(1).locator('.lp-decision-summary__link')).toHaveText(
+    await expect(rows.nth(1).locator('.lp-decision-summary__title')).toHaveText(
         SECOND_PROMPT,
     );
     await expect(rows.nth(1).locator('.lp-decision-summary__note')).toHaveText(

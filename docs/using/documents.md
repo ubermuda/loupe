@@ -82,9 +82,10 @@ The history retains the original verdict and its withdrawal.
 If another verdict or revision arrives first, Loupe rejects the old Undo form.
 Reload the page before withdrawing the current verdict.
 
-A small toolbar in the top-right corner of the review page has three buttons:
-**Decisions**, **Comments** and **Outline**. Each button switches its panel on
-or off, and a button with a light green fill shows a panel that is on.
+A small toolbar in the top-right corner of the review page has three icon
+buttons: **Decisions**, **Comments** and **Outline**. The Comments button shows
+the number of open threads. Each button switches its panel on or off, and a
+button with a light green fill shows a panel that is on.
 Decisions is on when you first open a document. The other two are off.
 Your browser remembers which panels you left on, and opens them on the next
 document you review.
@@ -96,21 +97,24 @@ narrower window, the toolbar and the open panels show above the document.
 
 The Decisions panel lists every decision with its answer. Its heading counts the
 answers, for example "3 of 3 answered". Each row starts with a tag such as
-**D4**. The tag comes from the nearest heading above the decision when that
-heading starts with D and a number. Otherwise it is D and the place of the
-decision in the list. A green tag shows an answered decision, and a grey tag
+**D4**, then the title of the decision and its answer. The tag and the title
+come from the nearest heading above the decision when that heading starts with
+D and a number, such as "D4: How do we ship?". Otherwise the tag is D and the
+place of the decision in the list, and the title is the question of the
+decision. A green tag shows an answered decision, and a grey tag
 shows one with no answer. A note shows under the answer as "Note:" and its text.
 Select a row to go to its decision in the text.
 
 The Comments panel lists each thread on two lines. The first line is the quoted
 passage in grey, and the second line is the comment. General comments come
-first, then the threads in passage order. A thread whose passage is gone from
-this version sits under **No longer in the text**, with its quote struck
-through. A resolved thread fades. The panel ends with **Comment on the whole
+first, then the threads under **In the text** in passage order. A thread whose
+passage is gone from this version sits under **No longer in the text**, with
+its quote struck through. A resolved thread fades. The panel ends with **Comment on the whole
 document**, which opens the composer for a general comment above the text.
 
-Select a highlighted passage, or a row in the Comments panel, to open its
-thread in a popover over the passage. A thread with no passage opens beside its
+A count in the margin to the right of the text marks each line that holds a
+thread. Select a highlighted passage, the count beside it, or a row in the
+Comments panel, to open its thread in a popover over the passage. A thread with no passage opens beside its
 row. The popover shows the author, the status, the replies and a reply field,
 with **Delete**, **Reply** and **Resolve**, or **Reopen** on a resolved thread.
 Press Esc, or select outside the popover, to close it. A link to a thread, such
@@ -119,9 +123,10 @@ as `#comment-thread-<id>`, opens that thread when the page loads.
 The Outline panel lists the sections and links to each one.
 Decisions is disabled when the document has no decisions. Its tooltip says why.
 
-The filter in the Comments panel head shows counts for Open, Resolved, Unanchored and All.
+The filter in the Comments panel head names the threads it shows and their count, such as "Open · 2".
+Its menu shows counts for Open, Resolved, Unanchored and All.
 **Open** is the default view, so a resolved thread leaves the panel as you resolve it.
-Select **All** to bring it back. The filter icon turns purple while it hides threads.
+Select **All** to bring it back. The filter turns purple while it hides open threads.
 The selected filter stays active when you resolve or reopen a thread.
 An empty result shows a message in the panel.
 
@@ -152,10 +157,10 @@ and its anchor is gone. A pending thread that still points at real text waits
 for the agent, so it adds nothing. A row with nothing waiting stays empty, which
 is what makes the waiting rows easy to find.
 
-The review top bar carries the full picture for the version on screen: the open
-and resolved counts, a chip that counts the addressed threads, and **All
-answered** when no thread is pending. The banner above the document counts the
-orphaned threads. Every count is a thread count, so a reply never adds to one.
+The top bar of the review page holds the breadcrumb, the version, **Finish
+review** and the global actions. The Comments panel and its toolbar button hold
+the thread counts for the version on screen. Every count is a thread count, so a
+reply never adds to one.
 
 The General comments and **No longer in the text** buttons expand or collapse their groups.
 Each button reports its expanded state to assistive technology.
@@ -199,11 +204,11 @@ Three views help across versions:
 - `/review/diff/{from}/{to}` — what changed between two versions.
 - `/review/history` — every version, newest first.
 
-Open **History** from the document navigation to see every version in one table, newest first.
+Select **Version history** in the **⋯** menu to see every version in one table, newest first.
 Each row shows the version, its revision note, its reviews, and **Read** and **Diff** links.
 Each review shows the reviewer, verdict, note and time.
 Withdrawals remain beside the original verdict. Versions without reviews say so.
-History keeps the document header and the Document, Diff and History tabs.
+History keeps the document header, with Document, Diff and History tabs to move back.
 Use **Revise** or **Finish review** there to act on the current version.
 The **From** and **To** picker beside the heading compares any two versions,
 not only two that follow one another.
@@ -212,7 +217,7 @@ not only two that follow one another.
 
 Use the **Highlight new text** switch in the document header to see what a version added.
 The switch marks every passage that this version added since the previous version.
-Added text shows green, with a thin underline for readers who cannot tell colours apart.
+Added text shows on a green tint, in a darker green ink for readers who cannot tell the tint apart.
 Decisions and comments work as usual while the switch is on.
 
 The switch compares the version on screen with the version before it.
@@ -228,16 +233,16 @@ A comparison page does not show the switch, because it already marks every chang
 ### What a comparison looks like
 
 A comparison is a mode of the review page. The title, the byline, the toolbar,
-the panels and **Finish review** stay where they are. Select **New since vN** in
-the byline, or **Compare versions** in the **⋯** menu, to open one.
+the panels and **Finish review** stay where they are. Select **vN, new since
+your last visit** in the byline, or **Compare versions** in the **⋯** menu, to
+open one.
 
 A tinted compare bar sits under the byline and stays in view while you scroll.
-From left to right it holds **Document**, the **From** and **To** picker with
-**Compare**, the view switch (**Rendered**, **Markdown** and **Side by side**),
-and the change counter with the two jump arrows. The counter reads "2 of 42
-changes" after a jump. `j` and `k` move between changes as well. **Document**
-goes back to the current version. The Document, Diff and History tabs do not
-show while you compare.
+From left to right it holds **Document**, the two version pickers, the view
+switch (**Rendered**, **Markdown** and **Side by side**), and the change counter
+with the two jump arrows. A change of version compares the new pair at once. The
+counter reads "2 of 42 changes" after a jump. `j` and `k` move between changes
+as well. **Document** goes back to the current version.
 
 The Outline panel opens while you compare, and shows how many changes each
 section holds. A change before the first heading counts under no section. The
@@ -267,7 +272,7 @@ On a phone the columns stack, older above newer, and each names its version.
 other views cannot mark. Its Outline panel names every heading line, the removed
 ones included, and a row takes you to that line.
 
-Version selectors, Compare, and diff-view buttons use the same control height.
+Version selectors and diff-view buttons use the same control height.
 Touch screens retain larger targets.
 Comparing another pair keeps the selected view.
 Equal versions show no changes and disable change navigation.

@@ -5,14 +5,18 @@
 {% set documentUrl = documentUrl|default(null) %}
 {% for row in rows %}
 <li class="lp-decision-summary__item">
-    <span class="lp-decision-summary__tag{{ row.answered ? ' lp-decision-summary__tag--answered' }}">{{ row.tag }}</span>
     <a class="lp-decision-summary__link" href="{{ documentUrl }}#{{ row.elementId }}"
-       {%- if documentUrl is null %} data-action="click->metadata-tabs#jump click->contents-rail#jump"{% endif %}>{{ row.label }}</a>
-    {% if not row.answered %}
-    <span class="lp-decision-summary__pending">{{ 'review.document.decisions.pending'|trans }}</span>
-    {% else %}
-    {% if row.selected is not empty %}<span class="lp-decision-summary__answer">{{ row.selected|join(', ') }}</span>{% endif %}
-    {% if row.note is not null %}<span class="lp-decision-summary__note">{{ 'review.document.decisions.note'|trans({'%note%': row.note}) }}</span>{% endif %}
-    {% endif %}
+       {%- if documentUrl is null %} data-action="click->metadata-tabs#jump click->contents-rail#jump"{% endif %}>
+        <span class="lp-decision-summary__tag{{ row.answered ? ' lp-decision-summary__tag--answered' }}">{{ row.tag }}</span>
+        <span class="lp-decision-summary__text">
+            <span class="lp-decision-summary__title">{{ row.title }}</span>
+            {% if not row.answered %}
+            <span class="lp-decision-summary__pending">{{ 'review.document.decisions.pending'|trans }}</span>
+            {% else %}
+            {% if row.selected is not empty %}<span class="lp-decision-summary__answer">{{ row.selected|join(', ') }}</span>{% endif %}
+            {% if row.note is not null %}<span class="lp-decision-summary__note">{{ 'review.document.decisions.note'|trans({'%note%': row.note}) }}</span>{% endif %}
+            {% endif %}
+        </span>
+    </a>
 </li>
 {% endfor %}

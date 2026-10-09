@@ -130,7 +130,7 @@ export default class extends Controller {
         controls.dataset.decisionNoteControls = '';
         const field = document.createElement('textarea');
         field.className = 'lp-input lp-decision__note-field';
-        field.rows = 2;
+        field.rows = 1;
         field.value = note;
         field.setAttribute('aria-label', this.noteLabelValue);
         field.dataset.decisionNoteField = '';

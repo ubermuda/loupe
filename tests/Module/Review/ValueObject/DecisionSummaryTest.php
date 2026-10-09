@@ -49,6 +49,18 @@ final class DecisionSummaryTest extends TestCase
         self::assertSame(['D1', 'D4', 'D3', 'D12'], array_column($summary->rows(), 'tag'));
     }
 
+    public function test_a_row_takes_its_title_from_a_d_heading_and_falls_back_to_its_label(): void
+    {
+        $summary = new DecisionSummary(
+            [new Decision('first', ['A'], 'Which store?'), new Decision('second', ['A']), new Decision('third', ['A'], 'Who owns it?')],
+            [],
+            [],
+            ['first' => 'D1: Where the choice is stored', 'second' => 'D2 Rollout', 'third' => 'Decisions'],
+        );
+
+        self::assertSame(['Where the choice is stored', 'Rollout', 'Who owns it?'], array_column($summary->rows(), 'title'));
+    }
+
     public function test_a_row_carries_its_note_beside_its_pick(): void
     {
         $summary = new DecisionSummary(

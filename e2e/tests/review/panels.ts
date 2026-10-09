@@ -4,11 +4,11 @@ export const PANELS_KEY = 'loupe.review.panels';
 
 export type PanelName = 'Decisions' | 'Comments' | 'Outline';
 
-/** A toolbar button of the review page, by its label. */
+/** A toolbar button of the review page, by the panel it switches. */
 export function panelButton(page: Page, name: PanelName) {
-    return page
-        .locator('.lp-review-toolbar')
-        .getByRole('button', { name, exact: true });
+    return page.locator(
+        `.lp-review-toolbar [aria-controls="review-panel-${name.toLowerCase()}"]`,
+    );
 }
 
 /** Switches a review panel on, unless it is on already. */

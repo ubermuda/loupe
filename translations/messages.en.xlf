@@ -1331,6 +1331,11 @@
             <trans-unit id="review.document.panels.decisions"><source>review.document.panels.decisions</source><target>Decisions</target></trans-unit>
             <trans-unit id="review.document.panels.comments"><source>review.document.panels.comments</source><target>Comments</target></trans-unit>
             <trans-unit id="review.document.panels.outline"><source>review.document.panels.outline</source><target>Outline</target></trans-unit>
+            <trans-unit id="review.document.panels.comments_label"><source>review.document.panels.comments_label</source><target>Comments panel, %count% open</target></trans-unit>
+            <trans-unit id="review.document.panels.outline_heading"><source>review.document.panels.outline_heading</source><target>On this page</target></trans-unit>
+            <trans-unit id="review.document.group.in_text"><source>review.document.group.in_text</source><target>In the text</target></trans-unit>
+            <trans-unit id="review.document.group.not_in_text"><source>review.document.group.not_in_text</source><target>No longer in the text</target></trans-unit>
+            <trans-unit id="review.document.comment.marker"><source>review.document.comment.marker</source><target>Comments on this passage: %count%</target></trans-unit>
             <trans-unit id="review.document.panels.decisions_count"><source>review.document.panels.decisions_count</source><target>%answered% of %total% answered</target></trans-unit>
             <trans-unit id="review.document.decisions.note"><source>review.document.decisions.note</source><target>Note: %note%</target></trans-unit>
             <trans-unit id="review.document.page_menu.label"><source>review.document.page_menu.label</source><target>More about this document</target></trans-unit>
@@ -1355,7 +1360,6 @@
             <trans-unit id="review.document.margin.decisions_disabled_empty"><source>review.document.margin.decisions_disabled_empty</source><target>This document has no decisions to answer.</target></trans-unit>
             <trans-unit id="review.document.margin.decisions_read_only_diff"><source>review.document.margin.decisions_read_only_diff</source><target>Decisions are read-only while you compare versions. Select a decision to answer it in the document.</target></trans-unit>
             <trans-unit id="review.document.margin.decisions_empty"><source>review.document.margin.decisions_empty</source><target>This document has no decisions.</target></trans-unit>
-            <trans-unit id="review.document.margin.decisions_save_hint"><source>review.document.margin.decisions_save_hint</source><target>Select an option to save it. Add a note if you need one.</target></trans-unit>
             <trans-unit id="review.decision.note.label"><source>review.decision.note.label</source><target>Note</target></trans-unit>
             <trans-unit id="review.decision.note.placeholder"><source>review.decision.note.placeholder</source><target>Add a note, or write your own answer</target></trans-unit>
             <trans-unit id="review.decision.clear"><source>review.decision.clear</source><target>Clear choice</target></trans-unit>
@@ -1462,18 +1466,6 @@
                 <source>review.document.threads.show_resolved</source>
                 <target>Show resolved</target>
             </trans-unit>
-            <trans-unit id="review.document.threads.summary">
-                <source>review.document.threads.summary</source>
-                <target>%open% open · %resolved% resolved</target>
-            </trans-unit>
-            <trans-unit id="review.document.threads.addressed_count">
-                <source>review.document.threads.addressed_count</source>
-                <target>{0}none addressed|{1}1 addressed|]1,Inf[%count% addressed</target>
-            </trans-unit>
-            <trans-unit id="review.document.threads.all_answered">
-                <source>review.document.threads.all_answered</source>
-                <target>All answered</target>
-            </trans-unit>
             <trans-unit id="review.document.group.general">
                 <source>review.document.group.general</source>
                 <target>On the document</target>
@@ -1509,10 +1501,6 @@
             <trans-unit id="review.document.status.resolved">
                 <source>review.document.status.resolved</source>
                 <target>Resolved</target>
-            </trans-unit>
-            <trans-unit id="review.document.orphan_group">
-                <source>review.document.orphan_group</source>
-                <target>{0}No longer in the text|{1}No longer in the text · 1|]1,Inf[No longer in the text · %count%</target>
             </trans-unit>
             <trans-unit id="review.document.version.read_only">
                 <source>review.document.version.read_only</source>
@@ -1604,11 +1592,15 @@
             </trans-unit>
             <trans-unit id="review.document.since_last_visit.chip">
                 <source>review.document.since_last_visit.chip</source>
-                <target>New since v%from% · see what changed</target>
+                <target>v%to%, new since your last visit</target>
             </trans-unit>
             <trans-unit id="review.document.new_text.label">
                 <source>review.document.new_text.label</source>
                 <target>Highlight new text</target>
+            </trans-unit>
+            <trans-unit id="review.document.new_text.title">
+                <source>review.document.new_text.title</source>
+                <target>Highlight what v%to% added since v%from%</target>
             </trans-unit>
             <trans-unit id="review.document.new_text.no_previous">
                 <source>review.document.new_text.no_previous</source>
@@ -1743,10 +1735,6 @@
             <trans-unit id="review.document.navigation.label">
                 <source>review.document.navigation.label</source>
                 <target>Document views</target>
-            </trans-unit>
-            <trans-unit id="review.document.navigation.back">
-                <source>review.document.navigation.back</source>
-                <target>Back to documents</target>
             </trans-unit>
             <trans-unit id="review.document.navigation.document">
                 <source>review.document.navigation.document</source>

@@ -106,9 +106,8 @@ test('the comparison chrome is one toolbar row', async ({ page }) => {
     );
     await expect(page.locator('.lp-diff')).toBeVisible();
 
+    // A change of version compares at once, with no button to press.
     await bar.locator('#diff-from').selectOption('2');
-    await bar.locator('#diff-to').selectOption('3');
-    await bar.getByRole('button', { name: 'Compare' }).click();
     await expect(page).toHaveURL(`${reviewPath}/diff/2/3?view=source`, {
         timeout: coverageScaled(10000),
     });

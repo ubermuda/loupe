@@ -80,10 +80,10 @@ final class ShowDocumentControllerTest extends WebTestCase
         // The document being read, and the Comments panel that lists its threads.
         self::assertSelectorExists('.lp-review-doc');
         self::assertSelectorExists('#review-panel-comments .lp-review-margin');
-        self::assertSelectorExists('.lp-review-doc__back[aria-label="Back to documents"]');
-        self::assertSelectorTextContains('.lp-review-workspace-nav .lp-tabs', 'Document');
-        self::assertSelectorTextContains('.lp-review-workspace-nav .lp-tabs', 'History');
-        self::assertSelectorExists('.lp-review-workspace-nav .lp-tabs__tab[aria-current="page"]');
+        // The breadcrumb is the way back, and the "⋯" menu leads to the history.
+        self::assertSelectorNotExists('.lp-review-doc__back');
+        self::assertSelectorNotExists('.lp-review-workspace-nav');
+        self::assertSelectorTextContains('#review-page-menu', 'Version history');
     }
 
     public function test_the_page_menu_lists_the_card_linked_to_the_document(): void
@@ -234,7 +234,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertSelectorTextContains('.lp-review-doc__byline', 'Ribbonowner');
         self::assertSelectorTextNotContains('.lp-review-doc__byline', 'sections approved');
         self::assertSelectorCount(3, '.lp-review-toolbar__button[aria-pressed]');
-        self::assertSelectorTextContains('.lp-review-toolbar', 'Comments');
+        self::assertSelectorExists('.lp-review-toolbar [aria-label="Comments panel, 0 open"]');
         // Nothing to answer, so Decisions stays in the toolbar, off and disabled.
         self::assertSelectorExists('.lp-review-toolbar__button[data-review-panels-name-param="decisions"][aria-disabled="true"][aria-pressed="false"]');
         self::assertSelectorExists('#review-panel-decisions[hidden]');
@@ -369,7 +369,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertSame('Say more here', trim($row->filter('.lp-comment-row__body')->text()));
 
         self::assertCount(1, $panel->filter('.lp-comment-row--resolved'));
-        self::assertSelectorTextContains('.lp-orphan-group__title', 'No longer in the text · 1');
+        self::assertSelectorTextContains('.lp-orphan-group__title', 'No longer in the text 1');
         self::assertCount(1, $panel->filter('.lp-orphan-group #comment-row-'.$orphanId.'.lp-comment-row--orphaned'));
         self::assertSame('Whole document', trim($panel->filter('.lp-general-comments .lp-comment-row__quote')->text()));
         self::assertCount(1, $panel->filter('#comment-row-'.$strikeId.' .lp-comment-row__quote del'));
@@ -423,7 +423,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertStringContainsString('popover="auto"', $content);
     }
 
-    public function test_the_topbar_reports_the_thread_signals_of_the_version_on_screen(): void
+    public function test_the_comments_toolbar_button_and_filter_count_the_open_threads_of_the_version_on_screen(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -456,9 +456,11 @@ final class ShowDocumentControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('.lp-topbar__meta', '2 open · 1 resolved');
-        self::assertSelectorTextContains('.lp-signal--addressed', '1 addressed');
-        self::assertSelectorNotExists('.lp-signal--answered');
+        // The counts live in the Comments panel, not in the top bar.
+        self::assertSelectorNotExists('.lp-topbar__meta');
+        self::assertSelectorTextContains('[aria-controls="review-panel-comments"] [data-review-panels-target="openCount"]', '2');
+        self::assertSelectorExists('[aria-controls="review-panel-comments"][aria-label="Comments panel, 2 open"]');
+        self::assertSelectorTextContains('[data-review-panels-target="filterLabel"]', 'Open · 2');
     }
 
     public function test_the_orphan_group_counts_threads_and_not_their_replies(): void
@@ -493,7 +495,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         // The group leads the comment column and holds the thread itself, so the
         // heading counts threads while the column below it holds none of them.
-        self::assertSelectorTextContains('.lp-orphan-group__title', 'No longer in the text · 1');
+        self::assertSelectorTextContains('.lp-orphan-group__title', 'No longer in the text 1');
         self::assertCount(1, $crawler->filter('.lp-orphan-group .lp-comment-row--orphaned'));
         self::assertCount(0, $crawler->filter('.lp-comment-rail > .lp-comment-row'));
     }
@@ -799,7 +801,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         // The history page is the way back — a route with no entry point would
         // leave the discussion exactly as unreachable as before.
         $historyUrl = '/projects/'.$projectId.'/documents/'.$id.'/review/history';
-        self::assertCount(1, $latest->filter('.lp-review-workspace-nav .lp-tabs a[href="'.$historyUrl.'"]'));
+        self::assertCount(1, $latest->filter('#review-page-menu a[href="'.$historyUrl.'"]'));
 
         $versionUrl = '/projects/'.$projectId.'/documents/'.$id.'/review/versions/1';
         $history = $client->request(Request::METHOD_GET, $historyUrl);
@@ -995,7 +997,6 @@ final class ShowDocumentControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('.lp-review-workspace-nav .lp-tabs a[href="/projects/'.$projectId.'/documents/'.$id.'/review/history"]'));
         self::assertCount(1, $crawler->filter('#review-page-menu a[href="/projects/'.$projectId.'/documents/'.$id.'/review/history"]'));
         self::assertSame('2 versions', trim($crawler->filter('#review-page-menu [href$="/review/history"] .lp-page-menu__line')->text()));
         self::assertCount(1, $crawler->filter('#review-page-menu a[href="/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2"]'));
@@ -1096,7 +1097,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         // One section is enough for the panel to list.
         self::assertCount(1, $crawler->filter('#review-panel-outline'));
         self::assertCount(1, $crawler->filter('[data-panel="contents"] .lp-review-contents__link'));
-        self::assertSame('1', trim($crawler->filter('#review-panel-outline .lp-review-panel__count')->text()));
+        self::assertSame('On this page', trim($crawler->filter('#review-panel-outline-title')->text()));
     }
 
     public function test_both_ends_of_a_reference_render_it_and_an_archived_target_is_marked(): void
@@ -1229,10 +1230,10 @@ final class ShowDocumentControllerTest extends WebTestCase
         $base = '/projects/'.$projectId.'/documents/'.$id.'/review/diff/';
         self::assertSame(
             [$base.'2/3'],
-            $crawler->filter('.lp-review-workspace-nav .lp-tabs a[href="'.$base.'2/3"]')->each(
+            $crawler->filter('#review-page-menu a[href="'.$base.'2/3"]')->each(
                 static fn (\Symfony\Component\DomCrawler\Crawler $node): string => (string) $node->attr('href'),
             ),
-            'the Diff tab compares the current version with its predecessor',
+            'Compare versions compares the current version with its predecessor',
         );
     }
 
@@ -1255,7 +1256,7 @@ final class ShowDocumentControllerTest extends WebTestCase
 
         $crawler = $client->request(Request::METHOD_GET, $base);
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('.lp-btn--ghost.lp-btn--sm.lp-new-text-switch[role="switch"][aria-checked="false"][data-controller="review-new-text"]:not([aria-disabled])'));
+        self::assertCount(1, $crawler->filter('button.lp-new-text-switch[role="switch"][aria-checked="false"][data-controller="review-new-text"]:not([aria-disabled])'));
         self::assertStringEndsWith(
             $base.'/new-text/2',
             (string) $crawler->filter('[role="switch"]')->attr('data-review-new-text-url-value'),

@@ -9,16 +9,8 @@
     <span class="lp-version-pill">{{ 'v' ~ version.versionNumber }}</span>
 {% endblock %}
 
-{% block topbar_meta %}
-    <span class="lp-topbar__meta">{{ 'review.document.threads.summary'|trans({'%open%': signals.openThreadCount, '%resolved%': signals.resolvedThreadCount}) }}</span>
-    {# One chip for the two states, because "all answered" already says that
-       every thread is addressed or resolved. #}
-    {% if signals.allThreadsAnswered %}
-    <span class="lp-signal lp-signal--answered">{{ 'review.document.threads.all_answered'|trans }}</span>
-    {% elseif signals.hasAddressedThreads %}
-    <span class="lp-signal lp-signal--addressed">{{ 'review.document.threads.addressed_count'|trans({'%count%': signals.addressedThreadCount}) }}</span>
-    {% endif %}
-{% endblock %}
+{# The thread counts live in the Comments panel and its toolbar button. #}
+{% block topbar_meta %}{% endblock %}
 
 {% block topbar_actions %}
 {% if verdictAvailable %}
@@ -89,6 +81,7 @@
         data-review-panels-mode-value="{{ panelsMode }}"
         data-action="review-panels:filter->comment-anchor#filterThreads comment-anchor:resolved-filter->review-panels#resolvedFilter comment-anchor:reveal->review-panels#reveal"
         {%- if diffNavigation %} data-diff-navigation-position-value="{{ 'review.document.diff.nav.position'|trans({'%total%': diffChangeCount, '%count%': diffChangeCount}) }}"{% endif %}
+        data-comment-anchor-marker-label-value="{{ 'review.document.comment.marker'|trans }}"
         {%- if diffCommenting %} data-comment-anchor-diff-value="true"
             data-comment-anchor-deleted-message-value="{{ 'review.document.diff.comment.deleted_refused'|trans }}"
             data-comment-anchor-unanchorable-message-value="{{ 'review.document.diff.comment.unanchorable_refused'|trans }}"{% endif %}>
@@ -177,6 +170,7 @@
                         toVersionNumber: version.versionNumber,
                         viewValue: diffView.value,
                         idPrefix: 'diff',
+                        autoSubmit: true,
                     } only %}
                     <nav class="lp-diff-views" aria-label="{{ 'review.document.diff.view.label'|trans }}">
                         <twig:Ds:Button variant="ghost" class="lp-diff-views__link"
@@ -276,17 +270,19 @@
                 mode: panelsMode,
                 showComments: (not diffMode or diffCommenting) and not diffColumns,
                 decisionsReason: decisionsReason,
-                decisionsHint: diffMode ? 'review.document.margin.decisions_read_only_diff' : 'review.document.margin.decisions_save_hint',
+                decisionsHint: diffMode ? 'review.document.margin.decisions_read_only_diff' : null,
                 decisionsUrl: diffDocumentUrl,
                 decisionRows: decisionRows,
                 answeredDecisions: answeredDecisions,
                 sectionRows: sectionRows,
                 comments: comments,
                 canComment: canComment,
-                commentCount: signals.threadCount,
+                openCommentCount: signals.openThreadCount,
             } only %}
             {% if (not diffMode or diffCommenting) and not diffColumns %}
             {% include '@Review/_comment_threads.html.twig' with {comments: comments, readOnly: readOnly and not diffCommenting} only %}
+            <div class="lp-comment-markers" data-comment-anchor-target="markers"></div>
+            <template data-comment-marker-icon><twig:ux:icon name="lucide:message-square" /></template>
             {% endif %}
 
             {# The one part the diff view replaces — see diff_document_versions.html.twig.
