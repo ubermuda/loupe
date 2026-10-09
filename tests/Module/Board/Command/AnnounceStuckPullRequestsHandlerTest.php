@@ -6,6 +6,8 @@ namespace App\Tests\Module\Board\Command;
 
 use App\Module\Board\Command\AnnounceStuckPullRequestsCommand;
 use App\Module\Board\Command\AnnounceStuckPullRequestsHandler;
+use App\Module\Board\Command\SaveBoardAutomationSettingsCommand;
+use App\Module\Board\Command\SaveBoardAutomationSettingsHandler;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Event\CardChanged;
@@ -89,6 +91,31 @@ final class AnnounceStuckPullRequestsHandlerTest extends KernelTestCase
         $this->linkPullRequest($card, ['checks' => PullRequestChecks::Failed, 'readyToMerge' => false], new \DateTimeImmutable('-1 hour'));
 
         self::assertSame(0, $this->announce());
+    }
+
+    public function test_a_longer_delay_redraws_the_ready_cards_and_lets_the_sweep_announce_again(): void
+    {
+        $project = $this->stateProject('announce-longer');
+        $card = $this->stateCard($project);
+        $row = $this->ready($card, '-20 minutes');
+        $this->announce();
+        $this->changes = [];
+
+        $save = self::getContainer()->get(SaveBoardAutomationSettingsHandler::class);
+        self::assertInstanceOf(SaveBoardAutomationSettingsHandler::class, $save);
+        $save(new SaveBoardAutomationSettingsCommand(
+            project: $project,
+            enabled: true,
+            commentOnFixQueued: false,
+            commentOnStaleApproval: false,
+            syncBehind: false,
+            mergePullRequests: false,
+            changeBase: false,
+            stuckDelayMinutes: 60,
+        ));
+
+        self::assertSame([(string) $card->id], $this->changedCardIds());
+        self::assertNull($this->reload($row)->stuckAnnouncedFor);
     }
 
     private function ready(Card $card, string $since): ForgePullRequest

@@ -29,10 +29,15 @@ final readonly class AnnounceStuckPullRequestsHandler
     {
         $refreshed = 0;
         $announced = [];
-        foreach ($this->stuckPullRequests->findDue($this->clock->now(), self::BATCH) as $row) {
+        $rows = $this->stuckPullRequests->findDue($this->clock->now(), self::BATCH);
+        foreach ($rows as $row) {
             $this->events->dispatch(new CardChanged(Uuid::fromString($row['projectId']), Uuid::fromString($row['cardId']), CardChanged::UPDATED, false));
             $announced[$row['pullRequestId']] = $row['readySince'];
             ++$refreshed;
+        }
+        if (self::BATCH === \count($rows)) {
+            // The batch can cut the links of its last pull request short, so the next sweep reads that one again.
+            array_pop($announced);
         }
         foreach ($announced as $pullRequestId => $readySince) {
             $this->stuckPullRequests->markAnnounced($pullRequestId, $readySince);

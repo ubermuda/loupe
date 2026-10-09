@@ -82,6 +82,17 @@ final class AutomationSettingsUpdateToolTest extends KernelTestCase
         self::assertSame(45, $result['stuckDelayMinutes']);
     }
 
+    public function test_it_names_the_range_of_a_stuck_delay_it_refuses(): void
+    {
+        $project = $this->makeProject('automation-update-stuck-range');
+        $this->actAsMcpTokenBoundTo($project);
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('stuckDelayMinutes: stuckDelayMinutes must be a whole number of minutes from 1 to 1440.');
+
+        ($this->tool)(stuckDelayMinutes: 0);
+    }
+
     public function test_an_update_keeps_the_epic_settings_it_omits(): void
     {
         $project = $this->makeProject('automation-update-epic');

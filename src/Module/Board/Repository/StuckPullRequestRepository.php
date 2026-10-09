@@ -70,12 +70,26 @@ class StuckPullRequestRepository extends ServiceEntityRepository
         );
     }
 
-    /** Lets the next sweep announce every ready pull request of the project again, under the new delay. */
-    public function clearAnnouncements(Project $project): void
+    /**
+     * Lets the next sweep announce every ready pull request of the project again, under the new delay.
+     *
+     * @return list<string> the ids of the cards that link a ready pull request of the project
+     */
+    public function clearAnnouncements(Project $project): array
     {
-        $this->getEntityManager()->getConnection()->executeStatement(
+        $connection = $this->getEntityManager()->getConnection();
+        $connection->executeStatement(
             'UPDATE forge_pull_requests SET stuck_announced_for = NULL WHERE project_id = :project AND stuck_announced_for IS NOT NULL',
             ['project' => (string) $project->id],
         );
+
+        return array_map(strval(...), $connection->fetchFirstColumn(
+            'SELECT DISTINCT card.id
+            FROM forge_pull_requests pr
+            JOIN board_card_pull_requests link ON link.forge = pr.forge AND LOWER(link.repository) = pr.repository AND link.number = pr.number
+            JOIN board_cards card ON card.id = link.card_id AND card.project_id = pr.project_id
+            WHERE pr.project_id = :project AND pr.state = :open AND pr.ready_to_merge',
+            ['project' => (string) $project->id, 'open' => 'open'],
+        ));
     }
 }
