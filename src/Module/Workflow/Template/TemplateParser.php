@@ -638,7 +638,7 @@ final readonly class TemplateParser
         $value = $node[$name];
         if (!$this->actions->has($name) || MissingAction::KEY === $name) {
             if ($lenient) {
-                $from = \is_array($value) && \is_string($value['from'] ?? null) && \in_array($value['from'], $slotKeys, true) ? $value['from'] : null;
+                $from = \is_array($value) && \is_string($value['from'] ?? null) && self::isColumn($value['from'], $slotKeys, false) ? $value['from'] : null;
 
                 return new ActionCall(MissingAction::KEY, ['name' => $name], traits: MissingAction::traits(), from: $from);
             }

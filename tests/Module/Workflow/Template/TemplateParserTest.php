@@ -1071,11 +1071,13 @@ final class TemplateParserTest extends TestCase
         $template = self::valid();
         $template['rules'][1]['then'] = ['jump' => ['from' => 'review']];
         $template['rules'][2]['then'] = ['jump' => ['from' => 'nowhere']];
+        $template['rules'][3]['then'] = ['jump' => ['from' => '@backlog']];
 
         $rules = $this->parser->parseStored($template)->rules;
 
         self::assertSame('review', $rules[1]->then->from);
         self::assertNull($rules[2]->then->from);
+        self::assertSame('@backlog', $rules[3]->then->from);
     }
 
     public function test_a_stored_copy_makes_a_rule_unknown_when_an_ask_option_names_an_unknown_action(): void
