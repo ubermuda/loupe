@@ -1,6 +1,7 @@
 import { test as base, expect, type Page } from '@playwright/test';
 import { suppressToolbar, suppressWidget } from '../fixtures';
 import { coverageScaled } from '../timeouts';
+import { showPanel } from './panels';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eMobileReview1!';
@@ -25,7 +26,9 @@ const TOOLBAR = '[data-comment-anchor-target="toolbar"]';
 const COMPOSER = '[data-comment-anchor-target="composer"]';
 const COMPOSER_BODY = '[data-comment-anchor-target="composerBody"]';
 const THREAD = '.lp-comment-thread';
-const ACTIVE_THREAD = '.lp-comment-thread.lp-comment-thread--active';
+const OPEN_THREAD = '.lp-comment-thread:popover-open';
+const ROW = '#comment-rows .lp-comment-row';
+const RESOLVED_ROW = '.lp-comment-row--resolved';
 const MARGIN = '.lp-review-margin';
 const MENU_TRIGGER = '.lp-review-menu__trigger';
 const MENU_ROW = '.lp-review-menu__row';
@@ -148,10 +151,18 @@ async function postComment(
     });
 }
 
+/** Opens the thread of a row in the Comments panel, unless it is open. */
 async function expectThreadVisible(page: Page, index = 0): Promise<void> {
-    await expect(
-        page.locator('.lp-comment-thread__detail').nth(index),
-    ).toBeVisible({ timeout: coverageScaled(10000) });
+    await showPanel(page, 'Comments');
+    const row = page.locator(ROW).nth(index);
+    await expect(row).toBeVisible({ timeout: coverageScaled(10000) });
+    if ((await row.getAttribute('aria-expanded')) !== 'true') {
+        await row.click();
+    }
+    const thread = page.locator(`#${await row.getAttribute('aria-controls')}`);
+    await expect(thread.locator('.lp-comment-thread__detail')).toBeVisible({
+        timeout: coverageScaled(10000),
+    });
 }
 
 /** Viewport midpoint of the anchored phrase, which is painted with no element. */
@@ -229,8 +240,8 @@ async function readLayout(page: Page) {
         const margin = document.querySelector('.lp-review-margin')!;
         const mainRect = main.getBoundingClientRect();
         const docRect = doc.getBoundingClientRect();
-        const thread = document.querySelector('.lp-comment-thread');
-        const threadRect = thread?.getBoundingClientRect() ?? null;
+        const row = document.querySelector('#comment-rows .lp-comment-row');
+        const rowRect = row?.getBoundingClientRect() ?? null;
         const commentBody = document.querySelector('.lp-comment-body');
         const commentQuote = document.querySelector('.lp-comment-quote');
 
@@ -247,13 +258,12 @@ async function readLayout(page: Page) {
             blockPaddingTop: parseFloat(blockStyle.paddingTop),
             blockPaddingBottom: parseFloat(blockStyle.paddingBottom),
             marginPosition: getComputedStyle(margin).position,
-            threadParentClass: thread?.parentElement?.className ?? null,
-            threadPosition:
-                thread === null ? null : getComputedStyle(thread).position,
-            threadLeft: threadRect?.left ?? null,
-            threadRight: threadRect?.right ?? null,
-            threadTop: threadRect?.top ?? null,
-            threadBottom: threadRect?.bottom ?? null,
+            rowParentClass: row?.parentElement?.className ?? null,
+            rowPosition: row === null ? null : getComputedStyle(row).position,
+            rowLeft: rowRect?.left ?? null,
+            rowRight: rowRect?.right ?? null,
+            rowTop: rowRect?.top ?? null,
+            rowBottom: rowRect?.bottom ?? null,
             proseTop: prose.getBoundingClientRect().top,
             proseRight: prose.getBoundingClientRect().right,
             cardType:
@@ -439,7 +449,7 @@ test('a touch selection raises the comment toolbar', async ({ page }) => {
     });
 });
 
-test('a tap on a highlighted passage rings its card', async ({ page }) => {
+test('a tap on a highlighted passage opens its thread', async ({ page }) => {
     await page.setViewportSize(DESKTOP);
     await postComment(page);
     await givePhoneWidthReadingArea(page);
@@ -449,17 +459,21 @@ test('a tap on a highlighted passage rings its card', async ({ page }) => {
     await expect(page.locator(MARGIN)).toBeVisible({
         timeout: coverageScaled(10000),
     });
-    await expect(page.locator(ACTIVE_THREAD)).toHaveCount(0);
+    await expect(page.locator(OPEN_THREAD)).toHaveCount(0);
 
     const point = await phraseMidpoint(page, KNOWN_PHRASE);
     await page.touchscreen.tap(point.x, point.y);
 
-    await expect(page.locator(ACTIVE_THREAD)).toHaveCount(1, {
-        timeout: coverageScaled(5000),
-    });
+    const thread = page.locator(OPEN_THREAD);
+    await expect(thread).toBeVisible({ timeout: coverageScaled(5000) });
+    await expect(thread).toContainText(COMMENT_BODY);
+    // The popover stays inside the phone screen.
+    const box = (await thread.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width);
 });
 
-test('a comment card sits beside the document on desktop and above it on phones', async ({
+test('a comment row sits beside the document on desktop and above it on phones', async ({
     page,
 }) => {
     await page.setViewportSize(DESKTOP);
@@ -467,19 +481,19 @@ test('a comment card sits beside the document on desktop and above it on phones'
 
     const desktop = await readLayout(page);
     expect(desktop.marginPosition).toBe('static');
-    expect(desktop.threadPosition).toBe('static');
-    expect(desktop.threadParentClass).toContain('lp-review-margin');
-    // The card sits in the panel column, clear of the reading column.
-    expect(desktop.threadLeft!).toBeGreaterThan(desktop.proseRight - 1);
+    expect(desktop.rowPosition).toBe('static');
+    expect(desktop.rowParentClass).toContain('lp-review-margin');
+    // The row sits in the panel column, clear of the reading column.
+    expect(desktop.rowLeft!).toBeGreaterThan(desktop.proseRight - 1);
 
     await givePhoneWidthReadingArea(page);
 
     const phone = await readLayout(page);
-    expect(phone.threadPosition).toBe('static');
-    expect(phone.threadParentClass).toContain('lp-review-margin');
+    expect(phone.rowPosition).toBe('static');
+    expect(phone.rowParentClass).toContain('lp-review-margin');
     // Below the panel breakpoint the open panels stack above the document.
-    expect(phone.threadBottom!).toBeLessThanOrEqual(phone.proseTop);
-    expect(phone.threadRight!).toBeLessThanOrEqual(phone.mainRight + 1);
+    expect(phone.rowBottom!).toBeLessThanOrEqual(phone.proseTop);
+    expect(phone.rowRight!).toBeLessThanOrEqual(phone.mainRight + 1);
     expect(phone.mainScrollWidth).toBeLessThanOrEqual(phone.mainClientWidth);
     expect(phone.cardType).toBe(desktop.cardType);
     expect(phone.quoteType).toBe(desktop.quoteType);
@@ -487,33 +501,35 @@ test('a comment card sits beside the document on desktop and above it on phones'
     await page.setViewportSize(DESKTOP);
 
     const back = await readLayout(page);
-    expect(back.threadParentClass).toContain('lp-review-margin');
-    expect(back.threadLeft!).toBeGreaterThan(back.proseRight - 1);
+    expect(back.rowParentClass).toContain('lp-review-margin');
+    expect(back.rowLeft!).toBeGreaterThan(back.proseRight - 1);
     // Nothing is left behind in the prose when the column comes back.
     await expect(page.locator(DOC).locator(THREAD)).toHaveCount(0);
     await expect(page.locator(THREAD)).toHaveCount(1);
 });
 
-test('phone cards follow passage order and retain a reply draft across resizing', async ({
+test('phone rows follow passage order and a reply draft survives resizing', async ({
     page,
 }) => {
     await page.setViewportSize(DESKTOP);
     await postComment(page, 'second paragraph', 'Later passage');
     await postComment(page, KNOWN_PHRASE, 'Earlier passage', 2);
-    const earlier = page.locator(THREAD).filter({ hasText: 'Earlier passage' });
+    await expectThreadVisible(page, 0);
+    const earlier = page.locator(OPEN_THREAD);
+    await expect(earlier).toContainText('Earlier passage');
     await earlier.locator('[data-comment-reply-target="toggle"]').click();
     await earlier.locator('textarea').fill('Keep this reply draft');
 
     const proseBefore = await page.locator(DOC).textContent();
     await givePhoneWidthReadingArea(page);
-    await expect(page.locator(THREAD).first()).toContainText('Earlier passage');
-    await expect(page.locator(THREAD).last()).toContainText('Later passage');
+    await expect(page.locator(ROW).first()).toContainText('Earlier passage');
+    await expect(page.locator(ROW).last()).toContainText('Later passage');
     await expect(earlier.locator('textarea')).toHaveValue(
         'Keep this reply draft',
     );
     await expect(page.locator(DOC)).toHaveText(proseBefore!);
     const phone = await readLayout(page);
-    expect(phone.threadBottom!).toBeLessThanOrEqual(phone.proseTop);
+    expect(phone.rowBottom!).toBeLessThanOrEqual(phone.proseTop);
 
     await page.setViewportSize(DESKTOP);
     await expect(earlier.locator('textarea')).toHaveValue(
@@ -611,11 +627,11 @@ test('hiding resolved cards leaves the document text unchanged', async ({
     // again must leave the prose exactly as it was.
     await page.locator(MENU_TRIGGER).click();
     await page.locator(MENU_ROW, { hasText: 'Show resolved' }).click();
-    await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible();
+    await expect(page.locator(RESOLVED_ROW)).toBeVisible();
     await page.locator(MENU_TRIGGER).click();
     await page.locator(MENU_ROW, { hasText: 'Hide resolved' }).click();
 
-    await expect(page.locator('.lp-comment-thread--resolved')).toBeHidden();
+    await expect(page.locator(RESOLVED_ROW)).toBeHidden();
     await expect(page.locator(DOC)).toHaveText(proseBefore!);
     await expect(page.locator(DOC).locator(THREAD)).toHaveCount(0);
 });
@@ -627,11 +643,11 @@ test('the comment filter still hides resolved threads above lg', async ({
     await postComment(page);
     await expectThreadVisible(page);
     await page.getByRole('button', { name: 'Resolve' }).click();
-    const resolved = page.locator('.lp-comment-thread--resolved');
+    const resolved = page.locator(RESOLVED_ROW);
     await expect(resolved).toHaveCount(1, { timeout: coverageScaled(10000) });
 
     // The review menu is the phone copy of this control, so the desktop one
-    // has to keep working on its own. Open is the default, so the card is
+    // has to keep working on its own. Open is the default, so the row is
     // already out of the column.
     await expect(page.locator(MENU_TRIGGER)).toBeHidden();
     await expect(resolved).toBeHidden();
