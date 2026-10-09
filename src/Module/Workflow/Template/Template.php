@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Template;
 
-use App\Module\Workflow\Condition\CardDocument;
-use App\Module\Workflow\Condition\CardDocumentApproved;
-use App\Module\Workflow\Condition\CardDocumentChangesRequested;
-use App\Module\Workflow\Contract\ParameterValue;
+use App\Module\Workflow\Contract\ReadsDocumentTag;
 
 final readonly class Template
 {
@@ -70,8 +67,9 @@ final readonly class Template
         $tags = [];
         foreach ($this->rulesFor($slot) as $rule) {
             foreach ($rule->when->leaves() as $leaf) {
-                if ($leaf->condition instanceof CardDocument || $leaf->condition instanceof CardDocumentApproved || $leaf->condition instanceof CardDocumentChangesRequested) {
-                    $tags[] = ParameterValue::string($leaf->params, 'tag');
+                $tag = $leaf->condition instanceof ReadsDocumentTag ? $leaf->condition->documentTag($leaf->params) : null;
+                if (null !== $tag) {
+                    $tags[] = $tag;
                 }
             }
         }

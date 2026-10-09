@@ -2,26 +2,26 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Readiness\Workflow;
+namespace App\Module\Board\Workflow\Condition;
 
-use App\Module\Readiness\Entity\DiscoveryRunState;
 use App\Module\Workflow\Contract\Condition;
 use App\Module\Workflow\Contract\Facts;
+use App\Module\Workflow\Contract\PullRequestList;
 use Symfony\Component\Translation\TranslatableMessage;
 
-/** The latest discovery run of the card waits for a worker. A failed run makes it false, so the engine does not retry. */
-final readonly class DiscoveryRequested implements Condition
+/** At least one pull request is linked to the card, whatever its state. */
+final readonly class PullRequestLinked implements Condition
 {
     #[\Override]
     public static function key(): string
     {
-        return 'card.discovery.requested';
+        return 'card.pr.linked';
     }
 
     #[\Override]
     public static function source(): string
     {
-        return 'workflow.source.readiness';
+        return 'workflow.source.forge';
     }
 
     #[\Override]
@@ -33,18 +33,18 @@ final readonly class DiscoveryRequested implements Condition
     #[\Override]
     public function reads(array $params): array
     {
-        return [DiscoveryFacts::class];
+        return [PullRequestList::class];
     }
 
     #[\Override]
     public function evaluate(Facts $facts, array $params): bool
     {
-        return DiscoveryRunState::Requested === $facts->get(DiscoveryFacts::class)->state;
+        return [] !== $facts->pullRequests();
     }
 
     #[\Override]
     public function waitingFor(array $params, bool $negated = false): TranslatableMessage
     {
-        return new TranslatableMessage($negated ? 'workflow.waiting.not.card_discovery_requested' : 'workflow.waiting.card_discovery_requested');
+        return new TranslatableMessage($negated ? 'workflow.waiting.not.pr_linked' : 'workflow.waiting.pr_linked');
     }
 }

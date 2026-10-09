@@ -4,26 +4,26 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Template;
 
+use App\Module\Board\Workflow\Condition\CardChildrenFinished;
+use App\Module\Board\Workflow\Condition\CardDocument;
+use App\Module\Board\Workflow\Condition\CardDocumentApproved;
+use App\Module\Board\Workflow\Condition\CardHasOpenBlocker;
+use App\Module\Board\Workflow\Condition\CardHasType;
+use App\Module\Board\Workflow\Condition\PullRequestApprovalCoversHead;
+use App\Module\Board\Workflow\Condition\PullRequestOpen;
 use App\Module\Board\Workflow\Detach;
 use App\Module\Board\Workflow\ForgeWrite;
 use App\Module\Board\Workflow\LinkDocument;
 use App\Module\Board\Workflow\MoveCard;
 use App\Module\Board\Workflow\RequestWork;
+use App\Module\Bridge\Workflow\Condition\RunWorkActive;
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Action\Ask;
 use App\Module\Workflow\Action\EvaluateChildren;
 use App\Module\Workflow\Action\PauseCard;
 use App\Module\Workflow\Action\ReleasePause;
-use App\Module\Workflow\Condition\CardChildrenFinished;
-use App\Module\Workflow\Condition\CardDocument;
-use App\Module\Workflow\Condition\CardDocumentApproved;
-use App\Module\Workflow\Condition\CardHasOpenBlocker;
-use App\Module\Workflow\Condition\CardHasType;
 use App\Module\Workflow\Condition\CardInSlot;
 use App\Module\Workflow\Condition\Conditions;
-use App\Module\Workflow\Condition\PullRequestApprovalCoversHead;
-use App\Module\Workflow\Condition\PullRequestOpen;
-use App\Module\Workflow\Condition\RunWorkActive;
 use App\Module\Workflow\Contract\Action;
 use App\Module\Workflow\Contract\LabelTone;
 use App\Module\Workflow\Expression\AnyOf;
@@ -96,7 +96,7 @@ final class TemplateParserTest extends TestCase
                     'slot' => 'build',
                     'when' => ['all' => [
                         ['card.type' => ['type' => 'feature']],
-                        ['not' => ['card.has_open_blocker' => []]],
+                        ['not' => ['card.blocker.open' => []]],
                     ]],
                     'then' => ['request' => ['kind' => 'implement', 'capability' => 'interactive', 'limit' => 3]],
                 ],
@@ -117,13 +117,13 @@ final class TemplateParserTest extends TestCase
                 ],
                 [
                     'id' => 'wait',
-                    'when' => ['run.work_active' => []],
-                    'then' => ['pause' => ['reason' => 'busy', 'until' => ['not' => ['run.work_active' => []]]]],
+                    'when' => ['card.run.work_active' => []],
+                    'then' => ['pause' => ['reason' => 'busy', 'until' => ['not' => ['card.run.work_active' => []]]]],
                 ],
                 [
                     'id' => 'done',
                     'slot' => '@terminal',
-                    'when' => ['card.document_approved' => ['tag' => 'design']],
+                    'when' => ['card.document.approved' => ['tag' => 'design']],
                     'then' => ['release' => ['reason' => 'busy']],
                 ],
             ],
@@ -184,7 +184,7 @@ final class TemplateParserTest extends TestCase
     public function test_a_type_with_children_may_have_a_rule_that_reads_them(): void
     {
         $template = self::valid();
-        $template['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'epic']], ['card.children_finished' => []]]];
+        $template['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'epic']], ['card.children.finished' => []]]];
         $template['rules'][4]['when'] = ['card.type' => ['type' => 'epic']];
         $template['rules'][4]['then'] = ['evaluate' => ['cards' => 'children']];
 
@@ -196,7 +196,7 @@ final class TemplateParserTest extends TestCase
         $template = self::valid();
         $template['rules'][0]['when'] = ['all' => [
             ['not' => ['card.type' => ['type' => 'bug']]],
-            ['any' => [['card.type' => ['type' => 'bug']], ['card.children_finished' => []]]],
+            ['any' => [['card.type' => ['type' => 'bug']], ['card.children.finished' => []]]],
         ]];
         $template['rules'][4]['when'] = ['all' => [['not' => ['card.type' => ['type' => 'bug']]]]];
         $template['rules'][4]['then'] = ['evaluate' => ['cards' => 'children']];
@@ -209,7 +209,7 @@ final class TemplateParserTest extends TestCase
         $template = self::valid();
         $template['rules'][0]['when'] = ['all' => [
             ['card.type' => ['type' => 'epic']],
-            ['card.children_finished' => []],
+            ['card.children.finished' => []],
             ...array_fill(0, 30, ['any' => [['pr.open' => []], ['card.type' => ['type' => 'epic']]]]),
         ]];
 
@@ -220,7 +220,7 @@ final class TemplateParserTest extends TestCase
     {
         $template = self::valid();
         $template['rules'][3]['when'] = ['any' => [['card.type' => ['type' => 'bug']], ['card.type' => ['type' => 'epic']]]];
-        $template['rules'][3]['then']['pause']['until'] = ['all' => [['card.type' => ['type' => 'epic']], ['card.children_finished' => []]]];
+        $template['rules'][3]['then']['pause']['until'] = ['all' => [['card.type' => ['type' => 'epic']], ['card.children.finished' => []]]];
 
         self::assertCount(5, $this->parser->parse($template)->rules);
     }
@@ -230,7 +230,7 @@ final class TemplateParserTest extends TestCase
         $template = self::valid();
         $template['rules'][0]['when'] = ['all' => [
             ['card.type' => ['type' => 'bug']],
-            ['any' => [['pr.open' => []], ['all' => [['card.type' => ['type' => 'epic']], ['card.children_finished' => []]]]]],
+            ['any' => [['pr.open' => []], ['all' => [['card.type' => ['type' => 'epic']], ['card.children.finished' => []]]]]],
         ]];
 
         self::assertCount(5, $this->parser->parse($template)->rules);
@@ -446,8 +446,8 @@ final class TemplateParserTest extends TestCase
     {
         $template = self::valid();
         $template['rules'][2]['when'] = ['all' => [
-            ['card.document' => ['tag' => 'design']],
-            ['card.document' => ['tag' => 'design', 'status' => 'in-review']],
+            ['card.document.linked' => ['tag' => 'design']],
+            ['card.document.linked' => ['tag' => 'design', 'status' => 'in-review']],
         ]];
 
         $leaves = $this->parser->parse($template)->rules[2]->when->leaves();
@@ -458,7 +458,7 @@ final class TemplateParserTest extends TestCase
     public function test_a_slot_reads_the_tag_of_a_document_condition(): void
     {
         $template = self::valid();
-        $template['rules'][0]['when'] = ['not' => ['card.document' => ['tag' => 'plan']]];
+        $template['rules'][0]['when'] = ['not' => ['card.document.linked' => ['tag' => 'plan']]];
 
         self::assertSame(['plan'], $this->parser->parse($template)->documentTagsFor('build'));
     }
@@ -575,51 +575,51 @@ final class TemplateParserTest extends TestCase
             return $t;
         }, 'rules[0] (start) then.request.refill: card.type: unknown type "chore"'];
         yield 'rule reading the children of a type without children' => [static function (array $t): array {
-            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['card.children_finished' => []]]];
+            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['card.children.finished' => []]]];
 
             return $t;
         }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
         yield 'nested all reading the children of a type without children' => [static function (array $t): array {
-            $t['rules'][1]['when']['any'][] = ['all' => [['card.children_finished' => []], ['card.type' => ['type' => 'feature']]]];
+            $t['rules'][1]['when']['any'][] = ['all' => [['card.children.finished' => []], ['card.type' => ['type' => 'feature']]]];
 
             return $t;
         }, 'rules[1] (to-review): the type "feature" may not have children, but the rule reads them'];
         yield 'all inside all reading the children of a type without children' => [static function (array $t): array {
-            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['all' => [['card.children_finished' => []]]]]];
+            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['all' => [['card.children.finished' => []]]]]];
 
             return $t;
         }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
         yield 'any branch reading the children of the type around it' => [static function (array $t): array {
-            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['any' => [['card.children_finished' => []], ['pr.open' => []]]]]];
+            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['any' => [['card.children.finished' => []], ['pr.open' => []]]]]];
 
             return $t;
         }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
         yield 'any branch naming a type that the list around it reads the children of' => [static function (array $t): array {
-            $t['rules'][0]['when'] = ['all' => [['card.children_finished' => []], ['any' => [['card.type' => ['type' => 'bug']], ['pr.open' => []]]]]];
+            $t['rules'][0]['when'] = ['all' => [['card.children.finished' => []], ['any' => [['card.type' => ['type' => 'bug']], ['pr.open' => []]]]]];
 
             return $t;
         }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
         yield 'two sibling any lists, one naming the type and one reading the children' => [static function (array $t): array {
             $t['rules'][0]['when'] = ['all' => [
                 ['any' => [['card.type' => ['type' => 'bug']], ['pr.open' => []]]],
-                ['any' => [['card.children_finished' => []], ['pr.open' => []]]],
+                ['any' => [['card.children.finished' => []], ['pr.open' => []]]],
             ]];
 
             return $t;
         }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
         yield 'negated child read beside a type without children' => [static function (array $t): array {
-            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['not' => ['card.children_finished' => []]]]];
+            $t['rules'][0]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['not' => ['card.children.finished' => []]]]];
 
             return $t;
         }, 'rules[0] (start): the type "bug" may not have children, but the rule reads them'];
         yield 'pause until reading the children of a type without children' => [static function (array $t): array {
             $t['rules'][3]['when'] = ['card.type' => ['type' => 'bug']];
-            $t['rules'][3]['then']['pause']['until'] = ['card.children_finished' => []];
+            $t['rules'][3]['then']['pause']['until'] = ['card.children.finished' => []];
 
             return $t;
         }, 'rules[3] (wait): the type "bug" may not have children, but the rule reads them'];
         yield 'when reading the children of a type without children beside an until for another type' => [static function (array $t): array {
-            $t['rules'][3]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['card.children_finished' => []]]];
+            $t['rules'][3]['when'] = ['all' => [['card.type' => ['type' => 'bug']], ['card.children.finished' => []]]];
             $t['rules'][3]['then']['pause']['until'] = ['card.type' => ['type' => 'epic']];
 
             return $t;
@@ -706,7 +706,7 @@ final class TemplateParserTest extends TestCase
         }, 'rules[0] (start) slot: unknown slot "*"'];
 
         yield 'node with two keys' => [static function (array $t): array {
-            $t['rules'][2]['when'] = ['pr.open' => [], 'card.has_open_blocker' => []];
+            $t['rules'][2]['when'] = ['pr.open' => [], 'card.blocker.open' => []];
 
             return $t;
         }, 'rules[2] (merge) when: a node must have exactly one key'];
@@ -726,6 +726,11 @@ final class TemplateParserTest extends TestCase
 
             return $t;
         }, 'rules[2] (merge) when: unknown condition "pr.foo"'];
+        yield 'old condition key' => [static function (array $t): array {
+            $t['rules'][2]['when'] = ['card.is_child' => []];
+
+            return $t;
+        }, 'rules[2] (merge) when: unknown condition "card.is_child"'];
 
         yield 'missing parameter' => [static function (array $t): array {
             $t['rules'][2]['when'] = ['pr.approval_covers_head' => []];
@@ -733,10 +738,10 @@ final class TemplateParserTest extends TestCase
             return $t;
         }, 'rules[2] (merge) when: pr.approval_covers_head: missing parameter "min"'];
         yield 'unknown parameter' => [static function (array $t): array {
-            $t['rules'][0]['when']['all'][1]['not'] = ['card.has_open_blocker' => ['strict' => true]];
+            $t['rules'][0]['when']['all'][1]['not'] = ['card.blocker.open' => ['strict' => true]];
 
             return $t;
-        }, 'rules[0] (start) when.all[1].not: card.has_open_blocker: unknown parameter "strict"'];
+        }, 'rules[0] (start) when.all[1].not: card.blocker.open: unknown parameter "strict"'];
         yield 'wrongly typed parameter' => [static function (array $t): array {
             $t['rules'][2]['when'] = ['pr.approval_covers_head' => ['min' => '1']];
 
@@ -866,10 +871,10 @@ final class TemplateParserTest extends TestCase
         }, 'rules[4] (done) then.release: unknown parameter "until"'];
 
         yield 'document status outside the statuses' => [static function (array $t): array {
-            $t['rules'][2]['when'] = ['card.document' => ['tag' => 'design', 'status' => 'rejected']];
+            $t['rules'][2]['when'] = ['card.document.linked' => ['tag' => 'design', 'status' => 'rejected']];
 
             return $t;
-        }, 'rules[2] (merge) when: card.document: parameter "status" must be one of: in-review, approved, changes-requested, draft'];
+        }, 'rules[2] (merge) when: card.document.linked: parameter "status" must be one of: in-review, approved, changes-requested, draft'];
         yield 'evaluate of other cards' => [static function (array $t): array {
             $t['rules'][4]['then'] = ['evaluate' => ['cards' => 'siblings']];
 
@@ -1060,7 +1065,7 @@ final class TemplateParserTest extends TestCase
     public function test_app_rules_accept_a_request_with_a_prompt_in_the_backlog(): void
     {
         $rules = $this->parser->parseAppRules(['rules' => [
-            ['id' => 'app-groom', 'slot' => '@backlog', 'when' => ['card.has_open_blocker' => []], 'then' => ['request' => ['kind' => 'groom', 'prompt' => 'groom-card']]],
+            ['id' => 'app-groom', 'slot' => '@backlog', 'when' => ['card.blocker.open' => []], 'then' => ['request' => ['kind' => 'groom', 'prompt' => 'groom-card']]],
             ['id' => 'app-done', 'slot' => '@terminal', 'when' => ['all' => []], 'then' => ['request' => ['kind' => 'teardown']]],
         ]]);
 

@@ -297,7 +297,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
         $card = $this->card('tech-design');
         $this->define([
             ['id' => 'provided', 'slot' => 'tech-design', 'when' => [ProvidedFactsReady::KEY => []], 'then' => ['request' => ['kind' => 'provided']]],
-            ['id' => 'approved', 'slot' => 'tech-design', 'when' => ['card.document_approved' => ['tag' => 'design']], 'then' => ['move' => ['to' => 'implementation']]],
+            ['id' => 'approved', 'slot' => 'tech-design', 'when' => ['card.document.approved' => ['tag' => 'design']], 'then' => ['move' => ['to' => 'implementation']]],
         ]);
         $this->service(ProvidedFactsProvider::class)->failure = new \RuntimeException('The source is down.');
 
@@ -311,7 +311,7 @@ final class CardWorkflowPanelBuilderTest extends KernelTestCase
     {
         $card = $this->card('tech-design');
         $this->define([
-            ['id' => 'hold', 'slot' => 'tech-design', 'when' => ['card.document_approved' => ['tag' => 'design']], 'then' => ['pause' => ['reason' => 'on-hold', 'until' => [ProvidedFactsReady::KEY => []]]]],
+            ['id' => 'hold', 'slot' => 'tech-design', 'when' => ['card.document.approved' => ['tag' => 'design']], 'then' => ['pause' => ['reason' => 'on-hold', 'until' => [ProvidedFactsReady::KEY => []]]]],
         ]);
         $this->service(ProvidedFactsProvider::class)->failure = new \RuntimeException('The source is down.');
 
