@@ -50,14 +50,28 @@ final class PullRequestStateViewTest extends TestCase
     {
         $row = $this->row(new PullRequestSnapshot(headSha: 'head1', baseBranch: 'epic/1'));
         $row->mergeRequestedSha = 'head1';
-        $row->mergeRequestedAt = new \DateTimeImmutable('2026-10-02 11:50:00');
+        $row->mergeRequestedAt = new \DateTimeImmutable('2026-10-02 11:56:00');
         $row->baseChangeRequestedTo = 'main';
-        $row->baseChangeRequestedAt = new \DateTimeImmutable('2026-10-02 11:40:00');
+        $row->baseChangeRequestedAt = new \DateTimeImmutable('2026-10-02 11:52:00');
 
         $view = PullRequestStateView::of($row, null, new \DateTimeImmutable(self::NOW));
 
-        self::assertEquals(new \DateTimeImmutable('2026-10-02 11:40:00'), $view->forgeRequestedAt);
+        self::assertEquals(new \DateTimeImmutable('2026-10-02 11:52:00'), $view->forgeRequestedAt);
         self::assertTrue($view->mergeInFlight);
+    }
+
+    public function test_a_merge_or_a_base_change_the_forge_never_answered_stops_counting(): void
+    {
+        $row = $this->row(new PullRequestSnapshot(headSha: 'head1', baseBranch: 'epic/1'));
+        $row->mergeRequestedSha = 'head1';
+        $row->mergeRequestedAt = new \DateTimeImmutable('2026-10-02 11:40:00');
+        $row->baseChangeRequestedTo = 'main';
+        $row->baseChangeRequestedAt = new \DateTimeImmutable('2026-10-02 11:30:00');
+
+        $view = PullRequestStateView::of($row, null, new \DateTimeImmutable(self::NOW));
+
+        self::assertNull($view->forgeRequestedAt);
+        self::assertFalse($view->mergeInFlight);
     }
 
     public function test_a_sync_in_flight_counts_until_it_fails_or_times_out(): void

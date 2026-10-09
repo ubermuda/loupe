@@ -9,6 +9,7 @@ use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState;
+use App\Module\Forge\Service\ForgePullRequestWrites;
 
 /** The stored state of one pull request that a card links. */
 final readonly class PullRequestStateView
@@ -44,10 +45,13 @@ final readonly class PullRequestStateView
     {
         $now ??= new \DateTimeImmutable();
         $syncCutoff = $now->modify(\sprintf('-%d seconds', SyncLine::MARKER_LIFETIME_SECONDS));
+        // A merge or a base change the forge never answered stops counting when Loupe would ask for it again.
+        $requestCutoff = $now->modify(\sprintf('-%d seconds', ForgePullRequestWrites::MARKER_LIFETIME_SECONDS));
         $open = PullRequestState::Open === $row->state;
+        $mergeInFlight = $open && null !== $row->mergeRequestedSha && null !== $row->mergeRequestedAt && $row->mergeRequestedAt > $requestCutoff;
         $requests = array_filter([
-            $open && null !== $row->mergeRequestedSha ? $row->mergeRequestedAt : null,
-            $open && null !== $row->baseChangeRequestedTo ? $row->baseChangeRequestedAt : null,
+            $mergeInFlight ? $row->mergeRequestedAt : null,
+            $open && null !== $row->baseChangeRequestedTo && null !== $row->baseChangeRequestedAt && $row->baseChangeRequestedAt > $requestCutoff ? $row->baseChangeRequestedAt : null,
             $open && null !== $row->syncFromSha && null === $row->syncFailedReason && null !== $row->syncRequestedAt && $row->syncRequestedAt > $syncCutoff ? $row->syncRequestedAt : null,
         ]);
 
@@ -69,7 +73,7 @@ final readonly class PullRequestStateView
             $row->conflictingSince,
             $row->waitsForApprovalSince,
             [] === $requests ? null : min($requests),
-            $open && null !== $row->mergeRequestedSha,
+            $mergeInFlight,
         );
     }
 }
