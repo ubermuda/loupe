@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\EventListener;
+namespace App\Module\Board\EventListener;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Forge\Event\PullRequestStateChanged;
+use App\Module\Workflow\Contract\CardEvaluations;
 use App\Module\Workflow\Contract\CardTypeCatalog;
-use App\Module\Workflow\Service\EvaluationTrigger;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /** A pull request changes the facts of its cards, of the epic of a child, and of the children of an epic. */
@@ -20,7 +20,7 @@ final readonly class EvaluateCardsOnPullRequestStateChanged
     public function __construct(
         private CardPullRequestRepository $cardPullRequests,
         private CardRepository $cards,
-        private EvaluationTrigger $trigger,
+        private CardEvaluations $trigger,
         private CardTypeCatalog $catalog,
     ) {
     }

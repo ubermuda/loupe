@@ -83,13 +83,6 @@ final readonly class BridgeWorkLedger implements WorkLedger
             && $this->workerRuns->hasOpenWorkerOfSessionOnCard($run->project, $run->sessionId, $cardId);
     }
 
-    /** @param non-empty-list<Uuid> $cardIds */
-    #[\Override]
-    public function restartClock(Uuid $projectId, array $cardIds, \DateTimeImmutable $now): void
-    {
-        $this->workRequests->restartClockOfOpenForCards($projectId, $cardIds, $now);
-    }
-
     #[\Override]
     public function isHeld(Uuid $projectId, Uuid $cardId): bool
     {

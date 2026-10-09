@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Workflow\EventListener;
+namespace App\Module\Board\EventListener;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Workflow\Service\EvaluationTrigger;
+use App\Module\Workflow\Contract\CardEvaluations;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /** A move changes the slot of the card, the children of its epic, and the blockers of the cards it blocks. */
@@ -16,7 +16,7 @@ final readonly class EvaluateCardsOnCardMoved
 {
     public function __construct(
         private CardRepository $cards,
-        private EvaluationTrigger $trigger,
+        private CardEvaluations $trigger,
     ) {
     }
 

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Workflow\EventListener;
+namespace App\Tests\Module\Board\EventListener;
 
 use App\Module\Board\Command\PauseCardCommand;
 use App\Module\Board\Command\PauseCardHandler;
@@ -10,13 +10,13 @@ use App\Module\Board\Command\SaveBoardAutomationSettingsCommand;
 use App\Module\Board\Command\SaveBoardAutomationSettingsHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
+use App\Module\Board\EventListener\RearmEpicsOnOpenEpicTurnedOn;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Action\ForgeWrite;
 use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Entity\WorkflowRuleState;
-use App\Module\Workflow\EventListener\RearmEpicsOnOpenEpicTurnedOn;
 use App\Module\Workflow\Messenger\EvaluateCard;
 use App\Tests\Module\Workflow\Action\ActionScenario;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;

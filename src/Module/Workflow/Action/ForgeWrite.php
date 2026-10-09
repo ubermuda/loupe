@@ -31,6 +31,7 @@ use App\Module\Workflow\Contract\CardTypeCatalog;
 use App\Module\Workflow\Contract\ChecksParameters;
 use App\Module\Workflow\Contract\Parameter;
 use App\Module\Workflow\Contract\ParameterType;
+use App\Module\Workflow\Contract\WorkflowRefusal;
 use App\Module\Workflow\Service\CardPullRequests;
 use App\Module\Workflow\Template\ForgeWriteKind;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -44,7 +45,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  */
 final readonly class ForgeWrite implements Action, ChecksParameters
 {
-    public const string OPEN_EPIC_OFF = 'open-epic-off';
+    public const string OPEN_EPIC_OFF = WorkflowRefusal::OPEN_EPIC_OFF;
 
     public const string KEY = 'forge-write';
     private const array WRITES_WITHOUT_FALLBACK = ['draft', 'ready', 'close', 'open-epic'];
