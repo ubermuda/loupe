@@ -54,7 +54,7 @@ This applies only to a document meant for considered review. Keep ordinary conve
 
 The project board in the Loupe app holds open work that has an addressee. Add a card when someone must do something later: a follow-up, a known issue, or a design decision to revisit. An observation asks nothing of anyone. Put an observation in the relevant skill or in `docs/` instead.
 
-A problem in the code your branch touches is not open work. Fix it in that branch, even when the fix adds new content after an approval. Never add a follow-up card under an epic for it. A problem outside your branch gets one Backlog card with no parent.
+A problem in the code your branch touches is not open work. Fix it in that branch, even when the fix adds new content after an approval. Never add a follow-up card under an epic for it. A failing check is fixed in the branch wherever its cause lies. Any other problem outside your branch gets one Backlog card with no parent.
 
 Invoke the `loupe-board` skill before you write a card. It says how to read a board's columns with `board_columns`. It also carries the card types, the priorities, and the rule that `reporter` records who raised the card rather than who typed it. Never leave such a note in a code comment.
 

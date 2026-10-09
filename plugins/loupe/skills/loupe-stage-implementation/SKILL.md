@@ -20,7 +20,7 @@ Build the approved tech design of one card into a ready, linked pull request. An
 9. Never merge the pull request, and never merge into the base branch. Never force-push, and never skip a hook or a branch protection.
 10. Follow the adapters and the profile (`references/commands.md`).
 11. Never end your turn while a command, a monitor or a sub-agent runs in the background. Wait for it in the foreground.
-12. Fix in this branch every problem you find in the code it touches. This covers a code review finding, a failing check, and a gap that a conflict resolution shows. New content is correct in every round, also after an approval, because the pull request then gets a new approval. Never put such a problem in a card or leave it open in the pull request body. A review finding that you judge wrong gets your reason in the pull request body. A problem outside the code of the branch gets one Backlog card with no parent (`loupe-board`).
+12. Fix in this branch every problem you find in the code it touches. This covers a code review finding, a failing check, and a gap that a conflict resolution shows. New content is correct in every round, also after an approval, because the pull request then gets a new approval. Never put such a problem in a card or leave it open in the pull request body. A review finding that you judge wrong gets your reason in the pull request body. Fix a failing check in this branch, also when its cause is outside the diff. Any other problem outside the code of the branch gets one Backlog card with no parent (`loupe-board`).
 
 ## Procedure
 

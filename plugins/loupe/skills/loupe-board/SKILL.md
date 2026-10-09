@@ -264,8 +264,9 @@ anyone.
 | A problem in the code your branch touches | A fix in that branch |
 
 A stage worker fixes a problem in its own branch, and never cards it under the
-epic. A problem outside the branch gets one Backlog card with no parent. The
-stage skills carry the exact rule.
+epic. It also fixes a failing check, wherever the cause lies. Any other problem
+outside the branch gets one Backlog card with no parent. The stage skills carry
+the exact rule.
 
 A lesson is the common mistake, because it feels valuable and it has no owner.
 Write it into the skill a future session already reads. A card holding a lesson
