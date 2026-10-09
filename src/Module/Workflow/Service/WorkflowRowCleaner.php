@@ -8,6 +8,7 @@ use App\Module\Workflow\Contract\WorkflowRowCleanup;
 use App\Module\Workflow\Repository\WorkflowPendingBaselineRepository;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Module\Workflow\Repository\WorkflowSlotLinkRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\Uid\Uuid;
 
@@ -15,6 +16,7 @@ use Symfony\Component\Uid\Uuid;
 final readonly class WorkflowRowCleaner implements WorkflowRowCleanup
 {
     public function __construct(
+        private EntityManagerInterface $em,
         private WorkflowRuleStateRepository $workflowRuleStates,
         private WorkflowPendingBaselineRepository $workflowPendingBaselines,
         private WorkflowSlotLinkRepository $workflowSlotLinks,
@@ -24,8 +26,12 @@ final readonly class WorkflowRowCleaner implements WorkflowRowCleanup
     #[\Override]
     public function forgetCard(Uuid $cardId): void
     {
-        $this->workflowRuleStates->deleteForCard($cardId);
-        $this->workflowPendingBaselines->consume($cardId);
+        // The evaluation of a card holds this lock for its transaction, so the delete waits for one that is in flight.
+        $this->em->wrapInTransaction(function () use ($cardId): void {
+            $this->workflowRuleStates->lockCard($cardId);
+            $this->workflowRuleStates->deleteForCard($cardId);
+            $this->workflowPendingBaselines->consume($cardId);
+        });
     }
 
     #[\Override]
