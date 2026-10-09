@@ -35,6 +35,7 @@ class SiteReviewCheckStateRepository extends ServiceEntityRepository
             ->setParameter('project', $project)
             ->setParameter('open', PullRequestState::Open)
             ->setParameter('failure', CheckWanted::FAILURE)
+            ->orderBy('pr.number')
             ->getQuery()
             ->getResult();
 

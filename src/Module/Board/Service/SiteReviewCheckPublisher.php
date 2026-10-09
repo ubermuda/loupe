@@ -127,7 +127,8 @@ final readonly class SiteReviewCheckPublisher
             if ($this->checkIsOn($project)) {
                 break;
             }
-            $failure ??= $this->neutralize($state);
+            $cause = $this->neutralize($state);
+            $failure ??= $cause;
             $this->em->flush();
         }
 

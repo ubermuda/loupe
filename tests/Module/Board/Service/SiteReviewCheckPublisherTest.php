@@ -289,12 +289,17 @@ final class SiteReviewCheckPublisherTest extends KernelTestCase
         $failed = $this->openPullRequest($card, 7, 'sha-1');
         $this->verdict($card, 7, [$this->note($card, 'Fix the header')]);
         $this->publish($card);
+        $other = $this->card($this->project, number: 2);
+        $settled = $this->openPullRequest($other, 8, 'sha-2');
+        $this->verdict($other, 8, [$this->note($other, 'Fix the footer')]);
+        $this->publish($other);
         $this->writer->failingNumbers = [7];
         $this->optIn(false);
 
         self::assertSame('permission', $this->settle());
 
         self::assertSame(101, $this->stateOf($failed)->checkRunId);
+        self::assertNull($this->stateOf($settled)->checkRunId);
     }
 
     public function test_a_publish_while_off_turns_the_failed_run_neutral_before_it_drops_the_run(): void
