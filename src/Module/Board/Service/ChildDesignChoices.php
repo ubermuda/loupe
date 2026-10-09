@@ -14,6 +14,7 @@ use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Contract\CardEventCause;
 use App\Module\Workflow\Contract\CardMoveGuard;
+use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Contract\ChildChoices;
 use App\Module\Workflow\Contract\ChildChoiceStep;
 use Doctrine\DBAL\ArrayParameterType;
@@ -82,7 +83,7 @@ final readonly class ChildDesignChoices
             }
         }
         if (null !== $existing) {
-            // The write can change the column, so a move with a `from` slot waits for the check after it.
+            // The write can change the column, so the check stops at a move with a `from` slot, and the check after the write covers it.
             $this->checkMoves($existing, $choice, $cause, withFrom: false);
         }
 
@@ -102,19 +103,27 @@ final readonly class ChildDesignChoices
         });
     }
 
+    /** Checks each move from the column the steps before it reach, as an agent move. */
     private function checkMoves(Card $card, string $choice, ?CardEventCause $cause, bool $withFrom): void
     {
+        $snapshot = $card->snapshot();
         foreach ($this->choices->forProject($card->project->requireId())[$choice] ?? [] as $step) {
-            if (($withFrom || !isset($step->params['from'])) && self::moves($step, $card) && null !== $step->to && !$this->moveGuard->allows($card->snapshot(), $step->to, Actor::Agent, $cause)) {
+            if (MoveCard::KEY !== $step->key || null === $step->to) {
+                continue;
+            }
+            if (isset($step->params['from'])) {
+                if (!$withFrom) {
+                    return;
+                }
+                if (true !== $step->from?->id->equals($snapshot->column->id)) {
+                    continue;
+                }
+            }
+            if (!$this->moveGuard->allows($snapshot, $step->to, Actor::Agent, $cause)) {
                 throw new CardManaged($card->number);
             }
+            $snapshot = new CardSnapshot($snapshot->id, $snapshot->projectId, $snapshot->number, $snapshot->type, $step->to, $snapshot->parentId, $snapshot->parentNumber, $snapshot->parentColumn);
         }
-    }
-
-    /** A move with a `from` slot is skipped when the card sits elsewhere. */
-    private static function moves(ChildChoiceStep $step, Card $card): bool
-    {
-        return MoveCard::KEY === $step->key && (!isset($step->params['from']) || true === $step->from?->id->equals($card->column->ref()->id));
     }
 
     private static function refusal(string $choice, string $code): string
