@@ -77,7 +77,7 @@ final readonly class ChildDesignChoices
         // The card handlers record their audit event outside this transaction, so refuse what can be known before the write.
         $steps = $this->choices->forProject($project->requireId())[$choice] ?? throw new ChildDesignRefused(self::refusal($choice, ChildChoices::NO_CHOICE));
         foreach ($steps as $step) {
-            if (MoveCard::KEY === $step->key && null === $step->to) {
+            if (self::movesAlways($step) && null === $step->to) {
                 throw new ChildDesignRefused(self::refusal($choice, self::SLOT_MISSING));
             }
         }
@@ -104,10 +104,16 @@ final readonly class ChildDesignChoices
     private function checkMoves(Card $card, string $choice, ?CardEventCause $cause): void
     {
         foreach ($this->choices->forProject($card->project->requireId())[$choice] ?? [] as $step) {
-            if (MoveCard::KEY === $step->key && null !== $step->to && !$this->moveGuard->allows($card->snapshot(), $step->to, Actor::Agent, $cause)) {
+            if (self::movesAlways($step) && null !== $step->to && !$this->moveGuard->allows($card->snapshot(), $step->to, Actor::Agent, $cause)) {
                 throw new CardManaged($card->number);
             }
         }
+    }
+
+    /** A move with a `from` slot is skipped when the card sits elsewhere, so only its run can tell. */
+    private static function movesAlways(ChildChoiceStep $step): bool
+    {
+        return MoveCard::KEY === $step->key && !isset($step->params['from']);
     }
 
     private static function refusal(string $choice, string $code): string
