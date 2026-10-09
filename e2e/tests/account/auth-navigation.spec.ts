@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { hubStubbedTest as test } from '../fixtures';
 import { registerAndVerify, submitRedirectingForm } from '../helpers';
 import { coverageScaled } from '../timeouts';
 

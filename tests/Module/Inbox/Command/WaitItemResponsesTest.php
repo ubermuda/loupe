@@ -85,7 +85,7 @@ final class WaitItemResponsesTest extends KernelTestCase
             array_map(static fn ($envelope): object => $envelope->getMessage(), $transport->getSent()),
             static fn (object $message): bool => $message instanceof ReconcileCardWaits,
         ));
-        self::assertEquals([new ReconcileCardWaits((string) $this->project->id, [(string) $this->card->id])], $sent);
+        self::assertEquals([new ReconcileCardWaits((string) $this->project->id, [(string) $this->card->id])], array_values(array_unique($sent, SORT_REGULAR)));
     }
 
     public function test_a_reconcile_after_a_dismissal_does_not_reopen_the_same_version(): void

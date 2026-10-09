@@ -2,9 +2,10 @@
    Props: card (Card), pendingComments (int), documentCount (int), static (bool, optional): a card
    shown outside the board, which does not drag and names its column instead.
    A static card also skips the prefetch. progress (CardProgress, optional) shows on an epic. inLane (bool,
-   optional) hides the parent tag its lane gives. runWarning (CardRunWarning, optional) holds until the server receives a newer run of the card. badges (list<CardBadge>, optional). #}
+   optional) hides the parent tag its lane gives. runWarning (CardRunWarning, optional) holds until the server receives a newer run of the card. badges (list<CardBadge>, optional). state (?CardState, optional) only feeds the digest. #}
 {% set static = static ?? false %}
 {% set badges = badges ?? [] %}
+{% set state = state ?? null %}
 {% set progress = progress ?? null %}
 {% set inLane = inLane ?? false %}
 {% set runWarning = runWarning ?? null %}
@@ -14,7 +15,7 @@
          data-board-filter-target="card"
          data-action="pointerdown->board-drag#press mouseenter->card-prefetch#enter mouseleave->card-prefetch#leave focusin->card-prefetch#enter"
          id="board-card-{{ card.id }}"
-         data-card-digest="{{ card_digest(card, pendingComments, documentCount, progress, runWarning, badges) }}"{% endif %}
+         data-card-digest="{{ card_digest(card, pendingComments, documentCount, progress, runWarning, badges, state) }}"{% endif %}
          data-card-id="{{ card.id }}"
          data-card-type="{{ card.type }}"
          data-card-lane="{{ card_type(card).lane ? 'true' : 'false' }}"

@@ -13,6 +13,7 @@ use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Repository\CardRepository;
@@ -28,6 +29,7 @@ use App\Module\Workflow\Action\ActionParams;
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Action\WorkRequestOpener;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
+use App\Module\Workflow\Condition\CardHasOpenBlocker;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\RuleAsks;
 use App\Module\Workflow\Contract\Unreadable;
@@ -97,6 +99,14 @@ final readonly class Engine
         $run = $this->em->wrapInTransaction(fn (): ?Evaluation => $this->evaluateLocked($cardId, $now));
         if (null === $run) {
             return;
+        }
+        if ($run->holdChanged) {
+            $this->events->dispatch(new CardChanged(
+                $run->card->project->id ?? throw new \LogicException('A persisted project has an id.'),
+                $cardId,
+                CardChanged::UPDATED,
+                false,
+            ));
         }
         if ($run->baselined) {
             $this->logger->info('workflow.card_baselined', ['cardId' => $cardId->toRfc4122()]);
@@ -195,6 +205,7 @@ final readonly class Engine
                     $state->fires = 0;
                 }
                 $state->truth = $bound->truth;
+                $this->markBlockerHold($run, $rule, $state, $bound);
                 $state->fingerprint = $this->fingerprint->of($bound->facts, $rule->when->reads());
                 if ($bound->truth) {
                     // Another pull request gets its own request budget.
@@ -556,6 +567,7 @@ final readonly class Engine
             }
             $this->withdrawAsk($state, self::NO_LONGER_HOLDS);
             $state->truth = false;
+            $this->markBlockerHold($run, $rule, $state, $bound);
             $state->attempts = 0;
             $state->dueAt = null;
             $state->lastRefusal = null;
@@ -578,6 +590,7 @@ final readonly class Engine
             $fire = null !== $run->holdingPause && $run->holdingPause->reason === ActionOutcome::code(ActionParams::string($rule, 'reason'));
         }
         $state->truth = true;
+        $this->markBlockerHold($run, $rule, $state, $bound);
         $state->fingerprint = $fingerprint;
         // A live repair still serves the old subject.
         if (!isset($run->repairing[$rule->id])) {
@@ -695,6 +708,17 @@ final readonly class Engine
         return null !== $subject && $refill->evaluate($subject);
     }
 
+    /** Stamps the first pass in which only an open blocker keeps a move rule false, and clears the stamp on the pass in which it does not. */
+    private function markBlockerHold(Evaluation $run, Rule $rule, WorkflowRuleState $state, BoundRule $bound): void
+    {
+        $held = !$bound->truth && ActionType::Move === $rule->then->type && 1 === $rule->when->countAgainst($bound->facts, true);
+        if ($held) {
+            $blocking = $rule->when->firstFalseLeaf($bound->facts);
+            $held = $blocking?->leaf->condition instanceof CardHasOpenBlocker && $blocking->negated;
+        }
+        $state->heldByBlockerSince = $held ? ($state->heldByBlockerSince ?? $run->now) : null;
+    }
+
     /** Logs once per evaluation each facts class that a rule of the card reads and no provider gives. */
     private function logMissingProviders(Evaluation $run): void
     {
@@ -767,16 +791,20 @@ final readonly class Engine
     private function write(Evaluation $run, WorkflowRuleState $state, \Closure $change): void
     {
         $before = self::snapshot($state);
+        $heldBefore = null !== $state->heldByBlockerSince;
         $change($state);
         if (self::snapshot($state) !== $before) {
             $state->updatedAt = $run->now;
+        }
+        if ($heldBefore !== (null !== $state->heldByBlockerSince)) {
+            $run->holdChanged = true;
         }
     }
 
     /** @return list<mixed> */
     private static function snapshot(WorkflowRuleState $state): array
     {
-        return [$state->truth, $state->attempts, $state->fires, $state->fingerprint, $state->dueAt?->format('U.u'), $state->lastRefusal, $state->lastRefusalAt?->format('U.u'), $state->subjectPullRequestId?->toRfc4122(), $state->workRequestId?->toRfc4122(), $state->repaired, $state->askItemId?->toRfc4122()];
+        return [$state->truth, $state->attempts, $state->fires, $state->fingerprint, $state->dueAt?->format('U.u'), $state->lastRefusal, $state->lastRefusalAt?->format('U.u'), $state->subjectPullRequestId?->toRfc4122(), $state->workRequestId?->toRfc4122(), $state->repaired, $state->askItemId?->toRfc4122(), $state->heldByBlockerSince?->format('U.u')];
     }
 
     private function pause(Evaluation $run, CardPauseKind $kind, string $code, string $ruleId): void

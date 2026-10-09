@@ -119,6 +119,9 @@ final class EngineTest extends KernelTestCase
     /** @var list<CardPaused> */
     private array $paused = [];
 
+    /** @var list<CardChanged> */
+    private array $changed = [];
+
     private RecordingLogger $logger;
 
     private FakeRuleAsks $asks;
@@ -2229,6 +2232,83 @@ final class EngineTest extends KernelTestCase
         self::assertSame('next', $child->column->slug);
     }
 
+    public function test_a_move_rule_that_only_an_open_blocker_keeps_false_stamps_the_hold_and_the_tile_refreshes(): void
+    {
+        $card = $this->heldCard();
+        $this->document($card, 'design');
+        $this->block($card);
+
+        $this->evaluate($card);
+
+        $held = $this->ruleState($card, 'approved')->heldByBlockerSince;
+        self::assertEquals(new \DateTimeImmutable(self::NOON), $held);
+        self::assertCount(1, $this->changed);
+        self::assertTrue($card->id?->equals($this->changed[0]->cardId));
+
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        self::assertEquals($held, $this->ruleState($card, 'approved')->heldByBlockerSince);
+        self::assertCount(1, $this->changed);
+    }
+
+    public function test_the_hold_ends_when_the_blocker_closes(): void
+    {
+        $card = $this->heldCard();
+        $this->document($card, 'design');
+        $this->block($card);
+        $this->evaluate($card);
+        $blocker = $this->service(CardRepository::class)->findOpenBlockersOf($card)[0];
+        $this->moveTo($blocker, 'done');
+
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        self::assertNull($this->ruleState($card, 'approved')->heldByBlockerSince);
+        self::assertSame('in-progress', $card->column->slug);
+        self::assertCount(2, $this->changed);
+    }
+
+    public function test_a_card_without_the_approval_is_not_held_by_its_blocker(): void
+    {
+        $card = $this->heldCard();
+        $this->block($card);
+
+        $this->evaluate($card);
+
+        self::assertNull($this->ruleState($card, 'approved')->heldByBlockerSince);
+        self::assertSame([], $this->changed);
+    }
+
+    public function test_the_hold_ends_when_the_card_leaves_the_slot(): void
+    {
+        $card = $this->heldCard();
+        $this->document($card, 'design');
+        $this->block($card);
+        $this->evaluate($card);
+
+        $this->moveTo($card, 'in-progress');
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        self::assertNull($this->ruleState($card, 'approved')->heldByBlockerSince);
+    }
+
+    public function test_a_request_rule_is_never_a_blocker_hold(): void
+    {
+        $card = $this->boundCard([['id' => 'work', 'slot' => 'one', 'when' => ['not' => ['card.has_open_blocker' => []]], 'then' => ['request' => ['kind' => 'work']]]]);
+        $this->block($card);
+
+        $this->evaluate($card);
+
+        self::assertNull($this->ruleState($card, 'work')->heldByBlockerSince);
+    }
+
+    private function heldCard(): Card
+    {
+        return $this->boundCard([self::moveRule('approved', 'two', ['all' => [
+            ['card.document_approved' => ['tag' => 'design']],
+            ['not' => ['card.has_open_blocker' => []]],
+        ]])]);
+    }
+
     public function test_a_resumed_breakdown_of_the_epic_still_holds_the_child_in_next(): void
     {
         self::bootKernel();
@@ -3043,6 +3123,9 @@ final class EngineTest extends KernelTestCase
         $engineEvents = new EventDispatcher();
         $engineEvents->addListener(CardPaused::class, function (CardPaused $event): void {
             $this->paused[] = $event;
+        });
+        $engineEvents->addListener(CardChanged::class, function (CardChanged $event): void {
+            $this->changed[] = $event;
         });
 
         return new Engine(

@@ -1,7 +1,8 @@
 {# One card as a row of the list view. Props: card (Card), column (BoardColumn), feedbackCount (int), documentCount (int),
-   progress (?CardProgress), runWarning (?CardRunWarning), badges (list<CardBadge>, optional). The row takes the card face's
+   progress (?CardProgress), runWarning (?CardRunWarning), badges (list<CardBadge>, optional), state (?CardState, optional). The row takes the card face's
    inputs, so both carry one digest. #}
 {% set badges = badges ?? [] %}
+{% set state = state ?? null %}
 <a class="lp-board-list__row"
    id="board-row-{{ card.id }}"
    href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}"
@@ -10,7 +11,7 @@
    data-board-filter-target="row"
    data-card-id="{{ card.id }}"
    data-column-id="{{ column.id }}"
-   data-card-digest="{{ card_digest(card, feedbackCount, documentCount, progress, runWarning, badges) }}"
+   data-card-digest="{{ card_digest(card, feedbackCount, documentCount, progress, runWarning, badges, state) }}"
    data-card-title="{{ card.title }}">
     <span class="lp-board-list__work"><strong>#{{ card.number }} {{ card.title }}</strong>{% if badges is not empty %}{% include '@Board/_card_badges.html.twig' with {badges: badges} only %}{% endif %}</span>
     <span>{% include '@Board/_card_type_tag.html.twig' with {card: card} only %}{% include '@Board/_card_source_tag.html.twig' with {card: card} only %}</span>
