@@ -5,7 +5,7 @@ description: "When work happens, and which work a card needs, is a rule of the w
 
 ## Status
 
-Proposed on 2026-10-09.
+Accepted on 2026-10-09.
 
 ## Context
 
