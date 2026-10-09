@@ -34,6 +34,17 @@ final readonly class MetricRowSource
             : $this->cardRows($project, $metric, $group, $from, $bucketName);
     }
 
+    /** Reads the same runs as a run query with no stage grouping. */
+    public function bucketTimes(Project $project, ?\DateTimeImmutable $from): BucketTimes
+    {
+        $facts = $this->workerRunFacts->findClosedSince($project, $from, false);
+
+        return new BucketTimes(
+            \count($facts),
+            [] === $facts ? [] : $this->workerRunBucketTimes->findAllMillisecondsOfRuns(array_map(static fn (WorkerRunFact $fact): Uuid => $fact->runId, $facts)),
+        );
+    }
+
     /** @return list<MetricRow> */
     private function runRows(Project $project, Metric $metric, MetricGroup $group, ?\DateTimeImmutable $from, ?string $bucketName): array
     {
