@@ -17,6 +17,7 @@ Merge one card's pull request when it is ready, or bring a branch that is behind
 6. Never approve the pull request. Never pass `--admin`, `--auto` or `--rebase`, and never skip a branch protection.
 7. Write in the writing style of the profile.
 8. Never end your turn while a command runs in the background.
+9. Create no card. Name a problem you find in the `STAGE RESULT` line, and the fix round or the owner takes it.
 
 ## Procedure
 
