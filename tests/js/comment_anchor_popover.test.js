@@ -169,3 +169,34 @@ it('leaves the composer open when Escape closes a thread', async () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     expect(composer.hidden).toBe(true);
 });
+
+it('opens the thread the URL hash names and scrolls its passage into view', async () => {
+    const scrolled = [];
+    Element.prototype.scrollIntoView = function () {
+        scrolled.push(this);
+    };
+    window.location.hash = '#comment-thread-late';
+    try {
+        await mount();
+    } finally {
+        window.location.hash = '';
+        delete Element.prototype.scrollIntoView;
+    }
+
+    expect(opened).toEqual([cardOf('late')]);
+    expect(rowOf('late').getAttribute('aria-expanded')).toBe('true');
+    expect(scrolled).toEqual([
+        document.querySelector('[data-comment-anchor-target="doc"]'),
+    ]);
+});
+
+it('opens nothing when the URL hash names no thread of the page', async () => {
+    window.location.hash = '#comment-thread-missing';
+    try {
+        await mount();
+    } finally {
+        window.location.hash = '';
+    }
+
+    expect(opened).toEqual([]);
+});

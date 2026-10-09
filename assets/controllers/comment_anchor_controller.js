@@ -176,6 +176,12 @@ export default class extends Controller {
         this.pressedOpenCard = null;
         this.threadToReopen = null;
         this.placementFrame = null;
+        // A restored comment links here with its card id as the fragment.
+        this.threadIdFromHash = window.location.hash.startsWith(
+            '#comment-thread-',
+        )
+            ? window.location.hash.slice(1)
+            : null;
         this.#restoreHideResolved();
         this.#hideToolbar();
         this.#hideComposer();
@@ -1716,6 +1722,29 @@ export default class extends Controller {
             this.#markOpenThread(this.openCard);
         }
         this.threadToReopen = null;
+
+        if (this.threadIdFromHash !== null) {
+            this.#openThreadFromHash(this.threadIdFromHash);
+            this.threadIdFromHash = null;
+        }
+    }
+
+    #openThreadFromHash(id) {
+        const card = this.threadTargets.find((thread) => thread.id === id);
+        if (card === undefined || !card.hasAttribute('popover')) {
+            return;
+        }
+        const passage = this.anchorRanges.get(card)?.startContainer;
+        if (passage === undefined) {
+            this.#revealThread(card);
+        } else {
+            const element =
+                passage.nodeType === Node.ELEMENT_NODE
+                    ? passage
+                    : passage.parentElement;
+            element?.scrollIntoView({ block: 'center', behavior: 'auto' });
+        }
+        this.#openThread(card);
     }
 
     /**
