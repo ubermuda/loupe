@@ -127,8 +127,10 @@ final class DiffDocumentVersionsController extends AppController
             'verdictAvailable' => $view->isCurrent,
             'diffCommenting' => $view->commentingEnabled,
             'decisions' => $view->decisions,
-            // A Decisions row leads to the current document, the one page that takes an answer.
-            'diffDocumentUrl' => $this->generateUrl('app_document_review', $routeParameters),
+            // The page a Decisions row leads to: the newer side, read as a document.
+            'diffDocumentUrl' => $view->isCurrent
+                ? $this->generateUrl('app_document_review', $routeParameters)
+                : $this->generateUrl('app_document_review_version', [...$routeParameters, 'versionNumber' => $view->version->versionNumber]),
             'review' => $view->review,
             'submitReviewForm' => $submitReviewForm,
             'undoVerdictForm' => $undoVerdictForm,

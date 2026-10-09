@@ -17,16 +17,24 @@ export default class extends Controller {
                 return;
             }
             this.width = entry.contentRect.width;
-            // A frame later: a resize inside the callback re-enters it.
-            window.cancelAnimationFrame(this.frame);
-            this.frame = window.requestAnimationFrame(() => this.align());
+            this.schedule();
         });
         this.observer.observe(this.element);
+        // An image that loads late grows its row without changing the width.
+        this.onLoad = () => this.schedule();
+        this.element.addEventListener('load', this.onLoad, true);
     }
 
     disconnect() {
         this.observer.disconnect();
+        this.element.removeEventListener('load', this.onLoad, true);
         window.cancelAnimationFrame(this.frame);
+    }
+
+    // A frame later: a resize inside the callback re-enters it.
+    schedule() {
+        window.cancelAnimationFrame(this.frame);
+        this.frame = window.requestAnimationFrame(() => this.align());
     }
 
     align() {
