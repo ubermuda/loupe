@@ -14,4 +14,6 @@ enum ForgeWriteKind: string
     case Ready = 'ready';
     case Close = 'close';
     case OpenEpic = 'open-epic';
+    case PostReview = 'post-review';
+    case SiteReviewCheck = 'site-review-check';
 }

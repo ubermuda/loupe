@@ -755,7 +755,7 @@ test('a completed review leaves another tabs unsent review recoverable', async (
     context,
     review,
 }) => {
-    // Two tabs, a submit with its redirect and two page loads, after a login
+    // Two tabs, a submit with its redirect and three page loads, after a login
     // that took 15 s of the 30 s budget on a loaded runner.
     test.slow();
     await page

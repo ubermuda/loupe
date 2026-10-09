@@ -27,14 +27,14 @@ final class ActionDeclarationsTest extends TestCase
     /** @return iterable<string, array{class-string<Action>, string, string, ActionTraits}> */
     public static function declarations(): iterable
     {
-        yield 'move' => [MoveCard::class, 'move', 'workflow.source.board', new ActionTraits(endsPass: true, option: true)];
+        yield 'move' => [MoveCard::class, 'move', 'workflow.source.board', new ActionTraits(endsPass: true, option: true, childChoice: true)];
         yield 'request' => [RequestWork::class, 'request', 'workflow.source.bridge', new ActionTraits(countsTowardLimit: true, refreshesFacts: true)];
         yield 'forge-write' => [ForgeWrite::class, 'forge-write', 'workflow.source.forge', new ActionTraits(countsTowardLimit: true)];
         yield 'pause' => [PauseCard::class, 'pause', 'workflow.source.board', new ActionTraits()];
         yield 'release' => [ReleasePause::class, 'release', 'workflow.source.board', new ActionTraits()];
         yield 'evaluate' => [EvaluateChildren::class, 'evaluate', 'workflow.source.board', new ActionTraits()];
         yield 'ask' => [Ask::class, 'ask', 'workflow.source.board', new ActionTraits()];
-        yield 'link-document' => [LinkDocument::class, 'link-document', 'workflow.source.board', new ActionTraits(option: true)];
+        yield 'link-document' => [LinkDocument::class, 'link-document', 'workflow.source.board', new ActionTraits(option: true, childChoice: true)];
         yield 'detach' => [Detach::class, 'detach', 'workflow.source.board', new ActionTraits(option: true)];
     }
 

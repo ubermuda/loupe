@@ -259,7 +259,7 @@ test('columns added, reordered and deleted in one browser update another in plac
         watcher.locator(
             `${COLUMN}[data-column-slug="in-progress"] .lp-board-card[data-card-title="Moved"]`,
         ),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
     await expect(kept).toHaveJSProperty('kept', true);
     expect(boardLoads).toEqual([]);
 

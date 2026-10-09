@@ -249,6 +249,105 @@ final class ShowMetricsControllerTest extends WebTestCase
         self::assertSame('#9', trim($row->filter('a')->text()));
     }
 
+    public function test_the_picker_lists_one_option_for_each_bucket_with_data(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'metrics-bucket-picker@example.com');
+        $project = $this->project($em, $owner, 'Bucket picker');
+        $this->seedBucketTimes($em, $this->seedRun($em, $project), ['tests' => 10, 'git' => 5]);
+        $this->seedBucketTimes($em, $this->seedRun($em, $project), ['tests' => 20]);
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/metrics');
+
+        self::assertResponseIsSuccessful();
+        $select = $crawler->filter('form[data-metrics-form] select[name="metric"]');
+        self::assertCount(11, $select->children('option'));
+        $group = $select->filter('optgroup');
+        self::assertCount(1, $group);
+        self::assertSame('Time buckets', $group->attr('label'));
+        self::assertSame(['bucket-time:git', 'bucket-time:tests'], $group->filter('option')->each(static fn (Crawler $option): string => (string) $option->attr('value')));
+        self::assertSame(['Time in git', 'Time in tests'], $group->filter('option')->each(static fn (Crawler $option): string => trim($option->text())));
+        self::assertCount(0, $group->filter('option[selected]'));
+        self::assertSame('cost', $select->filter('option[selected]')->attr('value'));
+    }
+
+    public function test_a_bucket_metric_shows_the_time_of_its_bucket_and_leaves_a_run_with_no_data_out(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'metrics-bucket-rows@example.com');
+        $project = $this->project($em, $owner, 'Bucket rows');
+        $this->seedBucketTimes($em, $this->seedRun($em, $project, cardNumber: 4, endedAt: new \DateTimeImmutable('2026-09-03 10:05:00')), ['tests' => 4000, 'git' => 1000]);
+        $this->seedBucketTimes($em, $this->seedRun($em, $project, cardNumber: 5, endedAt: new \DateTimeImmutable('2026-09-02 10:05:00')), ['git' => 700]);
+        $this->seedRun($em, $project, cardNumber: 6, endedAt: new \DateTimeImmutable('2026-09-01 10:05:00'));
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/metrics?metric=bucket-time:tests&unit=run&statistic=sum&range=all&bucket=day');
+
+        self::assertResponseIsSuccessful();
+        $form = $crawler->filter('form[data-metrics-form]');
+        self::assertSame(['bucket-time:tests'], $form->filter('select[name="metric"] option[selected]')->each(static fn (Crawler $option): string => (string) $option->attr('value')));
+        self::assertSame(['run', 'card'], self::options($form, 'unit'));
+
+        $summary = $crawler->filter('[data-metrics-summary] [data-metrics-series="none"]');
+        self::assertSame('Time in tests', trim($summary->filter('dt')->text()));
+        self::assertSame('4 s', trim($summary->filter('.lp-metric-summary__value')->text()));
+        self::assertStringContainsString('Time in tests', (string) $crawler->filter('[data-metrics-chart] svg')->attr('aria-label'));
+
+        $table = $crawler->filter('[data-metrics-table] [data-metrics-series="none"]');
+        self::assertSame('Time in tests', trim($table->filter('thead th')->eq(1)->text()));
+        self::assertSame(['4 s', '0 ms', 'unknown'], $table->filter('tbody td.lp-metric-table__number')->each(static fn (Crawler $cell): string => trim($cell->text())));
+    }
+
+    public function test_a_numeric_bucket_name_selects_only_its_own_option(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'metrics-bucket-numeric@example.com');
+        $project = $this->project($em, $owner, 'Bucket numeric');
+        $this->seedBucketTimes($em, $this->seedRun($em, $project), ['1' => 10, '01' => 5]);
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/metrics?metric=bucket-time:1&unit=run&range=all');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['bucket-time:1'], $crawler->filter('form[data-metrics-form] select[name="metric"] option[selected]')->each(static fn (Crawler $option): string => (string) $option->attr('value')));
+    }
+
+    public function test_a_valid_bucket_with_no_time_shows_zero_on_the_runs_with_data(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'metrics-bucket-empty@example.com');
+        $project = $this->project($em, $owner, 'Bucket empty');
+        $this->seedBucketTimes($em, $this->seedRun($em, $project, cardNumber: 4, endedAt: new \DateTimeImmutable('2026-09-02 10:05:00')), ['git' => 700]);
+        $this->seedRun($em, $project, cardNumber: 5, endedAt: new \DateTimeImmutable('2026-09-01 10:05:00'));
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/analytics/metrics?metric=bucket-time:deploy&unit=run&statistic=count&range=all');
+
+        self::assertResponseIsSuccessful();
+        $group = $crawler->filter('form[data-metrics-form] select[name="metric"] optgroup');
+        self::assertSame(['bucket-time:deploy', 'bucket-time:git'], $group->filter('option')->each(static fn (Crawler $option): string => (string) $option->attr('value')));
+        self::assertSame('bucket-time:deploy', $group->filter('option[selected]')->attr('value'));
+
+        $summary = $crawler->filter('[data-metrics-summary] [data-metrics-series="none"]');
+        self::assertSame('Time in deploy', trim($summary->filter('dt')->text()));
+        self::assertSame('1', trim($summary->filter('.lp-metric-summary__value')->text()));
+        $table = $crawler->filter('[data-metrics-table] [data-metrics-series="none"]');
+        self::assertSame(['0 ms', 'unknown'], $table->filter('tbody td.lp-metric-table__number')->each(static fn (Crawler $cell): string => trim($cell->text())));
+    }
+
     public function test_another_users_project_is_refused(): void
     {
         $client = static::createClient();

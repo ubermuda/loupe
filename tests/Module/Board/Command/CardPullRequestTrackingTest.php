@@ -12,7 +12,10 @@ use App\Module\Board\Command\DeleteCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\SiteReviewCheckState;
+use App\Module\Board\Messenger\NeutralizeSiteReviewCheck;
 use App\Module\Board\Repository\CardPullRequestRepository;
+use App\Module\Board\Repository\SiteReviewCheckStateRepository;
 use App\Module\Board\Service\PullRequestTracking;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Forge\Service\PullRequestStateReader;
@@ -20,11 +23,13 @@ use App\Module\Forge\Service\PullRequestStateReaders;
 use App\Module\Forge\Service\PullRequestTracker;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Contract\Actor;
+use App\Module\Workflow\Messenger\EvaluateCard;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
 final class CardPullRequestTrackingTest extends KernelTestCase
 {
@@ -55,6 +60,8 @@ final class CardPullRequestTrackingTest extends KernelTestCase
         self::assertInstanceOf(MessageBusInterface::class, $bus);
         $clock = $container->get(ClockInterface::class);
         self::assertInstanceOf(ClockInterface::class, $clock);
+        $checkStates = $container->get(SiteReviewCheckStateRepository::class);
+        self::assertInstanceOf(SiteReviewCheckStateRepository::class, $checkStates);
 
         // A reader for every forge, so only the board decides which links are tracked.
         $reader = $this->createStub(PullRequestStateReader::class);
@@ -62,6 +69,8 @@ final class CardPullRequestTrackingTest extends KernelTestCase
         $container->set(PullRequestTracking::class, new PullRequestTracking(
             $links,
             new PullRequestTracker($forgePullRequests, new PullRequestStateReaders([$reader]), $bus, $clock),
+            $checkStates,
+            $bus,
         ));
 
         $owner = new User(fullName: 'Riley', email: 'board-tracking-'.uniqid().'@example.com', password: 'hashed');
@@ -70,6 +79,7 @@ final class CardPullRequestTrackingTest extends KernelTestCase
         $this->em->persist($this->project);
         $this->seedColumns($this->project);
         $this->em->flush();
+        $this->transport()->reset();
     }
 
     public function test_a_new_card_tracks_its_github_pull_request(): void
@@ -133,6 +143,112 @@ final class CardPullRequestTrackingTest extends KernelTestCase
         ($this->handler(DeleteCardHandler::class))(new DeleteCardCommand($card, Actor::Human));
 
         self::assertSame([['acme/widgets', 42]], $this->tracked());
+    }
+
+    public function test_dropping_a_shared_link_evaluates_the_other_card_and_the_card_itself(): void
+    {
+        $first = $this->create([self::PULL_REQUEST]);
+        $second = $this->create([self::PULL_REQUEST]);
+        $this->transport()->reset();
+
+        $this->update($first, []);
+
+        self::assertEqualsCanonicalizing($this->ids($first, $second), $this->evaluated());
+    }
+
+    public function test_adding_a_shared_link_evaluates_the_other_card_and_the_card_itself(): void
+    {
+        $first = $this->create([self::PULL_REQUEST]);
+        $second = $this->create([]);
+        $this->transport()->reset();
+
+        $this->update($second, [self::PULL_REQUEST]);
+
+        self::assertEqualsCanonicalizing($this->ids($first, $second), $this->evaluated());
+    }
+
+    public function test_resubmitting_the_same_links_evaluates_nothing(): void
+    {
+        $first = $this->create([self::PULL_REQUEST]);
+        $this->create([self::PULL_REQUEST]);
+        $this->transport()->reset();
+
+        $this->update($first, [self::PULL_REQUEST]);
+
+        self::assertSame([], $this->evaluated());
+    }
+
+    public function test_deleting_a_card_evaluates_the_other_cards_on_its_pull_request(): void
+    {
+        $first = $this->create([self::PULL_REQUEST]);
+        $second = $this->create([self::PULL_REQUEST]);
+        $this->transport()->reset();
+
+        ($this->handler(DeleteCardHandler::class))(new DeleteCardCommand($first, Actor::Human));
+
+        self::assertContains($this->ids($second)[0], $this->evaluated());
+    }
+
+    public function test_dropping_the_last_link_queues_a_neutral_write_for_a_failed_check(): void
+    {
+        $card = $this->create([self::PULL_REQUEST]);
+        $row = $this->forgePullRequests->findBy(['project' => $this->project])[0];
+        $this->em->persist(new SiteReviewCheckState($row, 'sha-1', 'failure', 1, 77));
+        $this->em->flush();
+        $this->transport()->reset();
+
+        ($this->handler(DeleteCardHandler::class))(new DeleteCardCommand($card, Actor::Human));
+
+        $neutralized = array_values(array_filter(
+            array_map(static fn ($envelope) => $envelope->getMessage(), $this->transport()->getSent()),
+            static fn (object $message): bool => $message instanceof NeutralizeSiteReviewCheck,
+        ));
+        self::assertCount(1, $neutralized);
+        self::assertSame(['github', 'acme/widgets', 42, 'sha-1', 77], [$neutralized[0]->forge, $neutralized[0]->repository, $neutralized[0]->number, $neutralized[0]->headSha, $neutralized[0]->runId]);
+    }
+
+    public function test_dropping_the_last_link_of_a_passing_check_queues_no_neutral_write(): void
+    {
+        $card = $this->create([self::PULL_REQUEST]);
+        $row = $this->forgePullRequests->findBy(['project' => $this->project])[0];
+        $this->em->persist(new SiteReviewCheckState($row, 'sha-1', 'success', 0, 77));
+        $this->em->flush();
+        $this->transport()->reset();
+
+        $this->update($card, []);
+
+        self::assertSame([], array_filter(
+            array_map(static fn ($envelope) => $envelope->getMessage(), $this->transport()->getSent()),
+            static fn (object $message): bool => $message instanceof NeutralizeSiteReviewCheck,
+        ));
+    }
+
+    private function transport(): InMemoryTransport
+    {
+        $transport = self::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transport);
+
+        return $transport;
+    }
+
+    /** @return list<string> the card ids of the queued evaluations */
+    private function evaluated(): array
+    {
+        $ids = [];
+        foreach ($this->transport()->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if ($message instanceof EvaluateCard) {
+                $ids[] = $message->cardId;
+            }
+        }
+
+        return $ids;
+    }
+
+    /** @return list<string> */
+    private function ids(Card ...$cards): array
+    {
+        return array_values(array_map(static fn (Card $card): string => ($card->id ?? throw new \LogicException('A flushed card has an id.'))->toRfc4122(), $cards));
     }
 
     /** @return list<array{string, int}> */

@@ -9,11 +9,12 @@ use App\Module\Workflow\Contract\ReadsDocumentTag;
 final readonly class Template
 {
     /**
-     * @param list<TemplateCardType> $types
-     * @param list<Slot>             $slots
-     * @param list<Rule>             $rules
-     * @param list<ManualMove>       $manualMoves
-     * @param list<int>              $backoffMinutes
+     * @param list<TemplateCardType>          $types
+     * @param list<Slot>                      $slots
+     * @param list<Rule>                      $rules
+     * @param list<ManualMove>                $manualMoves
+     * @param list<int>                       $backoffMinutes
+     * @param array<string, list<ActionCall>> $childChoices   the actions of each choice an agent states for a card it files under a parent, by `inherit` or `own`
      */
     public function __construct(
         public string $key,
@@ -26,6 +27,7 @@ final readonly class Template
         public array $types,
         public string $defaultType,
         public ?WorkFailurePolicy $onWorkFailed = null,
+        public array $childChoices = [],
     ) {
     }
 
