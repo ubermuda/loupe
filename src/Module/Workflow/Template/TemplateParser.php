@@ -492,9 +492,9 @@ final readonly class TemplateParser
             }
 
             $unknownAction = null === $then ? null : self::unknownAction($then);
-            if (null !== $unknownAction && null !== $when) {
+            if (null !== $then && null !== $unknownAction && null !== $when) {
                 $when = new AllOf([new MissingActionLeaf($unknownAction), $when]);
-                $then = $this->actions->call(MissingAction::KEY, ['name' => $unknownAction]);
+                $then = new ActionCall(MissingAction::KEY, ['name' => $unknownAction], traits: MissingAction::traits(), from: $then->from);
             }
 
             if (\count($errors) === $errorCount && null !== $when && null !== $then && (null === $slot || \is_string($slot))) {
@@ -638,7 +638,9 @@ final readonly class TemplateParser
         $value = $node[$name];
         if (!$this->actions->has($name) || MissingAction::KEY === $name) {
             if ($lenient) {
-                return $this->actions->call(MissingAction::KEY, ['name' => $name]);
+                $from = \is_array($value) && \is_string($value['from'] ?? null) && \in_array($value['from'], $slotKeys, true) ? $value['from'] : null;
+
+                return new ActionCall(MissingAction::KEY, ['name' => $name], traits: MissingAction::traits(), from: $from);
             }
             $errors[] = \sprintf('%s: unknown action "%s"', $where, $name);
 

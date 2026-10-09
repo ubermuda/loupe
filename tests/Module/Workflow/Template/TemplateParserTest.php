@@ -1066,6 +1066,18 @@ final class TemplateParserTest extends TestCase
         self::assertEquals(new Unreadable(UnreadableKind::MissingAction, 'jump'), $rule->when->unreadable(FactsMother::facts()));
     }
 
+    public function test_a_stored_copy_keeps_the_from_slot_of_an_unknown_action_when_the_template_has_it(): void
+    {
+        $template = self::valid();
+        $template['rules'][1]['then'] = ['jump' => ['from' => 'review']];
+        $template['rules'][2]['then'] = ['jump' => ['from' => 'nowhere']];
+
+        $rules = $this->parser->parseStored($template)->rules;
+
+        self::assertSame('review', $rules[1]->then->from);
+        self::assertNull($rules[2]->then->from);
+    }
+
     public function test_a_stored_copy_makes_a_rule_unknown_when_an_ask_option_names_an_unknown_action(): void
     {
         $template = self::valid();
