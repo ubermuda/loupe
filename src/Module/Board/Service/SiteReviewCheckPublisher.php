@@ -67,6 +67,14 @@ final readonly class SiteReviewCheckPublisher
             }
 
             $runId = null;
+            if (!$optedIn && null !== $state && null !== $state->checkRunId && CheckWanted::FAILURE === $state->conclusion) {
+                $cause = $this->neutralize($state);
+                if (null !== $cause) {
+                    $failure ??= $cause;
+
+                    continue;
+                }
+            }
             if ($optedIn) {
                 $writer = $this->writers->for($pullRequest->forge);
                 if (null === $writer) {
@@ -116,30 +124,50 @@ final readonly class SiteReviewCheckPublisher
     {
         $failure = null;
         foreach ($this->siteReviewCheckStates->findPostedFailuresOnOpenPullRequests($project) as $state) {
-            $writer = $this->writers->for($state->pullRequest->forge);
-            if (null === $writer) {
-                continue;
+            if ($this->checkIsOn($project)) {
+                break;
             }
-            try {
-                $writer->publish(
-                    $state->pullRequest,
-                    self::NAME,
-                    $state->headSha,
-                    PullRequestCheckConclusion::Neutral,
-                    $this->translator->trans('board.site_review_check.title_off'),
-                    $this->translator->trans('board.site_review_check.summary_off'),
-                    $state->checkRunId,
-                );
-            } catch (PullRequestCheckFailed $e) {
-                $failure ??= $e->cause;
-
-                continue;
-            }
-            $state->checkRunId = null;
+            $failure ??= $this->neutralize($state);
             $this->em->flush();
         }
 
         return $failure;
+    }
+
+    /** Reads the setting from the database, because another worker can switch it while this one writes. */
+    private function checkIsOn(Project $project): bool
+    {
+        $settings = $this->boardAutomation->settingsOf($project);
+        if ($this->em->contains($settings)) {
+            $this->em->refresh($settings);
+        }
+
+        return $settings->siteReviewCheck;
+    }
+
+    /** @return ?string the cause when the forge refused the write, which keeps the run id */
+    private function neutralize(SiteReviewCheckState $state): ?string
+    {
+        $writer = $this->writers->for($state->pullRequest->forge);
+        if (null === $writer || null === $state->checkRunId) {
+            return null;
+        }
+        try {
+            $writer->publish(
+                $state->pullRequest,
+                self::NAME,
+                $state->headSha,
+                PullRequestCheckConclusion::Neutral,
+                $this->translator->trans('board.site_review_check.title_off'),
+                $this->translator->trans('board.site_review_check.summary_off'),
+                $state->checkRunId,
+            );
+        } catch (PullRequestCheckFailed $e) {
+            return $e->cause;
+        }
+        $state->checkRunId = null;
+
+        return null;
     }
 
     private function title(CheckWanted $check): string

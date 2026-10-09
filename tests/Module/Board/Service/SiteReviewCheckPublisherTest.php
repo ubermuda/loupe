@@ -290,10 +290,42 @@ final class SiteReviewCheckPublisherTest extends KernelTestCase
         $this->verdict($card, 7, [$this->note($card, 'Fix the header')]);
         $this->publish($card);
         $this->writer->failingNumbers = [7];
+        $this->optIn(false);
 
         self::assertSame('permission', $this->settle());
 
         self::assertSame(101, $this->stateOf($failed)->checkRunId);
+    }
+
+    public function test_a_publish_while_off_turns_the_failed_run_neutral_before_it_drops_the_run(): void
+    {
+        $card = $this->card($this->project);
+        $pullRequest = $this->openPullRequest($card, 7, 'sha-1');
+        $this->verdict($card, 7, [$this->note($card, 'Fix the header')]);
+        $this->publish($card);
+        $this->writer->published = [];
+        $this->optIn(false);
+        $pullRequest->headSha = 'sha-2';
+
+        self::assertNull($this->publish($card));
+
+        self::assertCount(1, $this->writer->published);
+        self::assertSame(['sha-1', PullRequestCheckConclusion::Neutral, 101], [$this->writer->published[0]['sha'], $this->writer->published[0]['conclusion'], $this->writer->published[0]['runId']]);
+        self::assertSame(['sha-2', null], [$this->stateOf($pullRequest)->headSha, $this->stateOf($pullRequest)->checkRunId]);
+    }
+
+    public function test_settle_leaves_the_runs_when_the_check_is_on_again(): void
+    {
+        $card = $this->card($this->project);
+        $pullRequest = $this->openPullRequest($card, 7, 'sha-1');
+        $this->verdict($card, 7, [$this->note($card, 'Fix the header')]);
+        $this->publish($card);
+        $this->writer->published = [];
+
+        self::assertNull($this->settle());
+
+        self::assertSame([], $this->writer->published);
+        self::assertSame(101, $this->stateOf($pullRequest)->checkRunId);
     }
 
     private function settle(): ?string
