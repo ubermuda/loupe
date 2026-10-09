@@ -142,10 +142,10 @@ it. An agent ends a pause with the `card_pause_release` MCP tool.
 
 A rule can write to a pull request: merge it, update its branch, change its
 base, open an epic pull request, switch it between draft and ready, or close
-it. Each
-write is off until the owner turns it on, on the **Automation** tab. With a
-write off, the rule asks a bridge for the same work instead. See
-[Automation](board.md#automation).
+it. The rule
+alone decides each write, and the write happens when the rule fires. When the
+project has no GitHub App installation, the rule asks a bridge for the same work
+instead. See [Automation](board.md#automation).
 
 Two more writes come from the [rules the app adds](#rules-the-app-adds). They
 act on a site-review verdict, and they never ask a bridge for work:
@@ -157,12 +157,6 @@ act on a site-review verdict, and they never ask a bridge for work:
 
 A review that the reviewer sends on their own pull request becomes a comment,
 because GitHub refuses a review from the author of a pull request.
-
-With its opt-in off, a write still settles its rows. A verdict is then stored,
-marked as not sent, and a later verdict starts a new write. The review write
-marks the delivery as skipped. The check write records what it would have
-posted. Turning an opt-in on later posts nothing for a verdict that was settled
-before.
 
 ## The Lifecycle template
 

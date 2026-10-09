@@ -31,7 +31,6 @@ final readonly class VerdictReviewSettler
 
     public function __construct(
         private CardVerdictDeliveryRepository $cardVerdictDeliveries,
-        private BoardAutomation $boardAutomation,
         private PullRequestReviewPosters $posters,
         private ReviewerForgeAccount $forgeAccount,
         private ReadPullRequestStateHandler $readPullRequestState,
@@ -49,11 +48,10 @@ final readonly class VerdictReviewSettler
      */
     public function settle(Card $card): SiteReviewWriteResult
     {
-        $optedIn = $this->boardAutomation->settingsOf($card->project)->postWidgetReviews;
         $transient = null;
         $changed = false;
         foreach ($this->cardVerdictDeliveries->findPendingForCard($card) as $delivery) {
-            $cause = $this->settleOne($delivery, $optedIn);
+            $cause = $this->settleOne($delivery);
             $transient ??= $cause;
             $changed = $changed || null === $cause;
             $this->em->flush();
@@ -62,11 +60,8 @@ final readonly class VerdictReviewSettler
         return new SiteReviewWriteResult($transient, $changed);
     }
 
-    private function settleOne(CardVerdictDelivery $delivery, bool $optedIn): ?string
+    private function settleOne(CardVerdictDelivery $delivery): ?string
     {
-        if (!$optedIn) {
-            return $this->finish($delivery, CardVerdictDeliveryState::Skipped);
-        }
         $pullRequest = $delivery->pullRequest;
         if (!self::isOpen($pullRequest)) {
             return $this->finish($delivery, CardVerdictDeliveryState::Skipped, self::REASON_NOT_OPEN);

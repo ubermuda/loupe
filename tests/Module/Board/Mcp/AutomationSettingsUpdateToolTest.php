@@ -126,7 +126,6 @@ final class AutomationSettingsUpdateToolTest extends KernelTestCase
         self::assertTrue($stored->openEpicPullRequests);
         self::assertSame('feature/epic-{number}', $stored->epicBranchPattern);
         self::assertCount(1, $saved->events);
-        self::assertTrue($saved->events[0]->openEpicTurnedOn);
     }
 
     public function test_an_empty_pattern_turns_epic_branches_off(): void

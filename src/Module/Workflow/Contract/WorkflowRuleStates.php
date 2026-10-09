@@ -18,12 +18,4 @@ interface WorkflowRuleStates
      * @param non-empty-list<Uuid> $cardIds
      */
     public function rearmCards(array $cardIds, \DateTimeImmutable $now): void;
-
-    /**
-     * Rearms each rule of the project that the action refused with this code: it releases the retry pause, or makes the wait due now.
-     * A card with a pending baseline is left alone. Answers the cards whose rule runs again.
-     *
-     * @return list<Uuid>
-     */
-    public function rearmRefused(Uuid $projectId, string $refusal, string $releaseReason): array;
 }

@@ -7,7 +7,6 @@ namespace App\Module\Board\Workflow;
 use App\Exception\DomainErrors;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
-use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
@@ -35,20 +34,17 @@ use App\Module\Workflow\Contract\CardTypeCatalog;
 use App\Module\Workflow\Contract\ChecksParameters;
 use App\Module\Workflow\Contract\Parameter;
 use App\Module\Workflow\Contract\ParameterType;
-use App\Module\Workflow\Contract\WorkflowRefusal;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * Writes to the pull request the rule acts on through the forge. A state write goes to each
- * pull request of the card. A write the project did not opt into, or that no writer of the forge supports, opens the fallback
+ * pull request of the card. A write that no writer of the forge supports opens the fallback
  * work instead. A state write with no fallback then does nothing. The epic opening acts on an epic with no pull request:
  * it opens the pull request of the epic branch and links it to the epic, and it has no fallback.
  */
 final readonly class ForgeWrite implements Action, ChecksParameters
 {
-    public const string OPEN_EPIC_OFF = WorkflowRefusal::OPEN_EPIC_OFF;
-
     public const string KEY = 'forge-write';
     private const array WRITES_WITHOUT_FALLBACK = ['draft', 'ready', 'close', 'open-epic', 'post-review', 'site-review-check'];
 
@@ -149,9 +145,7 @@ final readonly class ForgeWrite implements Action, ChecksParameters
                 return ActionOutcome::done();
             }
 
-            return self::optedIn($write, $this->boardAutomation->settingsOf($card->project))
-                ? $this->writeStates($pullRequests, $write, $fallback)
-                : $fallback();
+            return $this->writeStates($pullRequests, $write, $fallback);
         }
 
         $pullRequest = $this->cardPullRequests->subjectOf($pullRequests, $facts->pullRequest);
@@ -161,10 +155,6 @@ final readonly class ForgeWrite implements Action, ChecksParameters
         if (ForgeWriteKind::Comment === $write) {
             return ActionOutcome::refused('unsupported-write');
         }
-        if (!self::optedIn($write, $this->boardAutomation->settingsOf($card->project))) {
-            return $fallback();
-        }
-
         try {
             return match ($write) {
                 ForgeWriteKind::Merge => $this->forgeWrite(fn () => $this->forgePullRequestWrites->merge($pullRequest, $this->mergeMethod), $fallback),
@@ -174,21 +164,6 @@ final readonly class ForgeWrite implements Action, ChecksParameters
         } catch (PullRequestWriteFailed|PullRequestSyncFailed $e) {
             return ActionOutcome::refused($e->cause);
         }
-    }
-
-    private static function optedIn(ForgeWriteKind $write, BoardAutomationSettings $settings): bool
-    {
-        return match ($write) {
-            ForgeWriteKind::Merge => $settings->mergePullRequests,
-            ForgeWriteKind::ChangeBase => $settings->changeBase,
-            ForgeWriteKind::UpdateBranch => $settings->syncBehind,
-            ForgeWriteKind::Draft, ForgeWriteKind::Ready => $settings->epicDraftSwitch,
-            ForgeWriteKind::Close => $settings->closeEpicPullRequests,
-            ForgeWriteKind::OpenEpic => $settings->openEpicPullRequests,
-            ForgeWriteKind::PostReview => $settings->postWidgetReviews,
-            ForgeWriteKind::SiteReviewCheck => $settings->siteReviewCheck,
-            ForgeWriteKind::Comment => false,
-        };
     }
 
     /**
@@ -202,10 +177,6 @@ final readonly class ForgeWrite implements Action, ChecksParameters
         $epicBranch = $settings->epicBranchOf($card->number);
         if (!$this->catalog->forProject($card->project->requireId())->get($card->type)->children || null === $epicBranch) {
             return ActionOutcome::done();
-        }
-        // A refusal waits, and turning the write on re-arms it. A done rule never fires again.
-        if (!self::optedIn(ForgeWriteKind::OpenEpic, $settings)) {
-            return ActionOutcome::refused(self::OPEN_EPIC_OFF);
         }
         foreach ($pullRequests as $pullRequest) {
             if (PullRequestState::Open === $pullRequest->state && $epicBranch === $pullRequest->headBranch) {
@@ -264,7 +235,7 @@ final readonly class ForgeWrite implements Action, ChecksParameters
         try {
             $write();
         } catch (PullRequestWriteFailed $e) {
-            if ('no_writer' === $e->cause) {
+            if (self::lacksWriter($e->cause)) {
                 return $fallback();
             }
 
@@ -272,6 +243,12 @@ final readonly class ForgeWrite implements Action, ChecksParameters
         }
 
         return ActionOutcome::done();
+    }
+
+    /** A project with no GitHub App installation has no writer for its pull requests, so a bridge does the work. */
+    private static function lacksWriter(string $cause): bool
+    {
+        return 'no_writer' === $cause || 'no_installation' === $cause;
     }
 
     /** @param \Closure(): ActionOutcome $fallback */
@@ -316,7 +293,15 @@ final readonly class ForgeWrite implements Action, ChecksParameters
         if (null === $pullRequest->headSha) {
             return ActionOutcome::refused('no-head');
         }
-        $updater->update($pullRequest, $pullRequest->headSha);
+        try {
+            $updater->update($pullRequest, $pullRequest->headSha);
+        } catch (PullRequestSyncFailed $e) {
+            if (self::lacksWriter($e->cause)) {
+                return $fallback();
+            }
+
+            throw $e;
+        }
 
         return ActionOutcome::done();
     }
@@ -331,13 +316,14 @@ final readonly class ForgeWrite implements Action, ChecksParameters
     private function writeStates(array $pullRequests, ForgeWriteKind $write, \Closure $fallback): ActionOutcome
     {
         $failure = null;
-        $written = false;
+        $skipped = false;
         foreach ($pullRequests as $pullRequest) {
             $writer = $this->stateWriters->for($pullRequest->forge);
             if (null === $writer) {
+                $skipped = true;
+
                 continue;
             }
-            $written = true;
             try {
                 if (ForgeWriteKind::Close === $write) {
                     $writer->close($pullRequest);
@@ -345,14 +331,19 @@ final readonly class ForgeWrite implements Action, ChecksParameters
                     $writer->setDraft($pullRequest, ForgeWriteKind::Draft === $write);
                 }
             } catch (PullRequestWriteFailed $e) {
+                if (self::lacksWriter($e->cause)) {
+                    $skipped = true;
+
+                    continue;
+                }
                 $failure ??= $e;
             }
         }
 
-        if (!$written) {
-            return $fallback();
+        if (null !== $failure) {
+            return ActionOutcome::refused($failure->cause);
         }
 
-        return null === $failure ? ActionOutcome::done() : ActionOutcome::refused($failure->cause);
+        return $skipped ? $fallback() : ActionOutcome::done();
     }
 }

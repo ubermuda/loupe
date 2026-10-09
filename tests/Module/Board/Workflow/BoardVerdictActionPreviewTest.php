@@ -43,31 +43,16 @@ final class BoardVerdictActionPreviewTest extends KernelTestCase
     }
 
     #[DataProvider('kinds')]
-    public function test_the_review_write_is_listed_while_its_opt_in_is_on(CardVerdictKind $kind): void
+    public function test_the_review_write_is_listed(CardVerdictKind $kind): void
     {
         $this->bindLifecycle($this->project);
-        $this->boardAutomation()->settingsForUpdate($this->project)->postWidgetReviews = true;
-        $this->em()->flush();
 
         self::assertSame(['post-review'], $this->preview()->actionsFor($this->project, $kind));
-    }
-
-    public function test_the_review_write_is_not_listed_with_its_opt_in_off(): void
-    {
-        $this->bindLifecycle($this->project);
-        $this->boardAutomation()->settingsForUpdate($this->project)->siteReviewCheck = true;
-        $this->em()->flush();
-
-        self::assertSame([], $this->preview()->actionsFor($this->project, CardVerdictKind::Approve));
     }
 
     public function test_the_check_rule_is_never_listed(): void
     {
         $this->bindLifecycle($this->project);
-        $settings = $this->boardAutomation()->settingsForUpdate($this->project);
-        $settings->postWidgetReviews = true;
-        $settings->siteReviewCheck = true;
-        $this->em()->flush();
 
         self::assertNotContains('site-review-check', $this->preview()->actionsFor($this->project, CardVerdictKind::Comment));
     }
@@ -76,7 +61,6 @@ final class BoardVerdictActionPreviewTest extends KernelTestCase
     {
         $this->bindLifecycle($this->project);
         $settings = $this->boardAutomation()->settingsForUpdate($this->project);
-        $settings->postWidgetReviews = true;
         $settings->enabled = false;
         $this->em()->flush();
 
@@ -85,22 +69,17 @@ final class BoardVerdictActionPreviewTest extends KernelTestCase
 
     public function test_a_project_with_no_template_lists_nothing(): void
     {
-        $this->boardAutomation()->settingsForUpdate($this->project)->postWidgetReviews = true;
-        $this->em()->flush();
-
         self::assertSame([], $this->preview()->actionsFor($this->project, CardVerdictKind::Approve));
     }
 
     public function test_a_template_without_the_verdict_rule_lists_nothing(): void
     {
-        $this->boardAutomation()->settingsForUpdate($this->project)->postWidgetReviews = true;
-        $this->em()->flush();
         $templates = $this->createStub(TemplateSource::class);
         $templates->method('forProject')->willReturn(new Template('bare', 1, [], [], [], [10], 120, [], 'feature'));
         $boardSettings = self::getContainer()->get(BoardSettings::class);
         self::assertInstanceOf(BoardSettings::class, $boardSettings);
 
-        $preview = new BoardVerdictActionPreview(new WorkflowRuleActions($boardSettings, $templates), $this->boardAutomation());
+        $preview = new BoardVerdictActionPreview(new WorkflowRuleActions($boardSettings, $templates));
 
         self::assertSame([], $preview->actionsFor($this->project, CardVerdictKind::Approve));
     }
