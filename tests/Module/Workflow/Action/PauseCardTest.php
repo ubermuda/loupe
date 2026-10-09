@@ -16,6 +16,7 @@ use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\Rule;
 use App\Tests\Module\Workflow\Fact\FactsMother;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Uid\Uuid;
 
 final class PauseCardTest extends TestCase
 {
@@ -23,7 +24,7 @@ final class PauseCardTest extends TestCase
     {
         $rule = new Rule('hold-for-owner', 'in-review', new AllOf([]), new ActionCall(ActionType::Pause, ['reason' => 'owner_review'], new AllOf([])));
         $card = $this->createStub(Card::class);
-        $state = new WorkflowRuleState($card, $this->createStub(Project::class), $rule->id);
+        $state = new WorkflowRuleState(Uuid::v7(), $this->createStub(Project::class), $rule->id);
 
         $outcome = new PauseCard()->run($rule, $card, FactsMother::facts(), $state);
 

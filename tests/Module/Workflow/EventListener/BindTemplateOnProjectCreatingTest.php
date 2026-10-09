@@ -56,8 +56,8 @@ final class BindTemplateOnProjectCreatingTest extends KernelTestCase
         $links = $this->links($project);
         self::assertCount(5, $links);
         foreach ($links as $link) {
-            self::assertNotNull($link->column);
-            self::assertSame($link->slotKey, $link->column->slug);
+            self::assertNotNull($link->columnId);
+            self::assertSame($link->slotKey, $this->em->find(BoardColumn::class, $link->columnId)?->slug);
         }
 
         $binding = $this->bindings()->findOneByProjectId($project->id ?? throw new \LogicException());

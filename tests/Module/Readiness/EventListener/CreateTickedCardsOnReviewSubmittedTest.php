@@ -162,7 +162,7 @@ final class CreateTickedCardsOnReviewSubmittedTest extends KernelTestCase
         self::assertInstanceOf(WorkflowSlotLinkRepository::class, $links);
         $link = $links->findOneBy(['project' => $this->project, 'slotKey' => 'next']);
         self::assertNotNull($link);
-        $link->column = null;
+        $link->columnId = null;
         $this->em()->flush();
         $this->tick(1);
 

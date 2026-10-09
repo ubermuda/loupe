@@ -180,7 +180,7 @@ final class ReleaseWorkflowPauseHandlerTest extends KernelTestCase
 
     private function spentState(Card $card, string $ruleId): WorkflowRuleState
     {
-        $state = new WorkflowRuleState($card, $this->project, $ruleId);
+        $state = new WorkflowRuleState($card->id ?? throw new \LogicException('The card is persisted.'), $this->project, $ruleId);
         $state->truth = true;
         $state->attempts = 3;
         $state->fires = 2;

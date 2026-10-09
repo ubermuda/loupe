@@ -187,7 +187,7 @@ final class AnswerRuleAskHandlerTest extends KernelTestCase
         $card = $this->card($project, 'next');
         $card->parent = $parent;
         $itemId = Uuid::v7();
-        $state = new WorkflowRuleState($card, $project, 'unplanned-child');
+        $state = new WorkflowRuleState($card->id ?? throw new \LogicException('The card is persisted.'), $project, 'unplanned-child');
         $state->truth = true;
         $state->askItemId = $itemId;
         $this->em()->persist($state);
@@ -222,8 +222,8 @@ final class AnswerRuleAskHandlerTest extends KernelTestCase
                 ]],
             ]],
         ]));
-        $this->em()->persist(new WorkflowSlotLink($project, 'one', $this->column($project, 'next')));
-        $this->em()->persist(new WorkflowSlotLink($project, 'two', $this->column($project, 'in-progress')));
+        $this->em()->persist(new WorkflowSlotLink($project, 'one', $this->column($project, 'next')->id));
+        $this->em()->persist(new WorkflowSlotLink($project, 'two', $this->column($project, 'in-progress')->id));
         $this->em()->flush();
     }
 
@@ -231,7 +231,7 @@ final class AnswerRuleAskHandlerTest extends KernelTestCase
     {
         $this->em()->clear();
 
-        return $this->service(WorkflowRuleStateRepository::class)->findOneBy(['card' => $card->id]) ?? throw new \LogicException('The rule state exists.');
+        return $this->service(WorkflowRuleStateRepository::class)->findOneBy(['cardId' => $card->id]) ?? throw new \LogicException('The rule state exists.');
     }
 
     /** @return list<string> */

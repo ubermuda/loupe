@@ -12,6 +12,7 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\BoardAutomationSettingsSaved;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardPauseRepository;
+use App\Module\Board\Repository\CardRepository;
 use App\Module\Workflow\Action\ForgeWrite;
 use App\Module\Workflow\Contract\CardEvaluations;
 use App\Module\Workflow\Entity\WorkflowRuleState;
@@ -34,6 +35,7 @@ final readonly class RearmEpicsOnOpenEpicTurnedOn
 
     public function __construct(
         private EntityManagerInterface $em,
+        private CardRepository $cards,
         private WorkflowRuleStateRepository $workflowRuleStates,
         private WorkflowPendingBaselineRepository $workflowPendingBaselines,
         private CardPauseRepository $cardPauses,
@@ -55,7 +57,7 @@ final readonly class RearmEpicsOnOpenEpicTurnedOn
         $cardIds = [];
         foreach ($this->workflowRuleStates->findRefusedInProject($event->project, ForgeWrite::OPEN_EPIC_OFF) as $state) {
             if ($this->em->wrapInTransaction(fn (): bool => $this->rearm($state))) {
-                $cardIds[] = $state->card->id ?? throw new \LogicException('A persisted card has an id.');
+                $cardIds[] = $state->cardId;
             }
         }
         if ([] === $cardIds) {
@@ -72,8 +74,11 @@ final readonly class RearmEpicsOnOpenEpicTurnedOn
     /** Answers whether the rule runs again. */
     private function rearm(WorkflowRuleState $state): bool
     {
-        $card = $state->card;
-        $cardId = $card->id ?? throw new \LogicException('A persisted card has an id.');
+        $cardId = $state->cardId;
+        $card = $this->cards->find($cardId);
+        if (null === $card) {
+            return false;
+        }
         $this->workflowRuleStates->lockCard($cardId);
         $this->em->refresh($state);
         if (ForgeWrite::OPEN_EPIC_OFF !== $state->lastRefusal || $this->workflowPendingBaselines->isMarked($cardId)) {

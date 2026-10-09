@@ -77,7 +77,7 @@ final readonly class BindWorkflowTemplateHandler
                         continue;
                     }
                     $usedColumnIds[$columnId->toRfc4122()] = true;
-                    $links[] = new WorkflowSlotLink($project, $slot->key, $column);
+                    $links[] = new WorkflowSlotLink($project, $slot->key, $column->id);
                 }
                 foreach (array_keys($command->slotColumns) as $slotKey) {
                     if (null === $template->slot((string) $slotKey)) {
