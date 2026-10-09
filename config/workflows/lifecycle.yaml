@@ -109,7 +109,7 @@ rules:
                   - A preview URL per branch, with the review widget on it
                   - The .loupe/lifecycle.md sections that the stage skills read
                   - A build command and a test command that an agent can run
-                  - A review step before a push
+                  - A draft pull request that a separate agent reviews after the push
                   - The agent pushes as its own GitHub account
 
     - id: breakdown

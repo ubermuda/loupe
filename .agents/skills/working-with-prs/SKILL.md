@@ -1,6 +1,6 @@
 ---
 name: working-with-prs
-description: Use when opening, gating, reviewing or merging a pull request in this repository, running the pre-PR gate, writing the body, making a branch testable, handling Codex findings, or sequencing several branches at once.
+description: Use when opening, gating, reviewing or merging a pull request in this repository, running the pre-PR gate, writing the body, making a branch testable, handling agent review findings, or sequencing several branches at once.
 ---
 
 # Working with pull requests
@@ -19,57 +19,15 @@ path skips this.
    `just phpunit --filter <name>`.
 4. Run `just js-test` when JavaScript changed, and `just cli-test` when `cli/`
    or `hooks/` changed.
-5. Run a Codex review with `mcp__codex-cli__review` and `model: "gpt-6-sol"`.
-   Always pass the model explicitly. This Codex account rejects the model the
-   tool picks by default.
-   `gpt-6-sol` works with Codex CLI 0.155.1. An older CLI can answer "requires
-   a newer version of Codex", so run `npm install -g @openai/codex@latest`.
-   Then push. CI's required checks are the full gate. Read them on the pull
-   request, and fix every failure, including ones that pre-date your change.
+5. Push. Run no Codex review. A separate review worker reviews the pull
+   request after the push (see "The agent review"). CI's required checks are
+   the full gate. Read them on the pull request, and fix every failure,
+   including ones that pre-date your change.
 
 A `PreToolUse` hook, `.agents/hooks/no-full-ci.sh`, refuses `just ci` and a
 full PHPUnit run for an agent. `just audit` is not in the local list, because
 CI runs it. A worker learns of a failed required check from the board: the
 `checks-failed` fix round covers every required check.
-
-Review against `origin/main`, never `main`. Review a stacked branch against
-`origin/<parent-branch>` instead. A worktree's local `main` is often
-stale, so a review against it reports findings for already-merged code.
-
-**One clean pass is not a pass. Run until two consecutive passes come back
-clean.** The same review on the same commit gives different answers each time.
-Two runs on one branch, same model and same base, disagreed: the second found a
-real defect that sat in the tree the first had called clean. The habit that
-protects you is the one an agent falls into anyway when it fixes findings and
-re-runs. Branches that stopped at their first clean answer are the ones with
-the least evidence behind them, however green they look.
-
-**Scope the review to the commit, not the base, once a branch has more than
-one commit.** `mcp__codex-cli__review` takes `commit: "<sha>"` for this. A
-`base` review on a long branch can come back clean while describing only the
-branch's oldest work. One branch took three clean runs: the two scoped to
-`origin/main` summarised its original creation path and never named the update
-path its newest commit changed, and only the commit-scoped run described the
-code under review. The two agreeing runs proved nothing, because both drifted
-the same way. The risk is highest when the newer commits are a different
-kind of work from the branch's original purpose, because a summary of the
-branch's theme then covers none of them. Commit count is the trigger because
-it is mechanical, and the cost of scoping when you did not need to is one
-run. A single-commit branch is not exposed to this.
-
-A commit-scoped review has left a worktree on a detached HEAD with a conflicted
-file. Run `git status` after the review, before you commit anything.
-
-**Read the summary, not only the verdict. A clean result that never mentions
-the largest thing in the diff is a pass that missed the diff.** One branch took
-two clean passes whose summaries described the search plumbing and named
-neither the form, the wizard, the picker nor the 31 new translations that made
-up most of the change. Both were clean because neither looked. A second run
-does not help here, because that pass is stable and wrong the same way every
-time. Name the biggest thing you changed, then check the summary mentions it.
-
-Both rules cost time on a large diff. Put the pass count and what the last pass
-covered on the body's gate line, so "Codex: clean" never claims more than it did.
 
 e2e is not in the local gate. The eight `e2e-*` checks on the PR gate the
 suite: `e2e-chromium`, `e2e-chromium-2` to `e2e-chromium-6`, `e2e-rest` and
@@ -79,37 +37,29 @@ failure they report, including pre-existing ones. Do not run the full suite
 locally before you open the PR. See "Running the suite
 locally is debugging, not gating" for the cases that still want a local run.
 
-If `mcp__codex-cli__review` is not available, STOP and tell the owner. A missing
-MCP server is a configuration fault worth investigating, so do not route around
-it. Known cause: `codex-cli` is registered per-project in the user's own
-configuration rather than in a committed `.mcp.json`, so a session running from
-a worktree path may not pick it up.
+### The agent review
 
-A usage limit is the other way this step fails, and it reads like a fault in the
-wiring when it is not:
+Open the pull request as a draft. A review worker, which is never the worker
+that wrote the code, reads the whole change at the head commit. Loupe posts the
+result as the check `loupe/agent-review`, with each finding beside its line.
+`docs/using/workflows.md` "Agent review" describes the flow.
 
-```
-ERROR: You've hit your usage limit. Visit https://chatgpt.com/codex/settings/usage
-to purchase more credits or try again at <date>.
-```
-
-The limit belongs to the account, not to a model or a tool. The `codex exec`
-fallback below answers the same error, and so does a different model, so trying
-either proves nothing. Tell the owner the date it resets, say on the gate line
-that the review could not run, and let him decide whether a branch merges
-without it. Two sessions burned an afternoon establishing this separately on
-2026-09-22.
-
-A `codex review` with no output for ~5 minutes at near-zero CPU is hung,
-typically at MCP startup. Kill it and fall back to:
-
-```bash
-codex exec -c model="gpt-6-sol" "Review the diff of this branch against origin/main (git diff origin/main...HEAD) for correctness bugs and convention violations. Actionable findings only."
-```
+- A failed review asks for a fix at once. The fix round reads the findings of
+  the head commit from `card_get`, in `agentReview`.
+- When the review passes and CI is green, Loupe marks the pull request ready.
+  The card then moves to In review. Never run `gh pr ready` for it yourself.
+- The project must have **Ask an agent to review each pull request** on in the
+  Automation tab. With it off, Loupe marks nothing ready and the draft stays a
+  draft. Tell the owner in the body when you open a draft in such a project.
+- Review the diff against `origin/<base>`, never `main`. A worktree's local
+  `main` is often stale, so a review against it reports findings for
+  already-merged code.
+- A reviewer inside an implementation run, such as the per-task reviewer of a
+  plan, still runs. Those reviews are part of the build.
 
 ### The Claude Design rebuild
 
-After the Codex review, run `bin/agents/design-system-changed origin/<base>`. Use the base of the Codex review. The script prints the changed design system paths, and prints nothing when none changed.
+After the gate checks, run `bin/agents/design-system-changed origin/<base>`. The script prints the changed design system paths, and prints nothing when none changed.
 
 When it prints a path, try the rebuild with the `loupe-design-rebuild` skill. Do not skip this step.
 
@@ -215,9 +165,9 @@ the output.
 
 ## Documentation-only branches run `just cs` and push
 
-Skip the Codex review. Say so in the PR body, so the record shows the gate was
+Skip the local checks. Say so in the PR body, so the record shows the gate was
 reduced deliberately rather than forgotten. CI still runs its own checks
-including the e2e shards; you skip the review, not them.
+including the e2e shards, and the agent review still reads the pull request.
 
 The test is the diff, not the intent. Every changed file must end in `.md`.
 Check it, do not assume:
@@ -239,22 +189,21 @@ file a script parses for commands is code wearing a `.md` suffix, so gate it
 fully. A `SKILL.md` sits at the edge: an agent reads it rather than a script
 parsing it, so the reduced gate applies. Note that call on the gate line.
 
-The reason is proportion. Asking a reviewer model to read prose for correctness
-bugs is cost with no signal, and running a gate that can never fail teaches a
-reader to stop trusting gate results.
+The reason is proportion. Running a gate that can never fail teaches a reader
+to stop trusting gate results.
 
-## Open it ready, not draft
+## Open it as a draft
 
-The owner reviews ready pull requests only. A draft is invisible to him, so a
-finished branch left in draft waits for a review that never starts.
+Open every pull request as a draft: `gh pr create --draft`. The agent review
+runs on the draft. When the review passes and CI is green, Loupe marks the
+pull request ready, and the owner then sees it. Do not run `gh pr ready`, and do
+not wait for the owner's review to un-draft it.
 
-Mark a pull request ready as soon as its gate is green and the Codex review is
-clean. Use `gh pr ready <number>` if you opened it as a draft. Do not wait for
-the owner's review to un-draft it, because that is the wrong way round.
-
-Open a draft only while the branch is unfinished, and say in the body what is
-still missing. Ready does not mean merged: `main` still needs one approving
-review, and you never approve your own work.
+A draft that stays a draft after a passed review and green checks is a fault of
+the setup. The usual cause is the review switch off in the Automation tab, or a
+bridge with no `review` work entry. Say so in the body. Ready does not mean
+merged: `main` still needs one approving review, and you never approve your own
+work.
 
 ## Keep the body brief
 
@@ -276,7 +225,7 @@ Write only these, and leave out any line that has nothing to say:
 - A decision the owner must make.
 - A deploy need, a breaking change, or a merge order.
 - One gate line, such as "Gate: cs, phpstan, arkitect, gamache and
-  `tests/Module/Board` green. Codex: 2 clean passes (base, commit)." Name a
+  `tests/Module/Board` green." Name a
   reduced gate on that line.
 
 Leave these out:
@@ -411,7 +360,7 @@ Fixtures must never reach the branch.
 ## Reviewing work you did not write
 
 A green gate is not evidence the change is correct. In one wave of six branches,
-all green on `just cs`, `just ci` and e2e, Codex found a real defect in every
+all green on `just cs`, `just ci` and e2e, a review found a real defect in every
 one, and two of them could lose data. The gate proves the suite passes. It does
 not prove the change is right.
 
@@ -815,8 +764,6 @@ gh pr edit <n> --base <parent-branch>   # fix one opened against main
 ```
 
 - Write `Stacks on #<parent>. Merge #<parent> first.` near the top of the body.
-- Run the Codex review with `base: "origin/<parent-branch>"`, so it reads the
-  child's own work.
 - CI runs on every pull request, whatever its base. A pull request into an
   `epic/*` branch has no required checks on GitHub, so `--required` fails
   there. The merge stage checks it by name against the required checks of
@@ -844,7 +791,7 @@ its parent squashes" says, and prove the resolution there.
 
 When an epic has an `epic/<n>` branch, each child cuts its branch from
 `origin/epic/<n>`. Its pull request targets `epic/<n>`, never `main` and never
-a sibling's branch. Run the Codex review with `base: "origin/epic/<n>"`.
+a sibling's branch.
 
 This child is not a stacked pull request in the sense above. The merge stage
 squash-merges it into `epic/<n>` with no approval, once its required checks
