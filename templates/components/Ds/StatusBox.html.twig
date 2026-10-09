@@ -1,0 +1,32 @@
+{#
+  Props:  @comment-budget-ignore
+    kind         string   stuck, needs-you, working or waiting. Sets the colour.
+    label        string   Translated state name.
+    lead         string   Translated sentence that says why the card has the state.
+    since        string   Translated text that says since when. Optional, no line without it.
+    others       list     The other states that apply, each with kind, label, lead and since. Optional.
+    othersTitle  string   Translated heading of the other-states list. Optional.
+  Any other attribute, class included, is passed to the element.
+#}
+{% props kind, label, lead, since = null, others = [], othersTitle = null %}
+<section{{ attributes.defaults({class: 'lp-status-box lp-status-box--' ~ kind}) }}>
+    <p class="lp-status-box__head">
+        <span class="lp-status-box__dot"></span>
+        <strong class="lp-status-box__state">{{ label }}</strong>
+        {% if since %}<span class="lp-status-box__since">{{ since }}</span>{% endif %}
+    </p>
+    <p class="lp-status-box__lead">{{ lead }}</p>
+    {% if others|length > 0 %}
+    <div class="lp-status-box__others">
+        {% if othersTitle %}<p class="lp-status-box__others-title">{{ othersTitle }}</p>{% endif %}
+        <ul class="lp-status-box__list">
+            {% for other in others %}
+            <li class="lp-status-box__other lp-status-box__other--{{ other.kind }}">
+                <span class="lp-status-box__dot"></span>
+                <span><strong>{{ other.label }}</strong>{% if other.since %} <span class="lp-status-box__since">{{ other.since }}</span>{% endif %}<br>{{ other.lead }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</section>

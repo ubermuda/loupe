@@ -1,0 +1,4 @@
+{# twig-cs-fixer-disable #}
+{# Dev-only specimen for the styleguide, so it is intentionally untranslated. #}
+<twig:Ds:StatusBox :kind="variant" :label="variant|replace({'-': ' '})|capitalize" lead="Why the card has this state." since="Since 3 minutes ago" />
+<twig:Ds:StatusBox :kind="variant" :label="variant|replace({'-': ' '})|capitalize" lead="Why the card has this state." since="Since 3 minutes ago" othersTitle="Also applies" :others="[{kind: 'waiting', label: 'Waiting', lead: 'Another reason that applies.', since: null}]" />
