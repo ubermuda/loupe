@@ -16,10 +16,10 @@ use App\Module\Forge\Service\PullRequestReviewFailed;
 use App\Module\Forge\Service\PullRequestReviewKind;
 use App\Module\Forge\Service\PullRequestReviewPosters;
 use App\Module\Forge\Service\PullRequestUnreadable;
+use App\Routing\PinnedUrlGenerator;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /** Posts the reviews that the verdicts of a card ask for, and settles every pending delivery. */
@@ -40,7 +40,7 @@ final readonly class VerdictReviewSettler
         private TranslatorInterface $translator,
         private EntityManagerInterface $em,
         private ClockInterface $clock,
-        private UrlGeneratorInterface $urls,
+        private PinnedUrlGenerator $urls,
 
         #[Autowire(param: 'kernel.default_locale')]
         private string $locale,
@@ -172,7 +172,7 @@ final readonly class VerdictReviewSettler
             'projectId' => (string) $card->project->id,
             'cardId' => (string) $card->id,
             'tab' => 'feedback',
-        ], UrlGeneratorInterface::ABSOLUTE_URL);
+        ]);
         $line = $this->translator->trans('board.verdict.review.source', ['%number%' => $card->number, '%card_url%' => $cardUrl], 'messages', $this->locale);
 
         $first = $notes[0] ?? null;

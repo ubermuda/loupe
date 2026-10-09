@@ -24,6 +24,7 @@ use App\Module\Forge\Service\PullRequestReviewPosters;
 use App\Module\Forge\Service\PullRequestStateReaders;
 use App\Module\Forge\Service\PullRequestUnreadable;
 use App\Module\Project\Entity\Project;
+use App\Routing\PinnedUrlGenerator;
 use App\Tests\Module\Board\CardVerdictScenario;
 use App\Tests\Module\Board\Fake\FakeAuthorReader;
 use App\Tests\Module\Board\Fake\FakeReviewerForgeAccount;
@@ -35,7 +36,6 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Messenger\MessageBusInterface;
-use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class VerdictReviewSettlerTest extends KernelTestCase
@@ -400,11 +400,11 @@ final class VerdictReviewSettlerTest extends KernelTestCase
 
     private function sourceLine(Card $card, string $suffix = ''): string
     {
-        $url = $this->service(UrlGeneratorInterface::class)->generate('app_board_card', [
+        $url = $this->service(PinnedUrlGenerator::class)->generate('app_board_card', [
             'projectId' => (string) $card->project->id,
             'cardId' => (string) $card->id,
             'tab' => 'feedback',
-        ], UrlGeneratorInterface::ABSOLUTE_URL);
+        ]);
 
         return \sprintf('Sent from the Loupe site review of card %d. [Open the notes in Loupe](%s)%s', $card->number, $url, $suffix);
     }
@@ -422,7 +422,7 @@ final class VerdictReviewSettlerTest extends KernelTestCase
             $translator,
             $this->em,
             new MockClock('2026-10-08 12:00:00'),
-            $this->service(UrlGeneratorInterface::class),
+            $this->service(PinnedUrlGenerator::class),
             'en',
         );
     }
