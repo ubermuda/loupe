@@ -151,6 +151,10 @@ export default class extends Controller {
         if (event.pointerType === 'mouse' && 0 !== event.button) {
             return;
         }
+        // A press in an interactive tooltip selects its text or follows its link.
+        if (event.target.closest('.lp-tooltip--interactive') !== null) {
+            return;
+        }
 
         const card = event.target.closest('[data-board-drag-target="card"]');
         const group =
