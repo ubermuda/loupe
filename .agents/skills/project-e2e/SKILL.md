@@ -50,6 +50,10 @@ Match the assertion to the field type: `toHaveValue(newValue)` for inputs and se
 
 The `X-Playwright: 1` header disables WDT for all Playwright requests. Do not add `waitForLoadState('networkidle')` workarounds. Keep `suppressToolbar(page)` in `fixtures.ts`; it covers cached responses where the header was absent.
 
+## The Mercure hub
+
+CI refuses the hub, so a page that opens it retries and slows the app. A spec imports `hubStubbedTest` from `fixtures.ts` as its `test`, and `createTest` builds on it. A spec that reads live updates imports `test` from `@playwright/test`, and opens the real hub.
+
 ## Parallelism and PHP sessions
 
 Each spec file that needs a login gets its own dedicated user through `createTest`; share one and a password or `displayName` change in one file invalidates another file's session. Mailpit is never cleared, so a stale email from an earlier run sends the test to another worktree's host and produces a wrong-host 404 that reads as an app bug. `test.use({ storageState: {} })` silently stops the user being registered at all.

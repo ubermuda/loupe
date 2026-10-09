@@ -2,9 +2,13 @@ when@dev:
     web_profiler:
         toolbar: true
 
+    parameters:
+        env(PROFILER_COLLECT): '1'
+
     framework:
         profiler:
             only_exceptions: false
+            collect: '%env(bool:PROFILER_COLLECT)%'
 
 when@test:
     framework:
