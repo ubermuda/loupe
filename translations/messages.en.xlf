@@ -7815,6 +7815,14 @@
             <trans-unit id="workflow.waiting.not.site_review_verdict_unsent"><source>workflow.waiting.not.site_review_verdict_unsent</source><target>Waiting: a verdict of the card waits to be sent.</target></trans-unit>
             <trans-unit id="workflow.waiting.site_review_check_stale"><source>workflow.waiting.site_review_check_stale</source><target>Waiting: the site review check of each open pull request is up to date.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.site_review_check_stale"><source>workflow.waiting.not.site_review_check_stale</source><target>Waiting: the site review check of an open pull request is out of date.</target></trans-unit>
+            <trans-unit id="workflow.waiting.agent_review_due"><source>workflow.waiting.agent_review_due</source><target>Waiting: no open pull request head needs an agent review.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.agent_review_due"><source>workflow.waiting.not.agent_review_due</source><target>Waiting: the head of an open pull request needs an agent review.</target></trans-unit>
+            <trans-unit id="workflow.waiting.agent_review_failed"><source>workflow.waiting.agent_review_failed</source><target>Waiting: no agent review of an open pull request head failed.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.agent_review_failed"><source>workflow.waiting.not.agent_review_failed</source><target>Waiting: the agent review of an open pull request head failed.</target></trans-unit>
+            <trans-unit id="workflow.waiting.agent_review_passed"><source>workflow.waiting.agent_review_passed</source><target>Waiting: an open pull request head has no agent review that passed.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.agent_review_passed"><source>workflow.waiting.not.agent_review_passed</source><target>Waiting: every open pull request head has an agent review that passed.</target></trans-unit>
+            <trans-unit id="workflow.waiting.agent_review_unposted"><source>workflow.waiting.agent_review_unposted</source><target>Waiting: every agent review has its check on the forge.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.agent_review_unposted"><source>workflow.waiting.not.agent_review_unposted</source><target>Waiting: an agent review has no check on the forge yet.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_child_merged_into_epic_branch"><source>workflow.waiting.card_child_merged_into_epic_branch</source><target>Waiting: no child pull request merged into the epic branch.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.card_child_merged_into_epic_branch"><source>workflow.waiting.not.card_child_merged_into_epic_branch</source><target>Waiting: a child pull request merged into the epic branch.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_has_children"><source>workflow.waiting.card_has_children</source><target>Waiting: the card has no child cards.</target></trans-unit>
@@ -7874,6 +7882,7 @@
             <trans-unit id="workflow.source.board"><source>workflow.source.board</source><target>Board</target></trans-unit>
             <trans-unit id="workflow.source.forge"><source>workflow.source.forge</source><target>Forge</target></trans-unit>
             <trans-unit id="workflow.source.bridge"><source>workflow.source.bridge</source><target>Bridge</target></trans-unit>
+            <trans-unit id="workflow.source.agent_review"><source>workflow.source.agent_review</source><target>Agent review</target></trans-unit>
             <trans-unit id="workflow.source.readiness"><source>workflow.source.readiness</source><target>Readiness</target></trans-unit>
             <trans-unit id="workflow.slot.next"><source>workflow.slot.next</source><target>Next</target></trans-unit>
             <trans-unit id="workflow.slot.product_design"><source>workflow.slot.product_design</source><target>Product design</target></trans-unit>

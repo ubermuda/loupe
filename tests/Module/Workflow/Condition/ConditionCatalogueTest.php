@@ -13,6 +13,10 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 final class ConditionCatalogueTest extends KernelTestCase
 {
     private const array SOURCES = [
+        'agent_review.due' => 'workflow.source.agent_review',
+        'agent_review.failed' => 'workflow.source.agent_review',
+        'agent_review.passed' => 'workflow.source.agent_review',
+        'agent_review.unposted' => 'workflow.source.agent_review',
         'card.blocker.open' => 'workflow.source.board',
         'card.children.exist' => 'workflow.source.board',
         'card.children.finished' => 'workflow.source.board',

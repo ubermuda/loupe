@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Tests\Module\AgentReview\Repository;
 
 use App\Module\AgentReview\Entity\AgentReview;
+use App\Module\AgentReview\Entity\AgentReviewConclusion;
 use App\Module\AgentReview\Entity\AgentReviewSeverity;
 use App\Module\AgentReview\Repository\AgentReviewRepository;
+use App\Module\Board\Entity\Card;
+use App\Module\Forge\Entity\ForgePullRequest;
 use App\Tests\Module\AgentReview\AgentReviewScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -28,6 +31,38 @@ final class AgentReviewRepositoryTest extends KernelTestCase
         $reviews = self::getContainer()->get(AgentReviewRepository::class);
         self::assertInstanceOf(AgentReviewRepository::class, $reviews);
         $this->reviews = $reviews;
+    }
+
+    public function test_find_latest_of_heads_answers_the_newest_review_of_the_current_head_only(): void
+    {
+        $project = $this->makeProject('agent-review-latest');
+        $card = $this->card($project);
+        $pullRequest = $this->pullRequest($project, 7);
+        $reviewed = $this->pullRequest($project, 8);
+        $unreviewed = $this->pullRequest($project, 9);
+        $noHead = new ForgePullRequest($project, 'github', 'acme/widgets', 10);
+        $this->em->persist($noHead);
+
+        $reviewed->headSha = str_repeat('c', 40);
+        $stale = $this->reviewAt($card, $pullRequest, str_repeat('d', 40), '2026-10-01 09:00:00');
+        $older = $this->reviewAt($card, $reviewed, str_repeat('C', 40), '2026-10-01 09:00:00');
+        $newer = $this->reviewAt($card, $reviewed, str_repeat('c', 40), '2026-10-01 10:00:00');
+        $this->em->flush();
+
+        $latest = $this->reviews->findLatestOfHeads([$pullRequest, $reviewed, $unreviewed, $noHead]);
+
+        self::assertSame([(string) $reviewed->id => $newer], $latest);
+        self::assertNotSame($older, $latest[(string) $reviewed->id]);
+        self::assertNotContains($stale, $latest);
+        self::assertSame([], $this->reviews->findLatestOfHeads([]));
+    }
+
+    private function reviewAt(Card $card, ForgePullRequest $pullRequest, string $headSha, string $createdAt): AgentReview
+    {
+        $review = new AgentReview($card->project, $card, $pullRequest, $headSha, 'Done.', AgentReviewConclusion::Success, [], createdAt: new \DateTimeImmutable($createdAt));
+        $this->em->persist($review);
+
+        return $review;
     }
 
     public function test_find_unposted_answers_the_unposted_reviews_of_the_named_pull_requests_only(): void
