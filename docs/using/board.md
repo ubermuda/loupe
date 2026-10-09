@@ -1119,7 +1119,8 @@ requests, and only while the matching setting on the **Automation** tab is on:
   fails while a pending note that a verdict carried remains. The check also
   runs when nobody sends a verdict. It is green until a verdict carries a note.
   When two cards link one pull request, the check counts the pending notes of
-  both cards.
+  both cards. When you switch the setting off, Loupe turns each failed check on
+  an open pull request to neutral, so it no longer blocks a merge.
 
 Before the reviewer sends, the widget lists the writes that the verdict will
 start. The list follows the rules and the settings of the project. It does not

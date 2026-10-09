@@ -9,6 +9,7 @@ use App\Module\Board\Command\SaveBoardAutomationSettingsCommand;
 use App\Module\Board\Command\SaveBoardAutomationSettingsHandler;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Event\BoardAutomationSettingsSaved;
+use App\Module\Board\Messenger\SettleSiteReviewChecks;
 use App\Module\Board\Messenger\SyncNextPullRequest;
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
 use App\Module\Project\Entity\Project;
@@ -230,6 +231,34 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
             self::assertInstanceOf(SyncNextPullRequest::class, $message);
             self::assertEquals($this->project->id, $message->projectId);
         }
+    }
+
+    public function test_only_turning_the_site_review_check_off_queues_a_settle(): void
+    {
+        $this->save(enabled: true, syncBehind: false, siteReviewCheck: true);
+        $this->save(enabled: true, syncBehind: false, siteReviewCheck: true);
+        self::assertSame([], $this->settles());
+
+        $this->save(enabled: true, syncBehind: false);
+        $this->save(enabled: true, syncBehind: false);
+
+        $settles = $this->settles();
+        self::assertCount(1, $settles);
+        self::assertEquals($this->project->id, $settles[0]->projectId);
+    }
+
+    /** @return list<SettleSiteReviewChecks> */
+    private function settles(): array
+    {
+        $settles = [];
+        foreach ($this->transport->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if ($message instanceof SettleSiteReviewChecks) {
+                $settles[] = $message;
+            }
+        }
+
+        return $settles;
     }
 
     private function save(bool $enabled, bool $syncBehind, bool $commentOnStaleApproval = false, bool $mergePullRequests = false, bool $changeBase = false, bool $openEpicPullRequests = false, ?string $epicBranchPattern = 'epic/{number}', bool $postWidgetReviews = false, bool $siteReviewCheck = false): void

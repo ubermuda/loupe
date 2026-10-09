@@ -13,6 +13,7 @@ use App\Module\Board\Workflow\SiteReviewFactProvider;
 use App\Module\Forge\Service\PullRequestCheckConclusion;
 use App\Module\Forge\Service\PullRequestCheckFailed;
 use App\Module\Forge\Service\PullRequestCheckWriters;
+use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -104,6 +105,41 @@ final readonly class SiteReviewCheckPublisher
         }
 
         return new SiteReviewWriteResult($failure, $changed);
+    }
+
+    /**
+     * Turns each failed run of the project into a neutral one, so a check that Loupe no longer keeps cannot block a merge.
+     *
+     * @return ?string the cause of the first failure
+     */
+    public function settle(Project $project): ?string
+    {
+        $failure = null;
+        foreach ($this->siteReviewCheckStates->findPostedFailuresOnOpenPullRequests($project) as $state) {
+            $writer = $this->writers->for($state->pullRequest->forge);
+            if (null === $writer) {
+                continue;
+            }
+            try {
+                $writer->publish(
+                    $state->pullRequest,
+                    self::NAME,
+                    $state->headSha,
+                    PullRequestCheckConclusion::Neutral,
+                    $this->translator->trans('board.site_review_check.title_off'),
+                    $this->translator->trans('board.site_review_check.summary_off'),
+                    $state->checkRunId,
+                );
+            } catch (PullRequestCheckFailed $e) {
+                $failure ??= $e->cause;
+
+                continue;
+            }
+            $state->checkRunId = null;
+            $this->em->flush();
+        }
+
+        return $failure;
     }
 
     private function title(CheckWanted $check): string

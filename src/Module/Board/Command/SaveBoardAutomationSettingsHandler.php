@@ -7,6 +7,7 @@ namespace App\Module\Board\Command;
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Event\BoardAutomationSettingsSaved;
+use App\Module\Board\Messenger\SettleSiteReviewChecks;
 use App\Module\Board\Messenger\SyncNextPullRequest;
 use App\Module\Board\Service\BoardAutomation;
 use Doctrine\ORM\EntityManagerInterface;
@@ -61,6 +62,10 @@ final readonly class SaveBoardAutomationSettingsHandler
             !$wasOpeningEpics && $command->openEpicPullRequests,
             !$wasChecking && $command->siteReviewCheck,
         ));
+
+        if ($wasChecking && !$command->siteReviewCheck) {
+            $this->bus->dispatch(new SettleSiteReviewChecks($command->project->id ?? throw new \LogicException('A stored project has an id.')));
+        }
 
         // A pull request that fell behind while the sync was off waits for no other trigger.
         if (!$wasSyncing && $command->enabled && $command->syncBehind) {

@@ -257,6 +257,52 @@ final class SiteReviewCheckPublisherTest extends KernelTestCase
         self::assertNull($this->stateRowOf($pullRequest));
     }
 
+    public function test_settle_turns_each_posted_failure_neutral_on_its_own_run(): void
+    {
+        $card = $this->card($this->project);
+        $failed = $this->openPullRequest($card, 7, 'sha-1');
+        $this->verdict($card, 7, [$this->note($card, 'Fix the header')]);
+        $other = $this->card($this->project, number: 2);
+        $passed = $this->openPullRequest($other, 8, 'sha-2');
+        $this->publish($card);
+        $this->publish($other);
+        $this->writer->published = [];
+        $this->optIn(false);
+
+        self::assertNull($this->settle());
+
+        self::assertCount(1, $this->writer->published);
+        $call = $this->writer->published[0];
+        self::assertSame([7, 'Loupe site review', 'sha-1', PullRequestCheckConclusion::Neutral, 101], [$call['number'], $call['name'], $call['sha'], $call['conclusion'], $call['runId']]);
+        self::assertSame('Loupe no longer keeps this check', $call['title']);
+        self::assertNull($this->stateOf($failed)->checkRunId);
+        self::assertSame('failure', $this->stateOf($failed)->conclusion);
+        self::assertSame(102, $this->stateOf($passed)->checkRunId);
+
+        $this->publish($card);
+        self::assertCount(1, $this->writer->published);
+    }
+
+    public function test_a_failed_settle_keeps_the_run_to_try_again(): void
+    {
+        $card = $this->card($this->project);
+        $failed = $this->openPullRequest($card, 7, 'sha-1');
+        $this->verdict($card, 7, [$this->note($card, 'Fix the header')]);
+        $this->publish($card);
+        $this->writer->failingNumbers = [7];
+
+        self::assertSame('permission', $this->settle());
+
+        self::assertSame(101, $this->stateOf($failed)->checkRunId);
+    }
+
+    private function settle(): ?string
+    {
+        $this->em->flush();
+
+        return $this->publisher(true)->settle($this->project);
+    }
+
     private function optIn(bool $on): void
     {
         $this->service(BoardAutomation::class)->settingsOf($this->project)->siteReviewCheck = $on;
@@ -312,6 +358,11 @@ final class SiteReviewCheckPublisherTest extends KernelTestCase
     {
         $this->em->flush();
 
+        return $this->publisher($writers)->publish($card)->failure;
+    }
+
+    private function publisher(bool $writers): SiteReviewCheckPublisher
+    {
         return new SiteReviewCheckPublisher(
             $this->service(CardPullRequestRepository::class),
             $this->service(SiteReviewFactProvider::class),
@@ -321,7 +372,7 @@ final class SiteReviewCheckPublisherTest extends KernelTestCase
             $this->service(TranslatorInterface::class),
             $this->em,
             new MockClock('2026-10-08 12:00:00'),
-        )->publish($card)->failure;
+        );
     }
 
     /**
