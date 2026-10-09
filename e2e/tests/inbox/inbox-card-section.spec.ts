@@ -4,13 +4,12 @@
  * in the section.
  */
 
+import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import {
-    test,
-    expect,
-    type APIRequestContext,
-    type Page,
-} from '@playwright/test';
-import { suppressToolbar, suppressWidget } from '../fixtures';
+    hubStubbedTest as test,
+    suppressToolbar,
+    suppressWidget,
+} from '../fixtures';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eInboxCard1!';

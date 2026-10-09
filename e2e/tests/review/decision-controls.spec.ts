@@ -1,5 +1,9 @@
-import { test, expect, type Page } from '@playwright/test';
-import { suppressToolbar, suppressWidget } from '../fixtures';
+import { expect, type Page } from '@playwright/test';
+import {
+    hubStubbedTest as test,
+    suppressToolbar,
+    suppressWidget,
+} from '../fixtures';
 import { coverageScaled } from '../timeouts';
 
 // Guest by default, and self-registering through the dev endpoints — the same

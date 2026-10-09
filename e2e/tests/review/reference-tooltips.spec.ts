@@ -6,8 +6,13 @@
  * from the MCP document_set_references tool, because the app has no form for it.
  */
 
-import { test, expect, type Page } from '@playwright/test';
-import { accessToken, suppressToolbar, suppressWidget } from '../fixtures';
+import { expect, type Page } from '@playwright/test';
+import {
+    hubStubbedTest as test,
+    accessToken,
+    suppressToolbar,
+    suppressWidget,
+} from '../fixtures';
 import { coverageScaled } from '../timeouts';
 import { panelButton } from './panels';
 

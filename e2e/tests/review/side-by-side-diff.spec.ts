@@ -337,6 +337,8 @@ test('the two columns pair the blocks and carry no comment column', async ({
 test('the toolbar holds the same two columns in every view', async ({
     page,
 }) => {
+    // Nine full page loads at about 1.5 s of server time each, plus the seed.
+    test.slow();
     await page.setViewportSize({ width: 1440, height: 900 });
     const reviewPath = await seedComparison(page);
 

@@ -40,7 +40,7 @@ The round ends at the push. It never waits for CI, because the app reads the new
 5. Check the worker folder, and sync it with the pull request branch, per the reference. Keep every existing commit, except a sync of the base that the sync procedure resets.
 6. When the branch differs from the pull request branch, stop with `STAGE RESULT: blocked: worker folder is not on the PR branch`.
 7. When the pull request conflicts, resolve it first, per "Resolve a conflict with the base" in the reference.
-8. Fix every open item and failing check. Read the log of each failed check, and fix the cause. Follow the implementation skill for sub-agents, the gate and the code review. In this round, `<base>` is the base branch of the pull request, such as the epic branch of an epic child. Before the gate, run implementation step 11 on the diff of the pull request, so the deploy notes stay true.
+8. Fix every open item and failing check. Read the log of each failed check, and fix the cause. Fix a gap that the conflict resolution shows in this round too, never in a card (implementation contract rule 12). Follow the implementation skill for sub-agents, the gate and the code review. In this round, `<base>` is the base branch of the pull request, such as the epic branch of an epic child. Before the gate, run implementation step 11 on the diff of the pull request, so the deploy notes stay true.
 9. Push as "Push without force" in `../loupe-stage-implementation/references/commands.md` says.
 10. Post a marker reply for each handled item, per the reference. A conflict has no item, so it gets no reply.
 11. Stop with `STAGE RESULT: waiting <pr url>`. Never move the card.

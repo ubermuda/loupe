@@ -1,5 +1,9 @@
-import { test, expect } from '@playwright/test';
-import { suppressToolbar, suppressWidget } from '../fixtures';
+import { expect } from '@playwright/test';
+import {
+    hubStubbedTest as test,
+    suppressToolbar,
+    suppressWidget,
+} from '../fixtures';
 import { coverageScaled } from '../timeouts';
 
 /**

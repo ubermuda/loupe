@@ -10,8 +10,12 @@
  * Every test drives its own user and document through the dev-only endpoints.
  */
 
-import { test as base, expect, type Page } from '@playwright/test';
-import { suppressToolbar, suppressWidget } from '../fixtures';
+import { expect, type Page } from '@playwright/test';
+import {
+    hubStubbedTest as base,
+    suppressToolbar,
+    suppressWidget,
+} from '../fixtures';
 import { showPanel } from './panels';
 
 const RUN = Date.now();
