@@ -42,7 +42,7 @@ class StuckPullRequestRepository extends ServiceEntityRepository
                     AND due.ready_to_merge
                     AND due.ready_since IS NOT NULL
                     AND (due.stuck_announced_for IS NULL OR due.stuck_announced_for <> due.ready_since)
-                    AND EXISTS (SELECT 1 FROM board_card_pull_requests linked WHERE linked.forge = due.forge AND LOWER(linked.repository) = due.repository AND linked.number = due.number)
+                    AND EXISTS (SELECT 1 FROM board_card_pull_requests linked JOIN board_cards linked_card ON linked_card.id = linked.card_id WHERE linked_card.project_id = due.project_id AND linked.forge = due.forge AND LOWER(linked.repository) = due.repository AND linked.number = due.number)
                     AND due.ready_since + make_interval(mins => COALESCE(settings.stuck_delay_minutes, :defaultDelay)) <= :now
                 ORDER BY due.ready_since, due.id
                 LIMIT :limit
