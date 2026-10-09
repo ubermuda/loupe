@@ -31,6 +31,8 @@ The rule in detail:
 - When a needed condition does not exist, add a fact to the engine, and write the rule in the template. Do not add a shortcut in a handler, a listener or a scheduled job.
 - A skill or a bridge rule must not make a workflow decision either. A skill does the work of one request. A bridge rule decides how to run the work, never when.
 
+Teardown already follows this split. The `teardown` rule of the template asks for teardown work when a card reaches a terminal slot. The bridge `action: command` rule of ADR 0002 only runs the script. ADR 0002 calls it "a command rule on a terminal column", and the terminal column is the condition of the template rule.
+
 This does not change ADR 0001. ADR 0001 says which part does a step: the app for a mechanical step, a worker for a step that needs judgment. This record says which part decides when the step runs, and that is always the template.
 
 For the epic preview, the fix is a template rule that asks for preview work when the head of the epic branch moves. It needs a fact that compares that head with the head the preview last served. `card.site_review.check_stale` is the nearest example, because it compares a stored value with the head commit of a pull request. The shape of that fact is still open.
