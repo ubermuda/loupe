@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Service;
 
+use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Service\CardPullRequestStates;
 use App\Module\Board\Service\CardState;
@@ -137,9 +138,30 @@ final class CardStatesTest extends KernelTestCase
         self::assertSame(CardStateKind::Stuck, $state?->kind);
         self::assertSame(CardStateCode::ReadyNotMerged, $state->reason->code);
         self::assertEquals(
-            new \DateTimeImmutable('-1 hour')->modify(\sprintf('+%d minutes', CardStates::STUCK_DELAY_MINUTES))->format('Y-m-d H:i'),
+            new \DateTimeImmutable('-1 hour')->modify(\sprintf('+%d minutes', BoardAutomationSettings::DEFAULT_STUCK_DELAY_MINUTES))->format('Y-m-d H:i'),
             $state->reason->since?->format('Y-m-d H:i'),
         );
+    }
+
+    public function test_the_stuck_delay_of_the_board_decides_when_a_ready_pull_request_turns_stuck(): void
+    {
+        $project = $this->stateProject('state-ready-delay');
+        $settings = new BoardAutomationSettings($project, stuckDelayMinutes: 90);
+        $this->em()->persist($settings);
+        $this->em()->flush();
+        $card = $this->stateCard($project);
+        $this->approvedPullRequest($card, new \DateTimeImmutable('-1 hour'));
+
+        $before = $this->stateOf($card);
+        self::assertNull($before);
+
+        $settings = $this->em()->find(BoardAutomationSettings::class, $settings->id) ?? throw new \LogicException('The settings are stored.');
+        $settings->stuckDelayMinutes = 30;
+        $this->em()->flush();
+
+        $after = $this->stateOf($card);
+        self::assertInstanceOf(CardState::class, $after);
+        self::assertSame(CardStateKind::Stuck, $after->kind);
     }
 
     public function test_a_ready_pull_request_inside_the_delay_is_not_stuck(): void

@@ -147,6 +147,7 @@ return (new GamacheConfig())->registerChecks([
             new DesignSystemComponent('Tag', 'lp-tag', 'templates/components/Ds/Tag.html.twig', enforced: true),
             new DesignSystemComponent('Badge', 'lp-badge', 'templates/components/Ds/Badge.html.twig', enforced: true),
             new DesignSystemComponent('StatusChip', 'lp-status-chip', 'templates/components/Ds/StatusChip.html.twig', enforced: true),
+            new DesignSystemComponent('StatusBox', 'lp-status-box', 'templates/components/Ds/StatusBox.html.twig', enforced: true),
             new DesignSystemComponent('EmptyState', 'lp-empty-state', 'templates/components/Ds/EmptyState.html.twig', enforced: true),
             new DesignSystemComponent('Flash', 'lp-flash', 'templates/components/Ds/Flash.html.twig', enforced: true),
             new DesignSystemComponent('Dialog', 'lp-dialog', 'templates/components/Ds/Dialog.html.twig', enforced: true),

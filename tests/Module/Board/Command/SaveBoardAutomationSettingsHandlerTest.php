@@ -60,6 +60,32 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
         self::assertTrue($this->audit->record('board.automation_settings_saved')->context['commentOnStaleApproval']);
     }
 
+    public function test_it_stores_and_audits_the_stuck_delay(): void
+    {
+        $this->save(enabled: true, syncBehind: false, stuckDelayMinutes: 40);
+
+        self::assertSame(40, $this->stored()->stuckDelayMinutes);
+        self::assertSame(40, $this->audit->record('board.automation_settings_saved')->context['stuckDelayMinutes']);
+    }
+
+    #[DataProvider('invalidStuckDelays')]
+    public function test_it_refuses_a_stuck_delay_out_of_range(int $minutes): void
+    {
+        try {
+            $this->save(enabled: true, syncBehind: false, stuckDelayMinutes: $minutes);
+            self::fail('A delay out of range must be refused.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['stuckDelayMinutes' => SaveBoardAutomationSettingsHandler::STUCK_DELAY_INVALID], $e->errors);
+        }
+    }
+
+    /** @return iterable<string, array{int}> */
+    public static function invalidStuckDelays(): iterable
+    {
+        yield 'zero' => [0];
+        yield 'over a day' => [1441];
+    }
+
     /** @return iterable<string, array{bool, bool}> */
     public static function writeOptIns(): iterable
     {
@@ -213,7 +239,7 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
         }
     }
 
-    private function save(bool $enabled, bool $syncBehind, bool $commentOnStaleApproval = false, bool $mergePullRequests = false, bool $changeBase = false, bool $openEpicPullRequests = false, ?string $epicBranchPattern = 'epic/{number}'): void
+    private function save(bool $enabled, bool $syncBehind, bool $commentOnStaleApproval = false, bool $mergePullRequests = false, bool $changeBase = false, bool $openEpicPullRequests = false, ?string $epicBranchPattern = 'epic/{number}', int $stuckDelayMinutes = 15): void
     {
         $handler = self::getContainer()->get(SaveBoardAutomationSettingsHandler::class);
         self::assertInstanceOf(SaveBoardAutomationSettingsHandler::class, $handler);
@@ -227,6 +253,7 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
             changeBase: $changeBase,
             openEpicPullRequests: $openEpicPullRequests,
             epicBranchPattern: $epicBranchPattern,
+            stuckDelayMinutes: $stuckDelayMinutes,
         ));
     }
 

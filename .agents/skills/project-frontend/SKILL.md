@@ -181,6 +181,8 @@ Use a component from `src/Module/DesignSystem/Catalog.php` before you write mark
 9. Pagination: `<twig:Ds:Pagination route="..." :page="page" :totalPages="totalPages" :pageList="pageList" />`. The CSS is `assets/styles/components/pagination.css`.
 10. Tooltip: `<twig:Ds:Tooltip id="...">text</twig:Ds:Tooltip>`. The anchor's own rule shows it on hover and focus. The CSS is `assets/styles/components/tooltip.css`.
 
+11. StatusBox: `<twig:Ds:StatusBox kind="stuck" :label="..." :lead="..." :since="..." :others="...">`. Kinds are stuck, needs-you, working and waiting. The CSS is `assets/styles/components/status-box.css`.
+
 2. Form parts: `<twig:Ds:FormField :fieldView="form.title" />` draws the label, widget, hint and errors of a Symfony field, and `widgetKind="select"` or `widgetKind="textarea"` picks the widget classes. `Ds:Input`, `Ds:Select`, `Ds:Textarea`, `Ds:Label`, `Ds:Hint` and `Ds:FieldErrors` draw one part each. A Symfony widget in a custom layout takes `ds_input_class('select')` and `ds_label_class()`. The CSS is `assets/styles/components/form.css`.
 
 A child card that adds a component adds it to this list in the same branch.

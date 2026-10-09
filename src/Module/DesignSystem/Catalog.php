@@ -173,6 +173,18 @@ final readonly class Catalog
                 element: 'span',
             ),
             new ComponentEntry(
+                name: 'StatusBox',
+                rootClass: 'lp-status-box',
+                template: 'components/Ds/StatusBox.html.twig',
+                variants: ['stuck', 'needs-you', 'working', 'waiting'],
+                states: [],
+                enforced: true,
+                group: 'core',
+                summary: 'The state of a card with its reason, since when, and the other states that apply.',
+                element: 'section',
+                dotClass: 'lp-status-box__dot',
+            ),
+            new ComponentEntry(
                 name: 'Dialog',
                 rootClass: 'lp-dialog',
                 template: 'components/Ds/Dialog.html.twig',

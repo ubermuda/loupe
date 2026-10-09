@@ -50,6 +50,17 @@
 
         <section class="lp-card-panel" id="card-panel-overview" role="tabpanel" aria-labelledby="card-tab-overview" data-panel-tabs-target="panel" data-panel-panel="overview"{% if activeTab != 'overview' %} hidden{% endif %}>
             <div class="lp-card-overview">
+                {% if state %}
+                <twig:Ds:StatusBox
+                    :kind="state.kind.value"
+                    :label="state.kind.translationKey|trans"
+                    :lead="state.reason.translationKey|trans(state.reason.params)"
+                    :since="state.reason.since ? 'board.card_state.since'|trans({'%time%': state.reason.since|relative_time}) : null"
+                    :othersTitle="'board.card_state.others'|trans"
+                    :others="state.others|map(other => {kind: other.code.kind.value, label: other.code.kind.translationKey|trans, lead: other.translationKey|trans(other.params), since: other.since ? 'board.card_state.since'|trans({'%time%': other.since|relative_time}) : null})"
+                    data-card-state="{{ state.kind.value }}"
+                />
+                {% endif %}
                 <section class="lp-card-overview__section">
                     <h2 class="lp-card-panel__title">{{ 'board.card.overview.description'|trans }}</h2>
                     {% if card.body|trim is not empty %}<div class="prose lp-prose lp-card-detail__body">{{ card.body|card_body }}</div>{% else %}<p class="lp-card-detail__empty">{{ 'board.card.body.empty'|trans }}</p>{% endif %}

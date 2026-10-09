@@ -6,9 +6,13 @@ namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardPause;
+use App\Module\Board\Entity\CardPauseKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
+use App\Module\Bridge\Entity\WorkRequest;
+use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
@@ -51,6 +55,49 @@ final class ShowCardControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$plain->id);
         self::assertResponseIsSuccessful();
         self::assertSame(0, $crawler->filter('.lp-card-drawer__identity .lp-tag--purple')->count());
+    }
+
+    public function test_the_status_box_names_the_winning_state_and_lists_the_others(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'card-status-box@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Stuck and working');
+        $em->persist(new CardPause($card, $project, 'review-failed', 'fix-rule', CardPauseKind::Retries, new \DateTimeImmutable('-1 hour')));
+        $em->persist(new WorkRequest($project, WorkSubject::CARD, $card->id ?? throw new \LogicException('A flushed card has an id.'), $card->number, 'implement', null, 'implement-rule', new \DateTimeImmutable('-30 minutes')));
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$card->id);
+
+        self::assertResponseIsSuccessful();
+        $box = $crawler->filter('[data-card-state="stuck"].lp-status-box--stuck');
+        self::assertCount(1, $box);
+        self::assertStringContainsString('Paused: review-failed.', $box->text());
+        self::assertStringContainsString('Since 1h ago', $box->text());
+        $others = $box->filter('.lp-status-box__other--working');
+        self::assertCount(1, $others);
+        self::assertStringContainsString('Work waits for a bridge to take it.', $others->text());
+    }
+
+    public function test_the_status_box_is_absent_for_a_card_in_no_state(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'card-status-box-none@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Nothing to say');
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$card->id);
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('#card-panel-overview'));
+        self::assertCount(0, $crawler->filter('.lp-status-box'));
     }
 
     public function test_the_card_page_shows_the_stored_state_of_each_pull_request(): void
