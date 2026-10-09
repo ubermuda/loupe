@@ -110,7 +110,7 @@ final readonly class AnswerRuleAskHandler
         $now = $this->clock->now();
         $snapshot = $card->snapshot();
         $facts = $this->factsBuilder->build($snapshot, $now);
-        if (null !== $rule->slot && $facts->card->slot !== $rule->slot) {
+        if (null !== $rule->slot && $facts->slot !== $rule->slot) {
             return $this->skip('left-slot', $itemId);
         }
         if (null === $rule->when->unreadable($facts) && !$this->ruleSubject->bind($rule, $facts)->truth) {

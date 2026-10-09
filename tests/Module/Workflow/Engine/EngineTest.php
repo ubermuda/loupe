@@ -17,14 +17,13 @@ use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPause;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
-use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardPauseRepository;
-use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardPullRequests;
 use App\Module\Board\Workflow\BoardCardPauses;
+use App\Module\Board\Workflow\CardTypeFacts;
 use App\Module\Board\Workflow\ForgeWrite;
 use App\Module\Board\Workflow\MoveCard;
 use App\Module\Board\Workflow\RequestWork;
@@ -201,6 +200,34 @@ final class EngineTest extends KernelTestCase
             $this->paused[0]->cardId->toRfc4122(),
             $this->paused[0]->projectId->toRfc4122(),
         ]);
+    }
+
+    public function test_a_rule_state_that_stores_the_legacy_hash_waits_for_its_backoff_and_then_stores_the_provider_hash(): void
+    {
+        $card = $this->boundCard([self::moveRule('stuck', 'three', self::NOT_EPIC)]);
+        $this->evaluate($card);
+        $legacy = hash('sha256', '{"card-type":"feature"}');
+        $this->ruleState($card, 'stuck')->fingerprint = $legacy;
+        $this->em()->flush();
+
+        $this->evaluate($card, '2026-10-02 12:05:00');
+
+        $state = $this->ruleState($card, 'stuck');
+        self::assertSame(1, $state->attempts, 'The deploy does not retry the rule early.');
+        self::assertNotSame($legacy, $state->fingerprint);
+        self::assertSame(hash('sha256', json_encode(['class:'.CardTypeFacts::class => 'feature'], \JSON_UNESCAPED_SLASHES | \JSON_THROW_ON_ERROR)), $state->fingerprint);
+    }
+
+    public function test_a_rule_state_that_stores_a_legacy_hash_of_other_facts_retries_at_once(): void
+    {
+        $card = $this->boundCard([self::moveRule('stuck', 'three', self::NOT_EPIC)]);
+        $this->evaluate($card);
+        $this->ruleState($card, 'stuck')->fingerprint = hash('sha256', '{"card-type":"epic"}');
+        $this->em()->flush();
+
+        $this->evaluate($card, '2026-10-02 12:05:00');
+
+        self::assertSame(2, $this->ruleState($card, 'stuck')->attempts);
     }
 
     public function test_a_refused_request_is_retried_when_due_and_the_card_pauses_when_the_retries_run_out(): void
@@ -3025,7 +3052,7 @@ final class EngineTest extends KernelTestCase
 
     private function providers(): FactProviders
     {
-        return new FactProviders([$this->provider()]);
+        return new FactProviders([...array_values(array_diff_key($this->service(FactProviders::class)->byClass, [ProvidedFacts::class => true])), $this->provider()]);
     }
 
     private function evaluate(Card $card, string $at = self::NOON): void
@@ -3066,13 +3093,7 @@ final class EngineTest extends KernelTestCase
             new FactsBuilder(
                 $this->service(WorkflowSlotLinkRepository::class),
                 $this->service(CardRepository::class),
-                $this->service(CardDocumentRepository::class),
-                new CardPullRequests($this->service(CardPullRequestRepository::class), $forgePullRequests),
-                $forgePullRequests,
-                $workRequests,
-                $this->service(WorkerRunRepository::class),
                 $this->providers(),
-                $this->service(BoardAutomation::class),
                 $this->em()->getConnection(),
             ),
             new FactFingerprint(),

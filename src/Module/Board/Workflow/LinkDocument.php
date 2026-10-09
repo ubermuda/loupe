@@ -81,11 +81,11 @@ final readonly class LinkDocument implements Action
     {
         $card = $this->cards->find($context->card->id) ?? throw new \LogicException('A stored card has an id.');
         $tag = $context->string('tag');
-        $document = array_find($context->facts->card->parentDocuments, static fn (DocumentFacts $document): bool => \in_array($tag, $document->tags, true));
+        $document = array_find($context->facts->get(ParentDocumentsFacts::class)->documents, static fn (DocumentFacts $document): bool => \in_array($tag, $document->tags, true));
         if (null === $document) {
             return ActionOutcome::refused(self::NO_PARENT_DOCUMENT);
         }
-        $linked = array_map(static fn (DocumentFacts $document): string => $document->id, $context->facts->card->documents);
+        $linked = array_map(static fn (DocumentFacts $document): string => $document->id, $context->facts->get(DocumentsFacts::class)->documents);
         if (\in_array($document->id, $linked, true)) {
             return ActionOutcome::done();
         }

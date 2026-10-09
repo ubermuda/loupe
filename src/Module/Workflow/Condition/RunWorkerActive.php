@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Condition;
 
+use App\Module\Bridge\Workflow\WorkerRunFacts;
 use App\Module\Workflow\Contract\Condition;
-use App\Module\Workflow\Contract\FactKey;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\Parameter;
 use App\Module\Workflow\Contract\ParameterType;
@@ -36,14 +36,14 @@ final readonly class RunWorkerActive implements Condition
     #[\Override]
     public function reads(array $params): array
     {
-        return [FactKey::WorkerRuns];
+        return [WorkerRunFacts::class];
     }
 
     #[\Override]
     public function evaluate(Facts $facts, array $params): bool
     {
         $kind = ParameterValue::optionalString($params, 'kind');
-        $active = $facts->run->activeWorkerKinds;
+        $active = $facts->get(WorkerRunFacts::class)->activeKinds;
 
         return null === $kind ? [] !== $active : \in_array($kind, $active, true);
     }

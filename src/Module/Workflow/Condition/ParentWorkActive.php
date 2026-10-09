@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Condition;
 
+use App\Module\Bridge\Workflow\ParentWorkFacts;
 use App\Module\Workflow\Contract\Condition;
-use App\Module\Workflow\Contract\FactKey;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\Parameter;
 use App\Module\Workflow\Contract\ParameterType;
@@ -36,14 +36,14 @@ final readonly class ParentWorkActive implements Condition
     #[\Override]
     public function reads(array $params): array
     {
-        return [FactKey::ParentWork];
+        return [ParentWorkFacts::class];
     }
 
     #[\Override]
     public function evaluate(Facts $facts, array $params): bool
     {
         $kind = ParameterValue::optionalString($params, 'kind');
-        $active = $facts->run->parentActiveKinds;
+        $active = $facts->get(ParentWorkFacts::class)->activeKinds;
 
         return null === $kind ? [] !== $active : \in_array($kind, $active, true);
     }

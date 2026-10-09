@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Template;
 
+use App\Module\Board\Workflow\ChildrenFacts;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Action\EvaluateChildren;
@@ -11,7 +12,6 @@ use App\Module\Workflow\Condition\CardHasType;
 use App\Module\Workflow\Condition\Conditions;
 use App\Module\Workflow\Contract\ActionOutcome;
 use App\Module\Workflow\Contract\ChecksParameters;
-use App\Module\Workflow\Contract\FactKey;
 use App\Module\Workflow\Contract\LabelTone;
 use App\Module\Workflow\Contract\Parameter;
 use App\Module\Workflow\Contract\ParameterNames;
@@ -339,7 +339,7 @@ final readonly class TemplateParser
         }
         $type = $expression instanceof ConditionLeaf && $expression->condition instanceof CardHasType ? ParameterValue::string($expression->params, 'type') : null;
 
-        return self::typeRead($type, \in_array(FactKey::Children, $expression->reads(), true));
+        return self::typeRead($type, \in_array(ChildrenFacts::class, $expression->reads(), true));
     }
 
     /** @return array<string, array{?string, bool}> */

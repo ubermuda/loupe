@@ -70,7 +70,7 @@ final readonly class Detach implements Action
     public function run(ActionContext $context): ActionOutcome
     {
         $card = $this->cards->find($context->card->id) ?? throw new \LogicException('A stored card has an id.');
-        if (!$context->facts->card->isChild) {
+        if (!$context->facts->get(ParentFacts::class)->isChild) {
             return ActionOutcome::done();
         }
 

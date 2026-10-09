@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Engine;
 
-use App\Module\Workflow\Contract\FactKey;
+use App\Module\Workflow\Contract\EngineFact;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\PullRequestFacts;
 use App\Module\Workflow\Contract\PullRequestState;
@@ -20,11 +20,11 @@ final readonly class RuleSubject
     public function bind(Rule $rule, Facts $facts): BoundRule
     {
         $readable = null === $rule->when->unreadable($facts);
-        if (!\in_array(FactKey::PullRequest, $rule->when->reads(), true)) {
+        if (!\in_array(EngineFact::PullRequest, $rule->when->reads(), true)) {
             return new BoundRule($facts, $facts->pullRequest?->id, $readable && $rule->when->evaluate($facts), false);
         }
 
-        $candidates = array_values(array_filter($facts->pullRequests, static fn (PullRequestFacts $pullRequest): bool => PullRequestState::Open === $pullRequest->state));
+        $candidates = array_values(array_filter($facts->pullRequests(), static fn (PullRequestFacts $pullRequest): bool => PullRequestState::Open === $pullRequest->state));
         if ([] === $candidates) {
             return new BoundRule($facts, $facts->pullRequest?->id, $readable && $rule->when->evaluate($facts), true);
         }
@@ -43,7 +43,7 @@ final readonly class RuleSubject
     {
         $bound = $this->bind($rule, $facts);
         $paused = !$bound->binds || null === $stored ? null
-            : array_find($facts->pullRequests, static fn (PullRequestFacts $pullRequest): bool => true === $stored->equals($pullRequest->id));
+            : array_find($facts->pullRequests(), static fn (PullRequestFacts $pullRequest): bool => true === $stored->equals($pullRequest->id));
 
         return null === $paused ? $bound->facts : $facts->withPullRequest($paused);
     }
@@ -51,7 +51,7 @@ final readonly class RuleSubject
     /** The facts of the stored subject, while the card still links it, else null. A refill never reads another pull request. */
     public function stored(Facts $facts, ?Uuid $stored): ?Facts
     {
-        $subject = null === $stored ? null : array_find($facts->pullRequests, static fn (PullRequestFacts $pullRequest): bool => true === $stored->equals($pullRequest->id));
+        $subject = null === $stored ? null : array_find($facts->pullRequests(), static fn (PullRequestFacts $pullRequest): bool => true === $stored->equals($pullRequest->id));
 
         return null === $subject ? null : $facts->withPullRequest($subject);
     }

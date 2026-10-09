@@ -46,7 +46,7 @@ final readonly class WorkRequestOpener implements WorkOpener
         if (null !== $tag) {
             $status = $context->optionalString(ParameterNames::DOCUMENT_STATUS);
             $documents = array_values(array_filter(
-                $facts->card->documents,
+                $facts->get(DocumentsFacts::class)->documents,
                 static fn (DocumentFacts $document): bool => \in_array($tag, $document->tags, true) && (null === $status || $status === $document->status),
             ));
             if (1 !== \count($documents)) {

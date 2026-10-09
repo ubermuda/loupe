@@ -6,7 +6,7 @@ namespace App\Module\Workflow\Condition;
 
 use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Contract\Condition;
-use App\Module\Workflow\Contract\FactKey;
+use App\Module\Workflow\Contract\EngineFact;
 use App\Module\Workflow\Contract\Facts;
 use Symfony\Component\Translation\TranslatableMessage;
 
@@ -33,7 +33,7 @@ final readonly class PullRequestChecksFailed implements Condition
     #[\Override]
     public function reads(array $params): array
     {
-        return [FactKey::PullRequest];
+        return [EngineFact::PullRequest];
     }
 
     #[\Override]

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Workflow\Condition;
 
+use App\Module\Board\Workflow\DocumentsFacts;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Workflow\Contract\Condition;
-use App\Module\Workflow\Contract\FactKey;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\Parameter;
 use App\Module\Workflow\Contract\ParameterType;
@@ -39,7 +39,7 @@ final readonly class CardDocument implements Condition
     #[\Override]
     public function reads(array $params): array
     {
-        return [FactKey::Documents];
+        return [DocumentsFacts::class];
     }
 
     #[\Override]
@@ -49,7 +49,7 @@ final readonly class CardDocument implements Condition
         $status = ParameterValue::optionalString($params, 'status');
 
         return array_any(
-            $facts->card->documents,
+            $facts->get(DocumentsFacts::class)->documents,
             static fn ($document): bool => \in_array($tag, $document->tags, true) && (null === $status || $status === $document->status),
         );
     }
