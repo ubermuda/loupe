@@ -37,6 +37,9 @@ final readonly class TemplateParser
     private const int TYPE_KEY_MAX_LENGTH = 20;
     private const array TYPE_CAPABILITIES = ['children', 'lane'];
 
+    /** The names an action call keeps for the parameter types that have a field of their own. */
+    private const array KEPT_PARAMETERS = ['expression' => ['until', 'refill'], 'list' => ['checks'], 'options' => ['options']];
+
     /** The parameters that hold the tag and the status of a request's `document` map. A template cannot write them. */
     public const string DOCUMENT_TAG = 'document.tag';
     public const string DOCUMENT_STATUS = 'document.status';
@@ -644,8 +647,9 @@ final readonly class TemplateParser
         $declared = array_values(array_filter($action::parameters(), static fn (Parameter $parameter): bool => $app || !$parameter->appOnly));
         foreach ($declared as $parameter) {
             $param = $parameter->name;
-            if (ParameterType::Expression === $parameter->type && !\in_array($param, ['until', 'refill'], true)) {
-                throw new \LogicException(\sprintf('The action "%s" declares the expression parameter "%s", and an action call keeps only "until" and "refill".', $name, $param));
+            $kept = self::KEPT_PARAMETERS[$parameter->type->value] ?? null;
+            if (null !== $kept && !\in_array($param, $kept, true)) {
+                throw new \LogicException(\sprintf('The action "%s" declares the %s parameter "%s", and an action call keeps only %s.', $name, $parameter->type->value, $param, implode(', ', $kept)));
             }
             if (!\array_key_exists($param, $value)) {
                 if ($parameter->required) {
