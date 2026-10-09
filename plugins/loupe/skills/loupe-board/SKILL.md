@@ -49,8 +49,10 @@ This skill names a column by its role. Match each role to a column of the board
 by its flags and its label:
 
 - Backlog holds work nobody has chosen yet. It is `backlog` on every board.
+  A child of an epic in Backlog is parked, and the workflow never starts it.
 - The chosen column holds work picked and not started. It is `next` on a new
-  board.
+  board. The workflow moves a new child of an epic there, and starts it from
+  there once its epic sits in the working column.
 - The working column holds work under way. It is `in-progress` on a new board.
 - A terminal column holds finished work. It is `done` on a new board.
 
@@ -307,7 +309,7 @@ sees the truth only when every step updates the card.
 | A design document exists | Add its id to `documentIds`, before the code exists. |
 | You open the pull request | Add its URL to `pullRequestUrls`. A draft already has a URL. |
 | You hand the work over | Put the branch name and the remaining steps in the body. |
-| You stop and leave the work | Move the card back to Backlog. Say why in the body. |
+| You stop and leave the work | Move the card back to Backlog. Say why in the body. A child of an epic that you move back to Backlog stays parked. |
 | The pull request merges | Move the card to a terminal column, unless Loupe already moved it. |
 
 The chosen column holds work that is chosen and not started. `card_create` takes

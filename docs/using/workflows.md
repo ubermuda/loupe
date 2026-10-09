@@ -181,25 +181,33 @@ Some rules act from any slot:
    terminal column once no child is open. A merged epic also waits while any
    worker run of it is open.
 2. A card in the Backlog whose pull request reopens moves to Implementation.
-3. A child of an epic starts only when it links an approved tech design. A
-   child in the Backlog moves to Implementation when it has a document with the
-   tag `tech-design` and the status approved, it has no open blocker, and it has
-   no pull request. It waits while the epic has work in progress. That work is
-   any open worker run of the epic, and any work that the workflow requested for
-   the epic and no bridge finished. When the last such work ends, the epic
-   evaluates its children again, in any column. A change to the work requests
-   of the epic, or to the documents of the child, also evaluates the child. An
-   older bridge that sends no run key reports a run only after it ends, so its
-   run does not hold the children. In a workflow file, the condition
-   `parent.document_approved` with a `tag` is true when a document of the parent
-   card has that tag and is approved.
-4. A child in the Backlog that links no approved tech design asks the owner
-   what to do, once the epic has an approved tech design and no work in
-   progress. The rule is `unplanned-child`. See
+3. A child of an epic starts only when it links an approved tech design and its
+   epic sits in Implementation. A child in Next moves to Implementation when it
+   has a document with the tag `tech-design` and the status approved, it has no
+   open blocker, and it has no pull request. It waits while the epic has work in
+   progress. That work is any open worker run of the epic, and any work that the
+   workflow requested for the epic and no bridge finished. When the last such
+   work ends, the epic evaluates its children again, in any column. A change to
+   the work requests of the epic, or to the documents of the child, also
+   evaluates the child. An older bridge that sends no run key reports a run only
+   after it ends, so its run does not hold the children. In a workflow file, the
+   condition `parent.document_approved` with a `tag` is true when a document of
+   the parent card has that tag and is approved. The condition `parent.in_slot`
+   with a `slot` is true when the parent card sits in that slot.
+4. A child in Next that links no approved tech design asks the owner what to do,
+   once the epic has an approved tech design and no work in progress. The rule
+   is `unplanned-child`. See
    [Asking about an unplanned child](#asking-about-an-unplanned-child).
-5. A card that reaches a terminal column asks for a teardown, which removes its
+5. A new child of an epic moves from the Backlog to Next. The rule is
+   `child-to-next`, and it is the last rule of the file. The move happens once.
+   A person who moves a child back to the Backlog parks it, and the child stays
+   there until a person moves it to Next.
+6. An epic that enters Implementation evaluates its children. The rule is
+   `epic-entered-implementation`. A child that waited for its epic starts at
+   once when it can.
+7. A card that reaches a terminal column asks for a teardown, which removes its
    worktree on the bridge.
-6. A child that reaches a terminal column with a pull request merged into its
+8. A child that reaches a terminal column with a pull request merged into its
    epic branch asks for an epic preview refresh.
 
 An epic follows its children. An epic whose children all finished moves to In
@@ -238,7 +246,7 @@ The answer is final. Loupe runs the option a short time after you answer,
 because a queue carries the answer to the workflow. The question closes by
 itself, as withdrawn, when the rule stops holding: for example when the child
 links a design, when the epic starts new work, or when the card moves away from
-the Backlog. Loupe also withdraws it when the card is held or deleted. A
+Next. Loupe also withdraws it when the card is held or deleted. A
 question that you answered stays answered.
 
 When the inbox is off, the rule cannot ask. The child then pauses with the

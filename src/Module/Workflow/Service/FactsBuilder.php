@@ -95,6 +95,7 @@ final readonly class FactsBuilder
                 childMergedIntoEpicBranch: $children['total'] > 0 && null !== $epicBranch
                     && $this->cardPullRequests->childMergedInto($card, $epicBranch),
                 parentDocuments: null === $card->parent ? [] : $this->documentFacts($card->parent),
+                parentSlot: $this->parentSlotOf($card),
             ),
             pullRequest: null === $primary ? null : array_find($pullRequestFacts, static fn (PullRequestFacts $facts): bool => true === $primary->id?->equals($facts->id)),
             pullRequests: $pullRequestFacts,
@@ -172,6 +173,17 @@ final readonly class FactsBuilder
 
             return [new Unreadable(UnreadableKind::Failed, $source, $e), null];
         }
+    }
+
+    /** The slot of the parent, read from the stored column, because only the column of the evaluated card is refreshed. */
+    private function parentSlotOf(Card $card): ?string
+    {
+        if (null === $card->parent) {
+            return null;
+        }
+        $this->cards->refreshColumn($card->parent);
+
+        return $this->slotOf($card->parent->column);
     }
 
     /** The slot key of a column, or null for a column no slot links. */
