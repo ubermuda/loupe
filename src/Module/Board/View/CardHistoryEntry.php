@@ -26,6 +26,7 @@ final readonly class CardHistoryEntry
         'conflict' => 'board.card.history.reason.conflict',
         'checks-failed' => 'board.card.history.reason.checks_failed',
         'changes-requested' => 'board.card.history.reason.changes_requested',
+        'agent-review' => 'board.card.history.reason.agent_review',
     ];
 
     private function __construct(

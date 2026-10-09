@@ -45,13 +45,14 @@ final class WorkflowGetToolTest extends KernelTestCase
         $kinds = array_column($answer['kinds'], null, 'kind');
         self::assertSame([
             'product-design', 'product-design-revise', 'tech-design', 'tech-design-revise', 'implement', 'breakdown',
-            'fix', 'rebase-stacked', 'sync', 'merge', 'teardown', 'epic-preview', 'discovery', 'analysis',
+            'fix', 'review', 'rebase-stacked', 'sync', 'merge', 'teardown', 'epic-preview', 'discovery', 'analysis',
         ], array_column($answer['kinds'], 'kind'));
         self::assertSame('template', $kinds['implement']['origin']);
         self::assertSame(['implement'], $kinds['implement']['rules']);
         self::assertContains('The agent pushes as its own GitHub account', $kinds['implement']['checks']);
         self::assertCount(6, $kinds['implement']['checks']);
-        self::assertSame(['kind' => 'fix', 'origin' => 'template', 'rules' => ['fix-in-implementation', 'fix-in-review'], 'checks' => self::CODE_CHECKS], $kinds['fix']);
+        self::assertSame(['kind' => 'fix', 'origin' => 'template', 'rules' => ['fix-in-implementation', 'fix-agent-review', 'fix-in-review', 'fix-agent-review-in-review'], 'checks' => self::CODE_CHECKS], $kinds['fix']);
+        self::assertSame(['kind' => 'review', 'origin' => 'template', 'rules' => ['agent-review', 'agent-review-in-review'], 'checks' => ['A bridge work entry for the review kind', 'The Loupe plugin skills are installed for the agent']], $kinds['review']);
         self::assertSame(['kind' => 'sync', 'origin' => 'template', 'rules' => ['update-behind'], 'checks' => []], $kinds['sync']);
         self::assertSame(['kind' => 'merge', 'origin' => 'template', 'rules' => ['merge-ready', 'merge-ready-epic-child'], 'checks' => []], $kinds['merge']);
         self::assertSame('app', $kinds['discovery']['origin']);

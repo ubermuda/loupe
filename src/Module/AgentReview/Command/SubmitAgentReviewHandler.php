@@ -8,6 +8,8 @@ use App\Exception\DomainErrors;
 use App\Module\AgentReview\Entity\AgentReview;
 use App\Module\AgentReview\Entity\AgentReviewConclusion;
 use App\Module\AgentReview\Entity\AgentReviewFinding;
+use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardPullRequests;
 use App\Module\Board\Service\PullRequestUrlResolver;
@@ -31,7 +33,8 @@ final readonly class SubmitAgentReviewHandler
     public function __construct(
         private WorkerRunRepository $workerRuns,
         private PullRequestUrlResolver $urlResolver,
-        private CardPullRequests $cardPullRequests,
+        private CardPullRequests $trackedPullRequests,
+        private CardPullRequestRepository $cardPullRequests,
         private ForgePullRequestRepository $forgePullRequests,
         private BoardAutomation $boardAutomation,
         private EntityManagerInterface $em,
@@ -52,7 +55,7 @@ final readonly class SubmitAgentReviewHandler
         }
 
         $ref = $this->urlResolver->resolve(trim($command->pullRequestUrl));
-        if (null === $ref->repository || null === $ref->number || !$this->cardPullRequests->links($card, $ref->forge->value, $ref->repository, $ref->number)) {
+        if (null === $ref->repository || null === $ref->number || !$this->trackedPullRequests->links($card, $ref->forge->value, $ref->repository, $ref->number)) {
             throw new DomainErrors(['pullRequestUrl' => self::NOT_LINKED]);
         }
         $pullRequest = $this->forgePullRequests->findByKeys($projectId, [['forge' => $ref->forge->value, 'repository' => $ref->repository, 'number' => $ref->number]])[0] ?? null;
@@ -94,7 +97,8 @@ final readonly class SubmitAgentReviewHandler
         );
 
         if ($this->evaluations->isOn()) {
-            $this->evaluations->forCards([$cardId]);
+            $linked = $this->cardPullRequests->findForPullRequest($projectId, $ref->forge, $ref->repository, $ref->number);
+            $this->evaluations->forCards([$cardId, ...array_map(static fn (CardPullRequest $link): string => (string) $link->card->id, $linked)]);
         }
 
         return $review;

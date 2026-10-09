@@ -973,7 +973,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         [$owner, $project] = $this->scenario('handler-queued-fix-request');
         $cardId = Uuid::v7();
         $request = $this->seedWorkRequest($this->em(), $project, $cardId, kind: 'fix', ruleId: 'fix-on-red');
-        $request->context = new WorkRequestContext(pullRequestNumber: 41, pullRequestUrl: 'https://github.com/acme/widgets/pull/41');
+        $request->context = new WorkRequestContext(pullRequestNumber: 41, pullRequestUrl: 'https://github.com/acme/widgets/pull/41', reason: 'agent-review');
         $this->em()->flush();
         $queued = DispatchedEvents::of(self::getContainer(), WorkerRunQueued::class);
 
@@ -982,6 +982,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         self::assertCount(1, $queued->events());
         self::assertSame(41, $queued->events()[0]->pullRequestNumber);
         self::assertSame('https://github.com/acme/widgets/pull/41', $queued->events()[0]->pullRequestUrl);
+        self::assertSame('agent-review', $queued->events()[0]->reason);
     }
 
     public function test_a_queued_fix_run_that_names_the_request_of_another_card_names_no_pull_request(): void

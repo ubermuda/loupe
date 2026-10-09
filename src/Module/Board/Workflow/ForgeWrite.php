@@ -43,7 +43,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 /**
  * Writes to the pull request the rule acts on through the forge. A state write goes to each
  * pull request of the card. A write the project did not opt into, or that no writer of the forge supports, opens the fallback
- * work instead. A state write with no fallback then does nothing. The epic opening acts on an epic with no pull request:
+ * work instead. A state write with no fallback then does nothing. The review-ready write marks the open pull requests ready
+ * when the agent review is on. The epic opening acts on an epic with no pull request:
  * it opens the pull request of the epic branch and links it to the epic, and it has no fallback.
  */
 final readonly class ForgeWrite implements Action, ChecksParameters
@@ -51,7 +52,7 @@ final readonly class ForgeWrite implements Action, ChecksParameters
     public const string OPEN_EPIC_OFF = WorkflowRefusal::OPEN_EPIC_OFF;
 
     public const string KEY = 'forge-write';
-    private const array WRITES_WITHOUT_FALLBACK = ['draft', 'ready', 'close', 'open-epic', 'post-review', 'site-review-check', 'agent-review-check'];
+    private const array WRITES_WITHOUT_FALLBACK = ['draft', 'ready', 'close', 'open-epic', 'post-review', 'site-review-check', 'agent-review-check', 'review-ready'];
 
     public function __construct(
         private CardRepository $cards,
@@ -151,7 +152,11 @@ final readonly class ForgeWrite implements Action, ChecksParameters
 
             return null === $result->failure ? ActionOutcome::done() : ActionOutcome::refused($result->failure);
         }
-        if (\in_array($write, [ForgeWriteKind::Draft, ForgeWriteKind::Ready, ForgeWriteKind::Close], true)) {
+        if (\in_array($write, [ForgeWriteKind::Draft, ForgeWriteKind::Ready, ForgeWriteKind::Close, ForgeWriteKind::ReviewReady], true)) {
+            if (ForgeWriteKind::ReviewReady === $write) {
+                $subject = $this->cardPullRequests->subjectOf(array_values(array_filter($pullRequests, static fn (ForgePullRequest $pullRequest): bool => PullRequestState::Open === $pullRequest->state)), $facts->pullRequest);
+                $pullRequests = null === $subject ? [] : [$subject];
+            }
             if ([] === $pullRequests) {
                 return ActionOutcome::done();
             }
@@ -194,7 +199,7 @@ final readonly class ForgeWrite implements Action, ChecksParameters
             ForgeWriteKind::OpenEpic => $settings->openEpicPullRequests,
             ForgeWriteKind::PostReview => $settings->postWidgetReviews,
             ForgeWriteKind::SiteReviewCheck => $settings->siteReviewCheck,
-            ForgeWriteKind::AgentReviewCheck => $settings->agentReview,
+            ForgeWriteKind::AgentReviewCheck, ForgeWriteKind::ReviewReady => $settings->agentReview,
             ForgeWriteKind::Comment => false,
         };
     }

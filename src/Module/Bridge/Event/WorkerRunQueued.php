@@ -19,6 +19,7 @@ final readonly class WorkerRunQueued
         public Uuid $cardId,
         public ?int $pullRequestNumber = null,
         public ?string $pullRequestUrl = null,
+        public ?string $reason = null,
     ) {
     }
 }

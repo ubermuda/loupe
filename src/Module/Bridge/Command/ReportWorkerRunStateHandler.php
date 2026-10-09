@@ -202,6 +202,7 @@ final readonly class ReportWorkerRunStateHandler
             cardId: $run->subjectId,
             pullRequestNumber: $context?->pullRequestNumber,
             pullRequestUrl: $context?->pullRequestUrl,
+            reason: $context?->reason,
         );
     }
 

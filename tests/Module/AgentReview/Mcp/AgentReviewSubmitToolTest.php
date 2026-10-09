@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\AgentReview\Mcp;
 
+use App\Module\AgentReview\Command\SubmitAgentReviewCommand;
+use App\Module\AgentReview\Command\SubmitAgentReviewHandler;
 use App\Module\AgentReview\Entity\AgentReview;
 use App\Module\AgentReview\Entity\AgentReviewSeverity;
 use App\Module\AgentReview\Mcp\AgentReviewSubmitTool;
@@ -13,11 +15,18 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Mcp\AgentRunCause;
+use App\Module\Board\Repository\CardPullRequestRepository;
+use App\Module\Board\Service\BoardAutomation;
+use App\Module\Board\Service\CardPullRequests;
+use App\Module\Board\Service\PullRequestUrlResolver;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Contract\CardEvaluations;
 use App\Tests\Module\AgentReview\AgentReviewScenario;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
@@ -27,6 +36,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Uid\Uuid;
+use Ubermuda\AuditBundle\Auditor;
 
 final class AgentReviewSubmitToolTest extends KernelTestCase
 {
@@ -80,6 +90,46 @@ final class AgentReviewSubmitToolTest extends KernelTestCase
         self::assertTrue($run->workRequestId?->equals($review->workRequestId));
         self::assertSame([AgentReviewSeverity::Important, AgentReviewSeverity::Nit], array_map(static fn ($finding) => $finding->severity, $review->findings()));
         self::assertNull($review->postedAt);
+    }
+
+    public function test_it_evaluates_every_card_that_links_the_reviewed_pull_request(): void
+    {
+        $other = $this->card($this->project, 2);
+        $this->em->persist(new CardPullRequest($other, self::URL, Forge::GitHub, 'Acme/Widgets', 7));
+        $this->em->flush();
+        $this->reviewRun();
+        $evaluations = new class implements CardEvaluations {
+            /** @var list<string|Uuid> */
+            public array $cardIds = [];
+
+            public function forCards(array $cardIds): void
+            {
+                $this->cardIds = [...$this->cardIds, ...$cardIds];
+            }
+
+            public function isOn(): bool
+            {
+                return true;
+            }
+        };
+        $container = self::getContainer();
+        $handler = new SubmitAgentReviewHandler(
+            $container->get(WorkerRunRepository::class),
+            $container->get(PullRequestUrlResolver::class),
+            $container->get(CardPullRequests::class),
+            $container->get(CardPullRequestRepository::class),
+            $container->get(ForgePullRequestRepository::class),
+            $container->get(BoardAutomation::class),
+            $this->em,
+            $evaluations,
+            $container->get(Auditor::class),
+        );
+
+        $handler(new SubmitAgentReviewCommand($this->card, $this->sessionId, self::URL, str_repeat('a', 40), 'Nothing found.', []));
+
+        $evaluated = array_map(static fn (string|Uuid $id): string => (string) $id, $evaluations->cardIds);
+        self::assertContains((string) $this->card->id, $evaluated);
+        self::assertContains((string) $other->id, $evaluated);
     }
 
     public function test_nits_alone_pass_under_the_default_severities(): void

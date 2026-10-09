@@ -1146,8 +1146,8 @@ review each pull request** on, Loupe posts a check named `loupe/agent-review` on
 the commit that the worker reviewed. The check puts one note beside the lines of
 each finding. An important finding shows as a failure, a nit as a warning, and a
 pre-existing finding as a notice. The check fails when a finding has a severity
-from **Findings that fail the agent review check**. No workflow rule asks for
-the review yet.
+from **Findings that fail the agent review check**. The Lifecycle template asks
+for the review. See [Agent review](workflows.md#agent-review).
 
 ### A person deletes a card, an agent does not
 

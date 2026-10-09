@@ -17,4 +17,5 @@ enum ForgeWriteKind: string
     case PostReview = 'post-review';
     case SiteReviewCheck = 'site-review-check';
     case AgentReviewCheck = 'agent-review-check';
+    case ReviewReady = 'review-ready';
 }

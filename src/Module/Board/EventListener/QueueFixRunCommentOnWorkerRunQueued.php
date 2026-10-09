@@ -83,7 +83,7 @@ final readonly class QueueFixRunCommentOnWorkerRunQueued
         $repository = $tracked->repository ?? $key['repository'];
         $number = $tracked->number ?? $key['number'];
         $headSha = $tracked?->headSha;
-        $reason = null === $tracked ? null : self::reasonOf($tracked);
+        $reason = $event->reason ?? (null === $tracked ? null : self::reasonOf($tracked));
 
         // Forge keeps its row through a repository rename, so the post finds the pull request by id.
         $forgePullRequestId = $tracked?->id;

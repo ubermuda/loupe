@@ -44,6 +44,46 @@ class AgentReviewRepository extends ServiceEntityRepository
     }
 
     /**
+     * The newest review of the current head of each pull request, whichever card asked for it.
+     *
+     * @param list<ForgePullRequest> $pullRequests
+     *
+     * @return array<string, AgentReview> keyed by pull request id; a pull request with no head or no review of its head is absent
+     */
+    public function findLatestOfHeads(array $pullRequests): array
+    {
+        $heads = [];
+        foreach ($pullRequests as $pullRequest) {
+            if (null !== $pullRequest->headSha) {
+                $heads[(string) $pullRequest->id] = mb_strtolower($pullRequest->headSha);
+            }
+        }
+        if ([] === $heads) {
+            return [];
+        }
+
+        /** @var list<AgentReview> $reviews */
+        $reviews = $this->createQueryBuilder('r')
+            ->where('r.pullRequest IN (:pullRequests) AND LOWER(r.headSha) IN (:heads)')
+            ->setParameter('pullRequests', array_filter($pullRequests, static fn (ForgePullRequest $pullRequest): bool => null !== $pullRequest->headSha))
+            ->setParameter('heads', array_values(array_unique($heads)))
+            ->orderBy('r.createdAt')
+            ->addOrderBy('r.id')
+            ->getQuery()
+            ->getResult();
+
+        $latest = [];
+        foreach ($reviews as $review) {
+            $key = (string) $review->pullRequest->id;
+            if (($heads[$key] ?? null) === mb_strtolower($review->headSha)) {
+                $latest[$key] = $review;
+            }
+        }
+
+        return $latest;
+    }
+
+    /**
      * @param list<Card>             $cards
      * @param list<ForgePullRequest> $pullRequests
      *

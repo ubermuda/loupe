@@ -22,6 +22,10 @@ rules:
       when: { card.site_review.check_stale: {} }
       then: { forge-write: { write: site-review-check } }
 
+    - id: sync-agent-review-check
+      when: { agent_review.unposted: {} }
+      then: { forge-write: { write: agent-review-check } }
+
 # Work the app asks a bridge for outside the engine. Each entry ships a prompt.
 requests:
     - id: insights.analysis
