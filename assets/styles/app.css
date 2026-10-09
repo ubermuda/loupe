@@ -4131,6 +4131,12 @@
     .lp-review-doc__byline {
         @apply text-fg-dim m-0 text-sm;
     }
+    .lp-new-text-switch[aria-checked='true'] {
+        @apply bg-status-ok-border text-status-ok-ink;
+    }
+    .lp-new-text-switch[aria-disabled='true'] {
+        @apply cursor-not-allowed opacity-60;
+    }
 
     .lp-review-workspace-nav {
         @apply mt-3 flex w-full flex-col items-stretch gap-3;
@@ -7884,6 +7890,15 @@
     text-decoration-color: var(--agent-mark);
     text-decoration-style: wavy;
     @apply decoration-2 underline-offset-4;
+}
+
+/* Text the version added since the one before it. The solid underline carries
+   the rung for a reader who cannot tell the green from the page. */
+::highlight(lp-new-text) {
+    background-color: var(--status-ok-border);
+    text-decoration-line: underline;
+    text-decoration-color: var(--status-ok-deep);
+    text-underline-offset: 3px;
 }
 
 /* ── Keyframes ──────────────────────────────────────────────────────── */

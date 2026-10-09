@@ -1606,6 +1606,22 @@
                 <source>review.document.since_last_visit.chip</source>
                 <target>New since v%from% · see what changed</target>
             </trans-unit>
+            <trans-unit id="review.document.new_text.label">
+                <source>review.document.new_text.label</source>
+                <target>Highlight new text</target>
+            </trans-unit>
+            <trans-unit id="review.document.new_text.no_previous">
+                <source>review.document.new_text.no_previous</source>
+                <target>This is the first version. No earlier version exists to compare with.</target>
+            </trans-unit>
+            <trans-unit id="review.document.new_text.refused">
+                <source>review.document.new_text.refused</source>
+                <target>This version cannot be compared with the one before it, so the new text is not marked.</target>
+            </trans-unit>
+            <trans-unit id="review.document.new_text.error">
+                <source>review.document.new_text.error</source>
+                <target>The new text could not be loaded. Try again.</target>
+            </trans-unit>
             <trans-unit id="review.document.diff.notes_title">
                 <source>review.document.diff.notes_title</source>
                 <target>Revision notes</target>
