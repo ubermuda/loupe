@@ -29,6 +29,8 @@ final readonly class SaveBoardAutomationSettingsHandler
 
     public const string EPIC_BRANCH_PATTERN_INVALID = 'board.automation.error.epic_branch_pattern_invalid';
 
+    public const string AGENT_REVIEW_FAILING_SEVERITIES_INVALID = 'board.automation.error.agent_review_failing_severities_invalid';
+
     public function __invoke(SaveBoardAutomationSettingsCommand $command): void
     {
         $epicBranchPattern = trim($command->epicBranchPattern ?? '');
@@ -36,6 +38,12 @@ final readonly class SaveBoardAutomationSettingsHandler
             && (mb_strlen($epicBranchPattern) > BoardAutomationSettings::EPIC_BRANCH_PATTERN_MAX_LENGTH
                 || 1 !== preg_match(BoardAutomationSettings::EPIC_BRANCH_PATTERN_RULE, $epicBranchPattern))) {
             throw new DomainErrors(['epicBranchPattern' => self::EPIC_BRANCH_PATTERN_INVALID]);
+        }
+
+        $failingSeverities = array_values(array_intersect(BoardAutomationSettings::AGENT_REVIEW_SEVERITIES, $command->agentReviewFailingSeverities));
+        $unknown = array_filter($command->agentReviewFailingSeverities, static fn (mixed $severity): bool => !\in_array($severity, BoardAutomationSettings::AGENT_REVIEW_SEVERITIES, true));
+        if ([] === $failingSeverities || [] !== $unknown) {
+            throw new DomainErrors(['agentReviewFailingSeverities' => self::AGENT_REVIEW_FAILING_SEVERITIES_INVALID]);
         }
 
         $settings = $this->automation->settingsForUpdate($command->project);
@@ -54,6 +62,8 @@ final readonly class SaveBoardAutomationSettingsHandler
         $settings->openEpicPullRequests = $command->openEpicPullRequests;
         $settings->postWidgetReviews = $command->postWidgetReviews;
         $settings->siteReviewCheck = $command->siteReviewCheck;
+        $settings->agentReview = $command->agentReview;
+        $settings->agentReviewFailingSeverities = $failingSeverities;
         $settings->epicBranchPattern = '' === $epicBranchPattern ? null : $epicBranchPattern;
         $this->em->flush();
         $this->events->dispatch(new BoardAutomationSettingsSaved(
@@ -85,6 +95,8 @@ final readonly class SaveBoardAutomationSettingsHandler
             'openEpicPullRequests' => $command->openEpicPullRequests,
             'postWidgetReviews' => $command->postWidgetReviews,
             'siteReviewCheck' => $command->siteReviewCheck,
+            'agentReview' => $command->agentReview,
+            'agentReviewFailingSeverities' => implode(',', $failingSeverities),
             'epicBranchPattern' => $settings->epicBranchPattern,
         ]);
     }

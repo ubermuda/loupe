@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Form;
 
+use App\Module\Board\Entity\BoardAutomationSettings;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
+use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
@@ -72,6 +74,19 @@ final class SaveBoardAutomationSettingsFormType extends AbstractType
             'required' => false,
             'label' => 'board.form.save_board_automation_settings_form.site_review_check.label',
             'help' => 'board.form.save_board_automation_settings_form.site_review_check.help',
+        ]);
+        $builder->add('agentReview', CheckboxType::class, [
+            'required' => false,
+            'label' => 'board.form.save_board_automation_settings_form.agent_review.label',
+            'help' => 'board.form.save_board_automation_settings_form.agent_review.help',
+        ]);
+        $builder->add('agentReviewFailingSeverities', ChoiceType::class, [
+            'multiple' => true,
+            'expanded' => true,
+            'choices' => BoardAutomationSettings::AGENT_REVIEW_SEVERITIES,
+            'choice_label' => static fn (string $severity): string => 'board.form.save_board_automation_settings_form.agent_review_failing_severities.choice.'.str_replace('-', '_', $severity),
+            'label' => 'board.form.save_board_automation_settings_form.agent_review_failing_severities.label',
+            'help' => 'board.form.save_board_automation_settings_form.agent_review_failing_severities.help',
         ]);
         $builder->add('epicBranchPattern', TextType::class, [
             'required' => false,

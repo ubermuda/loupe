@@ -23,6 +23,9 @@ final readonly class SaveBoardAutomationSettingsCommand
         public bool $closeEpicPullRequests = false,
         public bool $openEpicPullRequests = false,
         public ?string $epicBranchPattern = BoardAutomationSettings::DEFAULT_EPIC_BRANCH_PATTERN,
+        public bool $agentReview = false,
+        /** @var list<mixed> checked by the handler, because an MCP caller can send any JSON value */
+        public array $agentReviewFailingSeverities = BoardAutomationSettings::DEFAULT_AGENT_REVIEW_FAILING_SEVERITIES,
     ) {
     }
 }

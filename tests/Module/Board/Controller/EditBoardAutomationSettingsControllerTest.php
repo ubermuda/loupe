@@ -15,6 +15,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\DomCrawler\Field\ChoiceFormField;
+use Symfony\Component\DomCrawler\Form;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Uid\Uuid;
 
@@ -61,6 +62,10 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         self::assertCount(0, $form->filter('input[name="'.self::FORM.'[postWidgetReviews]"]:checked'));
         self::assertCount(1, $form->filter('input[name="'.self::FORM.'[siteReviewCheck]"]'));
         self::assertCount(0, $form->filter('input[name="'.self::FORM.'[siteReviewCheck]"]:checked'));
+        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[agentReview]"]'));
+        self::assertCount(0, $form->filter('input[name="'.self::FORM.'[agentReview]"]:checked'));
+        self::assertSame(['important'], $this->checkedSeverities($form));
+        self::assertCount(3, $form->filter('input[name="'.self::FORM.'[agentReviewFailingSeverities][]"]'));
         self::assertSame('epic/{number}', $form->filter('input[name="'.self::FORM.'[epicBranchPattern]"]')->attr('value'));
         self::assertSelectorTextContains('[data-board-automation-settings]', 'Contents: read and write');
         self::assertSelectorNotExists('[data-fix-run-comment-failure]');
@@ -94,6 +99,10 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         $siteReviewCheck = $submit[self::FORM.'[siteReviewCheck]'];
         self::assertInstanceOf(ChoiceFormField::class, $siteReviewCheck);
         $siteReviewCheck->tick();
+        $agentReview = $submit[self::FORM.'[agentReview]'];
+        self::assertInstanceOf(ChoiceFormField::class, $agentReview);
+        $agentReview->tick();
+        $this->severityField($submit, 1)->tick();
         $submit[self::FORM.'[epicBranchPattern]'] = 'feature/epic-{number}';
         $this->client->submit($submit);
 
@@ -106,6 +115,8 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         self::assertNotNull($settings);
         self::assertTrue($settings->postWidgetReviews);
         self::assertTrue($settings->siteReviewCheck);
+        self::assertTrue($settings->agentReview);
+        self::assertSame(['important', 'nit'], $settings->agentReviewFailingSeverities);
         self::assertFalse($settings->enabled);
         self::assertTrue($settings->commentOnFixQueued);
         self::assertTrue($settings->commentOnStaleApproval);
@@ -128,6 +139,8 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         self::assertCount(1, $form->filter('input[name="'.self::FORM.'[openEpicPullRequests]"]:checked'));
         self::assertCount(1, $form->filter('input[name="'.self::FORM.'[postWidgetReviews]"]:checked'));
         self::assertCount(1, $form->filter('input[name="'.self::FORM.'[siteReviewCheck]"]:checked'));
+        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[agentReview]"]:checked'));
+        self::assertSame(['important', 'nit'], $this->checkedSeverities($form));
         self::assertSame('feature/epic-{number}', $form->filter('input[name="'.self::FORM.'[epicBranchPattern]"]')->attr('value'));
     }
 
@@ -142,6 +155,18 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         $settings = $this->stored($project);
         self::assertNotNull($settings);
         self::assertNull($settings->epicBranchPattern);
+    }
+
+    public function test_a_save_with_no_failing_severity_is_refused(): void
+    {
+        $project = $this->ownedProject('automation-no-severity@example.com');
+        $submit = $this->page($project)->filter('form[name="'.self::FORM.'"]')->form();
+        $this->severityField($submit, 0)->untick();
+        $this->client->submit($submit);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('[data-field-errors="agentReviewFailingSeverities"]', 'at least one severity');
+        self::assertNull($this->stored($project));
     }
 
     /** @return iterable<string, array{string}> */
@@ -167,6 +192,24 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(422);
         self::assertSelectorTextContains('[data-field-errors="epicBranchPattern"]', 'branch name');
         self::assertNull($this->stored($project));
+    }
+
+    /** @return list<string> */
+    private function checkedSeverities(Crawler $form): array
+    {
+        return array_values(array_filter($form->filter('input[name="'.self::FORM.'[agentReviewFailingSeverities][]"]:checked')->each(
+            static fn (Crawler $input): ?string => $input->attr('value'),
+        )));
+    }
+
+    private function severityField(Form $submit, int $index): ChoiceFormField
+    {
+        $fields = $submit[self::FORM.'[agentReviewFailingSeverities]'];
+        self::assertIsArray($fields);
+        $field = $fields[$index];
+        self::assertInstanceOf(ChoiceFormField::class, $field);
+
+        return $field;
     }
 
     public function test_the_newest_failed_comment_shows_its_pull_request_and_its_cause(): void

@@ -72,6 +72,54 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
         self::assertFalse($this->stored()->siteReviewCheck);
     }
 
+    public function test_the_agent_review_starts_off_with_important_findings_failing_and_both_settings_are_stored_and_audited(): void
+    {
+        $defaults = new BoardAutomationSettings($this->project);
+        self::assertFalse($defaults->agentReview);
+        self::assertSame(['important'], $defaults->agentReviewFailingSeverities);
+
+        $this->save(enabled: true, syncBehind: false, agentReview: true, agentReviewFailingSeverities: ['pre-existing', 'important', 'pre-existing']);
+
+        $settings = $this->stored();
+        self::assertTrue($settings->agentReview);
+        self::assertSame(['important', 'pre-existing'], $settings->agentReviewFailingSeverities);
+        $context = $this->audit->record('board.automation_settings_saved')->context;
+        self::assertTrue($context['agentReview']);
+        self::assertSame('important,pre-existing', $context['agentReviewFailingSeverities']);
+
+        $this->save(enabled: true, syncBehind: false);
+        self::assertFalse($this->stored()->agentReview);
+        self::assertSame(['important'], $this->stored()->agentReviewFailingSeverities);
+    }
+
+    /** @return iterable<string, array{list<mixed>}> */
+    public static function refusedSeverities(): iterable
+    {
+        yield 'none' => [[]];
+        yield 'an unknown severity' => [['important', 'blocker']];
+        yield 'a number' => [[1]];
+    }
+
+    /** @param list<mixed> $severities */
+    #[DataProvider('refusedSeverities')]
+    public function test_an_empty_or_unknown_list_of_failing_severities_is_refused_and_nothing_is_saved(array $severities): void
+    {
+        $this->em->persist(new BoardAutomationSettings($this->project, agentReview: false, agentReviewFailingSeverities: ['nit']));
+        $this->em->flush();
+
+        try {
+            $this->save(enabled: true, syncBehind: false, agentReview: true, agentReviewFailingSeverities: $severities);
+            self::fail('The handler accepted the severities.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['agentReviewFailingSeverities' => SaveBoardAutomationSettingsHandler::AGENT_REVIEW_FAILING_SEVERITIES_INVALID], $e->errors);
+        }
+
+        $settings = $this->stored();
+        self::assertFalse($settings->agentReview);
+        self::assertSame(['nit'], $settings->agentReviewFailingSeverities);
+        self::assertSame([], $this->audit->records('board.automation_settings_saved'));
+    }
+
     public function test_it_stores_and_audits_the_stale_approval_comment_setting(): void
     {
         $this->save(enabled: true, syncBehind: false, commentOnStaleApproval: true);
@@ -261,7 +309,8 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
         return $settles;
     }
 
-    private function save(bool $enabled, bool $syncBehind, bool $commentOnStaleApproval = false, bool $mergePullRequests = false, bool $changeBase = false, bool $openEpicPullRequests = false, ?string $epicBranchPattern = 'epic/{number}', bool $postWidgetReviews = false, bool $siteReviewCheck = false): void
+    /** @param list<mixed> $agentReviewFailingSeverities */
+    private function save(bool $enabled, bool $syncBehind, bool $commentOnStaleApproval = false, bool $mergePullRequests = false, bool $changeBase = false, bool $openEpicPullRequests = false, ?string $epicBranchPattern = 'epic/{number}', bool $postWidgetReviews = false, bool $siteReviewCheck = false, bool $agentReview = false, array $agentReviewFailingSeverities = ['important']): void
     {
         $handler = self::getContainer()->get(SaveBoardAutomationSettingsHandler::class);
         self::assertInstanceOf(SaveBoardAutomationSettingsHandler::class, $handler);
@@ -277,6 +326,8 @@ final class SaveBoardAutomationSettingsHandlerTest extends KernelTestCase
             siteReviewCheck: $siteReviewCheck,
             openEpicPullRequests: $openEpicPullRequests,
             epicBranchPattern: $epicBranchPattern,
+            agentReview: $agentReview,
+            agentReviewFailingSeverities: $agentReviewFailingSeverities,
         ));
     }
 

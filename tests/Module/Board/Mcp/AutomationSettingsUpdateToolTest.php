@@ -12,6 +12,7 @@ use App\Tests\Support\McpRefusalMessages;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Uid\Uuid;
@@ -58,6 +59,8 @@ final class AutomationSettingsUpdateToolTest extends KernelTestCase
             'openEpicPullRequests' => false,
             'postWidgetReviews' => false,
             'siteReviewCheck' => false,
+            'agentReview' => false,
+            'agentReviewFailingSeverities' => ['important'],
             'epicBranchPattern' => 'epic/{number}',
         ];
         self::assertSame($expected, $result);
@@ -108,6 +111,54 @@ final class AutomationSettingsUpdateToolTest extends KernelTestCase
         $stored = $this->stored($project->id);
         self::assertTrue($stored->postWidgetReviews);
         self::assertTrue($stored->siteReviewCheck);
+    }
+
+    public function test_the_agent_review_settings_are_set_and_kept_when_omitted(): void
+    {
+        $project = $this->makeProject('automation-update-agent-review');
+        $this->em->persist(new BoardAutomationSettings($project));
+        $this->em->flush();
+        $this->actAsMcpTokenBoundTo($project);
+
+        $result = ($this->tool)(agentReview: true, agentReviewFailingSeverities: ['nit', 'important']);
+        self::assertTrue($result['agentReview']);
+        self::assertSame(['important', 'nit'], $result['agentReviewFailingSeverities']);
+
+        $result = ($this->tool)(syncBehind: true);
+        self::assertTrue($result['agentReview']);
+        self::assertSame(['important', 'nit'], $result['agentReviewFailingSeverities']);
+        $stored = $this->stored($project->id);
+        self::assertTrue($stored->agentReview);
+        self::assertSame(['important', 'nit'], $stored->agentReviewFailingSeverities);
+    }
+
+    /** @return iterable<string, array{list<string>}> */
+    public static function refusedSeverities(): iterable
+    {
+        yield 'none' => [[]];
+        yield 'an unknown severity' => [['blocker']];
+    }
+
+    /** @param list<string> $severities */
+    #[DataProvider('refusedSeverities')]
+    public function test_an_empty_or_unknown_list_of_failing_severities_is_refused_and_nothing_is_saved(array $severities): void
+    {
+        $project = $this->makeProject('automation-update-agent-review-refused');
+        $this->em->persist(new BoardAutomationSettings($project));
+        $this->em->flush();
+        $this->actAsMcpTokenBoundTo($project);
+
+        try {
+            ($this->tool)(agentReview: true, agentReviewFailingSeverities: $severities);
+            self::fail('The tool accepted the severities.');
+        } catch (ToolCallException $e) {
+            self::assertStringStartsWith('agentReviewFailingSeverities: ', $e->getMessage());
+            self::assertStringContainsString('important, nit or pre-existing', $e->getMessage());
+        }
+
+        $stored = $this->stored($project->id);
+        self::assertFalse($stored->agentReview);
+        self::assertSame(['important'], $stored->agentReviewFailingSeverities);
     }
 
     public function test_it_sets_both_epic_settings_and_turning_the_opening_on_rearms_it(): void

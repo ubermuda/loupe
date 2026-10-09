@@ -76,6 +76,7 @@ final readonly class BoardToolErrorMessages
             ConfigureBoardColumnHandler::LABEL_STALE, ConfigureBoardColumnHandler::TERMINAL_STALE, ReorderBoardColumnsHandler::ORDER_STALE => 'The columns changed while the call ran. Call board_columns and try again.',
             DeleteBoardColumnHandler::TARGET_REQUIRED => 'This column holds cards. Pass targetColumn, the slug of the column they move to.',
             DeleteBoardColumnHandler::TARGET_INVALID => 'targetColumn must name another column of this board. Call board_columns and pass another slug.',
+            SaveBoardAutomationSettingsHandler::AGENT_REVIEW_FAILING_SEVERITIES_INVALID => 'Pass one or more severities, each important, nit or pre-existing.',
             SaveBoardAutomationSettingsHandler::EPIC_BRANCH_PATTERN_INVALID => 'The pattern must be a branch name that holds {number} exactly once, such as epic/{number}, or be empty to turn epic branches off.',
             default => self::UNMAPPED,
         };

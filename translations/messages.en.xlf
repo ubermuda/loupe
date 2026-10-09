@@ -7018,6 +7018,10 @@
                 <source>board.automation.flash.saved</source>
                 <target>Automation settings saved.</target>
             </trans-unit>
+            <trans-unit id="board.automation.error.agent_review_failing_severities_invalid">
+                <source>board.automation.error.agent_review_failing_severities_invalid</source>
+                <target>Select at least one severity.</target>
+            </trans-unit>
             <trans-unit id="board.automation.error.epic_branch_pattern_invalid">
                 <source>board.automation.error.epic_branch_pattern_invalid</source>
                 <target>The pattern must be a branch name that holds {number} exactly once, or be empty.</target>
@@ -7149,6 +7153,34 @@
             <trans-unit id="board.form.save_board_automation_settings_form.site_review_check.help">
                 <source>board.form.save_board_automation_settings_form.site_review_check.help</source>
                 <target>Loupe posts a check named "Loupe site review" on each open pull request of a managed card. It fails while open site-review notes remain. The GitHub App needs "Checks: read and write".</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.agent_review.label">
+                <source>board.form.save_board_automation_settings_form.agent_review.label</source>
+                <target>Ask an agent to review each pull request</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.agent_review.help">
+                <source>board.form.save_board_automation_settings_form.agent_review.help</source>
+                <target>Loupe asks an agent to review each pull request of a managed card. It posts a check named "loupe/agent-review" with one note for each finding. The GitHub App needs "Checks: read and write".</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.agent_review_failing_severities.label">
+                <source>board.form.save_board_automation_settings_form.agent_review_failing_severities.label</source>
+                <target>Findings that fail the agent review check</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.agent_review_failing_severities.help">
+                <source>board.form.save_board_automation_settings_form.agent_review_failing_severities.help</source>
+                <target>The check fails when the review has a finding of a selected severity. Findings of other severities show as notes only.</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.agent_review_failing_severities.choice.important">
+                <source>board.form.save_board_automation_settings_form.agent_review_failing_severities.choice.important</source>
+                <target>Important</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.agent_review_failing_severities.choice.nit">
+                <source>board.form.save_board_automation_settings_form.agent_review_failing_severities.choice.nit</source>
+                <target>Nit</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.agent_review_failing_severities.choice.pre_existing">
+                <source>board.form.save_board_automation_settings_form.agent_review_failing_severities.choice.pre_existing</source>
+                <target>Pre-existing</target>
             </trans-unit>
             <trans-unit id="board.form.save_board_automation_settings_form.epic_branch_pattern.label">
                 <source>board.form.save_board_automation_settings_form.epic_branch_pattern.label</source>
