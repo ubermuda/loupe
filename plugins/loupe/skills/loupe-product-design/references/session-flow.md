@@ -47,7 +47,7 @@ A card that needs no product design does not use this skill. The owner moves it 
 7. P7: Pre-mortem. Ask one question: "This shipped and failed. Why?" The answers go in "Risks".
 8. P8: Acceptance. Draft Given/When/Then scenarios that cite `R` IDs. They go in "Scenarios". Do not ask the owner to confirm them in the terminal.
 9. P9: The document is the readback. Ask the owner nothing in the terminal after P7 in a Full session, or after P6 in a Light one. The owner reviews the `R` entries and the scenarios in the review UI of the document. A correction comes back as a review comment, and `loupe-stage-fix-round` answers it.
-10. P10: Write and link. Write the product document, link it to the card, close the run with `card_run_close`, and stop, as `SKILL.md` says. Never move the card, because the owner's approval moves it.
+10. P10: Write and link. Write the product document, link it to the card, with the readable copy of each artifact prototype that C8 of `claude-design.md` makes, close the run with `card_run_close`, and stop, as `SKILL.md` says. Never move the card, because the owner's approval moves it.
 
 ## When to stop asking
 

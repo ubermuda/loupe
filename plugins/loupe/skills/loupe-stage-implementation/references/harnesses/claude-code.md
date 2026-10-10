@@ -36,6 +36,19 @@ for i in $(seq 1 57); do grep -q '^EXIT=' <log> && break; sleep 10; done; grep '
 
 One loop waits 570 seconds at most. When it prints `still-running`, run it again. `EXIT=0` means the command passed. This loop ran successfully once, for a full gate run in a worker folder.
 
+## Read a linked prototype
+
+Pick the tool by the kind of link:
+
+| Link | Tool |
+|---|---|
+| `claude.ai/artifact/<id>` | The `Artifact` tool. A headless `claude -p` worker has none. |
+| A Claude Design canvas or file | The Claude Design tools. |
+| A Loupe document | `document_get`. |
+| A file of the repository | Read. |
+
+A Claude Docs `read` denial says nothing about an artifact. Claude Docs is a different store, and it denies an id that names no doc as it denies a doc that is not shared. Never read it as "not shared".
+
 ## Dispatch a sub-agent
 
 Dispatch a sub-agent with the Agent tool, and `subagent_type` set to `senior-dev`. The agent reads the instruction files of the repository itself. Put the rules the stage skill names into its prompt, because it inherits no loaded instruction.
