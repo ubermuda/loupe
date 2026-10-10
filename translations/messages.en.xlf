@@ -7409,6 +7409,8 @@
             <trans-unit id="analytics.metrics.metric.merge-rate"><source>analytics.metrics.metric.merge-rate</source><target>Merge rate</target></trans-unit>
             <trans-unit id="analytics.metrics.metric.fix-rounds"><source>analytics.metrics.metric.fix-rounds</source><target>Fix rounds</target></trans-unit>
             <trans-unit id="analytics.metrics.metric.hours-to-merge"><source>analytics.metrics.metric.hours-to-merge</source><target>Hours to merge</target></trans-unit>
+            <trans-unit id="analytics.metrics.metric.bucket_time_named"><source>analytics.metrics.metric.bucket_time_named</source><target>Time in %bucket%</target></trans-unit>
+            <trans-unit id="analytics.metrics.metric_group.bucket_time"><source>analytics.metrics.metric_group.bucket_time</source><target>Time buckets</target></trans-unit>
             <trans-unit id="analytics.metrics.unit.run"><source>analytics.metrics.unit.run</source><target>Per run</target></trans-unit>
             <trans-unit id="analytics.metrics.unit.card"><source>analytics.metrics.unit.card</source><target>Per finished card</target></trans-unit>
             <trans-unit id="analytics.metrics.statistic.median"><source>analytics.metrics.statistic.median</source><target>Median</target></trans-unit>
@@ -7559,6 +7561,18 @@
             <trans-unit id="insights.bucket_rules.empty.description"><source>insights.bucket_rules.empty.description</source><target>A tool call that no rule takes counts in the bucket "%fallback%". Add a rule to split that time into buckets you choose.</target></trans-unit>
             <trans-unit id="insights.bucket_rules.flash.created"><source>insights.bucket_rules.flash.created</source><target>The rule is added. The bucket times of the runs are being computed again.</target></trans-unit>
             <trans-unit id="insights.bucket_rules.flash.deleted"><source>insights.bucket_rules.flash.deleted</source><target>The rule is deleted. The bucket times of the runs are being computed again.</target></trans-unit>
+            <trans-unit id="insights.bucket_rules.summary.title"><source>insights.bucket_rules.summary.title</source><target>Time per bucket</target></trans-unit>
+            <trans-unit id="insights.bucket_rules.summary.intro"><source>insights.bucket_rules.summary.intro</source><target>The figures cover the closed runs of the range that have tool-call data. A run with no tool-call data stays out. The share is the part of the time of all buckets.</target></trans-unit>
+            <trans-unit id="insights.bucket_rules.summary.range"><source>insights.bucket_rules.summary.range</source><target>Range</target></trans-unit>
+            <trans-unit id="insights.bucket_rules.summary.column.bucket"><source>insights.bucket_rules.summary.column.bucket</source><target>Bucket</target></trans-unit>
+            <trans-unit id="insights.bucket_rules.summary.column.total"><source>insights.bucket_rules.summary.column.total</source><target>Total</target></trans-unit>
+            <trans-unit id="insights.bucket_rules.summary.column.median"><source>insights.bucket_rules.summary.column.median</source><target>Median per run</target></trans-unit>
+            <trans-unit id="insights.bucket_rules.summary.column.runs"><source>insights.bucket_rules.summary.column.runs</source><target>Runs with data</target></trans-unit>
+            <trans-unit id="insights.bucket_rules.summary.column.share"><source>insights.bucket_rules.summary.column.share</source><target>Share</target></trans-unit>
+            <trans-unit id="insights.bucket_rules.summary.column.link"><source>insights.bucket_rules.summary.column.link</source><target>Link</target></trans-unit>
+            <trans-unit id="insights.bucket_rules.summary.runs"><source>insights.bucket_rules.summary.runs</source><target>{0}No runs|{1}%known% of 1 run|]1,Inf[%known% of %count% runs</target></trans-unit>
+            <trans-unit id="insights.bucket_rules.summary.no_time"><source>insights.bucket_rules.summary.no_time</source><target>No time yet</target></trans-unit>
+            <trans-unit id="insights.bucket_rules.summary.open"><source>insights.bucket_rules.summary.open</source><target>Open in Metrics</target></trans-unit>
             <trans-unit id="activity.count"><source>activity.count</source><target>{0} No events|{1} 1 event|]1,Inf[ %count% events</target></trans-unit>
             <trans-unit id="search.title"><source>search.title</source><target>Search project</target></trans-unit>
             <trans-unit id="search.shortcut"><source>search.shortcut</source><target>⌘K</target></trans-unit>
@@ -8101,7 +8115,8 @@
             <trans-unit id="readiness.discovery.reason.no_taker"><source>readiness.discovery.reason.no_taker</source><target>No bridge took the work.</target></trans-unit>
             <trans-unit id="readiness.discovery.reason.card_moved"><source>readiness.discovery.reason.card_moved</source><target>The discovery card left Backlog before the work ended.</target></trans-unit>
             <trans-unit id="board.verdict.action.post_review"><source>board.verdict.action.post_review</source><target>Posts your verdict as a review on the pull requests you pick.</target></trans-unit>
-            <trans-unit id="board.verdict.review.fallback_body"><source>board.verdict.review.fallback_body</source><target>Reviewed in the Loupe site review.</target></trans-unit>
+            <trans-unit id="board.verdict.review.source"><source>board.verdict.review.source</source><target>Sent from the Loupe site review of card %number%. [Open the notes in Loupe](%card_url%)</target></trans-unit>
+            <trans-unit id="board.verdict.review.preview"><source>board.verdict.review.preview</source><target>· [Open the preview](%preview_url%)</target></trans-unit>
             <trans-unit id="board.site_review_check.title"><source>board.site_review_check.title</source><target>{0} No open site review notes|{1} One site review note is open|]1,Inf[ %count% site review notes are open</target></trans-unit>
             <trans-unit id="board.site_review_check.summary_clear"><source>board.site_review_check.summary_clear</source><target>Every site review note of this card is closed.</target></trans-unit>
             <trans-unit id="board.site_review_check.title_off"><source>board.site_review_check.title_off</source><target>Loupe no longer keeps this check</target></trans-unit>

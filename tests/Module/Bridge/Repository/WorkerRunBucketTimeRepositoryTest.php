@@ -61,6 +61,31 @@ final class WorkerRunBucketTimeRepositoryTest extends KernelTestCase
         self::assertSame([], $this->repository()->findMillisecondsOfRuns([], 'tests'));
     }
 
+    public function test_it_reads_every_bucket_of_the_runs_with_rows_and_nothing_for_a_run_with_none(): void
+    {
+        self::bootKernel();
+        $project = $this->project($this->em(), $this->user($this->em(), 'bucket-repo-all-'.uniqid().'@example.com'), 'Bucket all');
+        $both = $this->seedRun($this->em(), $project)->id ?? throw new \LogicException();
+        $one = $this->seedRun($this->em(), $project)->id ?? throw new \LogicException();
+        $none = $this->seedRun($this->em(), $project)->id ?? throw new \LogicException();
+        $unasked = $this->seedRun($this->em(), $project)->id ?? throw new \LogicException();
+        $this->repository()->replaceForRun($both, ['tests' => 40, 'other' => 2]);
+        $this->repository()->replaceForRun($one, ['git' => 3, '123' => 4]);
+        $this->repository()->replaceForRun($unasked, ['git' => 9]);
+
+        $times = $this->repository()->findAllMillisecondsOfRuns([$both, $one, $none]);
+        ksort($times);
+        foreach ($times as &$buckets) {
+            ksort($buckets);
+        }
+        unset($buckets);
+
+        $expected = [(string) $both => ['other' => 2, 'tests' => 40], (string) $one => [123 => 4, 'git' => 3]];
+        ksort($expected);
+        self::assertSame($expected, $times);
+        self::assertSame([], $this->repository()->findAllMillisecondsOfRuns([]));
+    }
+
     public function test_the_rows_go_with_the_run(): void
     {
         self::bootKernel();

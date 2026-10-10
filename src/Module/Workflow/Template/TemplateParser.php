@@ -9,6 +9,7 @@ use App\Module\Workflow\Action\EvaluateChildren;
 use App\Module\Workflow\Action\MissingAction;
 use App\Module\Workflow\Condition\Conditions;
 use App\Module\Workflow\Contract\ActionOutcome;
+use App\Module\Workflow\Contract\ActionTraits;
 use App\Module\Workflow\Contract\ChecksParameters;
 use App\Module\Workflow\Contract\ChildFacts;
 use App\Module\Workflow\Contract\DocumentStatuses;
@@ -36,6 +37,7 @@ final readonly class TemplateParser
     private const array COLUMN_FLAGS = ['@backlog', '@terminal'];
     private const string ANY_COLUMN = '*';
     private const array RULE_KEYS = ['id', 'slot', 'when', 'then'];
+    private const array CHILD_CHOICES = ['inherit', 'own'];
     private const array TYPE_KEYS = ['key', 'label', 'tone', 'capabilities'];
     private const int TYPE_KEY_MAX_LENGTH = 20;
     private const array TYPE_CAPABILITIES = ['children', 'lane'];
@@ -215,6 +217,7 @@ final readonly class TemplateParser
 
         $slots = $this->slots(self::topLevelList($source, 'slots', $errors), $errors);
         $slotKeys = array_map(static fn (Slot $slot): string => $slot->key, $slots);
+        $childChoices = $this->childChoices($source['childChoices'] ?? null, $slotKeys, $types, $errors, $lenient);
         $manualMoves = $this->manualMoves(self::topLevelList($source, 'manualMoves', $errors), $slotKeys, $errors);
         $rules = $this->rules(self::topLevelList($source, 'rules', $errors), $slotKeys, $types, $errors, $lenient, app: false);
         // The engine tells a repair request apart by its kind, so no rule may ask for that kind.
@@ -229,7 +232,7 @@ final readonly class TemplateParser
             throw new InvalidTemplate($errors);
         }
 
-        return new Template($key, $version, $slots, $rules, $manualMoves, $backoffMinutes, $workTimeoutMinutes, array_values($types ?? []), $defaultType, $onWorkFailed);
+        return new Template($key, $version, $slots, $rules, $manualMoves, $backoffMinutes, $workTimeoutMinutes, array_values($types ?? []), $defaultType, $onWorkFailed, $childChoices);
     }
 
     /**
@@ -736,6 +739,71 @@ final readonly class TemplateParser
     }
 
     /**
+     * @param list<mixed>                      $then
+     * @param \Closure(ActionTraits): bool     $allowed
+     * @param list<string>                     $slotKeys
+     * @param ?array<string, TemplateCardType> $types
+     * @param list<string>                     $errors
+     *
+     * @return list<ActionCall> the actions that parsed, which are fewer than $then when one has an error
+     */
+    private function actionList(array $then, string $where, \Closure $allowed, string $context, array $slotKeys, ?array $types, array &$errors, bool $lenient): array
+    {
+        $actions = [];
+        foreach ($then as $position => $node) {
+            $actionWhere = \sprintf('%s[%d]', $where, $position);
+            $name = \is_array($node) && 1 === \count($node) ? array_key_first($node) : null;
+            if (\is_string($name) && $this->actions->has($name) && !$allowed($this->actions->get($name)::traits())) {
+                $errors[] = \sprintf('%s: the action "%s" is not allowed %s', $actionWhere, $name, $context);
+                continue;
+            }
+            $action = $this->action($node, $actionWhere, $slotKeys, $types, $errors, $lenient, app: false);
+            if (null !== $action) {
+                $actions[] = $action;
+            }
+        }
+
+        return $actions;
+    }
+
+    /**
+     * @param list<string>                     $slotKeys
+     * @param ?array<string, TemplateCardType> $types
+     * @param list<string>                     $errors
+     *
+     * @return array<string, list<ActionCall>> the actions of each choice an agent may state, keyed by the value of the choice
+     */
+    private function childChoices(mixed $given, array $slotKeys, ?array $types, array &$errors, bool $lenient): array
+    {
+        if (null === $given) {
+            return [];
+        }
+        if (!self::isMap($given)) {
+            $errors[] = 'childChoices: must be a map from a choice to a list of actions';
+
+            return [];
+        }
+        $choices = [];
+        foreach ($given as $choice => $then) {
+            $where = 'childChoices.'.$choice;
+            if (!\in_array($choice, self::CHILD_CHOICES, true)) {
+                $errors[] = \sprintf('childChoices: unknown choice "%s", expected one of %s', $choice, implode(', ', self::CHILD_CHOICES));
+                continue;
+            }
+            if (!\is_array($then) || [] === $then || !array_is_list($then)) {
+                $errors[] = $where.': must be a non-empty list of actions';
+                continue;
+            }
+            $actions = $this->actionList($then, $where, static fn (ActionTraits $traits): bool => $traits->childChoice, 'inside a child choice', $slotKeys, $types, $errors, $lenient);
+            if (\count($actions) === \count($then)) {
+                $choices[$choice] = $actions;
+            }
+        }
+
+        return $choices;
+    }
+
+    /**
      * @param list<string>                     $slotKeys
      * @param ?array<string, TemplateCardType> $types
      * @param list<string>                     $errors
@@ -762,19 +830,7 @@ final readonly class TemplateParser
             foreach ($unknownKeys as $name) {
                 $errors[] = \sprintf('%s: unknown key "%s"', $optionWhere, $name);
             }
-            $actions = [];
-            foreach ($then as $position => $node) {
-                $actionWhere = \sprintf('%s.then[%d]', $optionWhere, $position);
-                $name = \is_array($node) && 1 === \count($node) ? array_key_first($node) : null;
-                if (\is_string($name) && $this->actions->has($name) && !$this->actions->get($name)::traits()->option) {
-                    $errors[] = \sprintf('%s: the action "%s" is not allowed inside an ask option', $actionWhere, $name);
-                    continue;
-                }
-                $action = $this->action($node, $actionWhere, $slotKeys, $types, $errors, $lenient, app: false);
-                if (null !== $action) {
-                    $actions[] = $action;
-                }
-            }
+            $actions = $this->actionList($then, $optionWhere.'.then', static fn (ActionTraits $traits): bool => $traits->option, 'inside an ask option', $slotKeys, $types, $errors, $lenient);
             if ([] !== $unknownKeys || \count($actions) !== \count($then)) {
                 continue;
             }

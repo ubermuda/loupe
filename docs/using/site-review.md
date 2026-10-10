@@ -129,8 +129,9 @@ The confirm panel shows:
 - What Loupe does with the verdict. When the workflow writes nothing to GitHub,
   the panel says **Recorded in Loupe only**.
 
-**Request changes** and **Comment** need a message. **Send** stays off until
-you write one, even when notes are open. **Approve** needs no message.
+**Request changes** and **Comment** need a message when the card has no open
+note. **Send** stays off until you write one. When notes are open, they go with
+the verdict, and the message is optional. **Approve** needs no message.
 
 After a send, the panel says **Sent to the workflow**. Loupe then posts the
 review on GitHub when the project allows it. See
@@ -168,6 +169,15 @@ has a line that says one of these:
 
 When your GitHub connection ended, the line says so and offers **Connect
 again**.
+
+### What the review says on GitHub
+
+Every review that Loupe posts opens with one line. The line says that the
+review comes from the Loupe site review of the card, and links to the
+**Feedback** tab of the card. It also links to the page of the first note, when
+the review has a note. Only members of the project can open the card link. The
+message and the notes follow the line, and an approval with no message posts
+the line alone.
 
 ## Retrying a save
 

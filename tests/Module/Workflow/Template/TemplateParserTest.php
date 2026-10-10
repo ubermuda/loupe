@@ -1005,6 +1005,54 @@ final class TemplateParserTest extends TestCase
         self::assertSame([], $this->parser->parse(self::valid())->rules[0]->then->options);
     }
 
+    public function test_a_template_declares_the_actions_of_each_child_choice(): void
+    {
+        $template = self::valid();
+        $template['childChoices'] = [
+            'inherit' => [['link-document' => ['from' => 'parent', 'tag' => 'tech-design']]],
+            'own' => [['move' => ['to' => 'build']]],
+        ];
+
+        $parsed = $this->parser->parse($template);
+
+        self::assertEquals([
+            'inherit' => [$this->actions->call('link-document', ['from' => 'parent', 'tag' => 'tech-design'])],
+            'own' => [$this->actions->call('move', ['to' => 'build'])],
+        ], $parsed->childChoices);
+        $decoded = json_decode(json_encode($template, \JSON_THROW_ON_ERROR), true, flags: \JSON_THROW_ON_ERROR);
+        self::assertIsArray($decoded);
+        self::assertEquals($parsed, $this->parser->parseStored($decoded));
+    }
+
+    public function test_a_template_without_child_choices_declares_none(): void
+    {
+        self::assertSame([], $this->parser->parse(self::valid())->childChoices);
+    }
+
+    /** @param array<mixed> $choices */
+    #[DataProvider('childChoiceRefusals')]
+    public function test_it_refuses_an_invalid_child_choice(array $choices, string $message): void
+    {
+        $template = self::valid();
+        $template['childChoices'] = $choices;
+
+        try {
+            $this->parser->parse($template);
+            self::fail('The parser must refuse the template.');
+        } catch (InvalidTemplate $e) {
+            self::assertSame([$message], $e->errors);
+        }
+    }
+
+    /** @return iterable<string, array{array<mixed>, string}> */
+    public static function childChoiceRefusals(): iterable
+    {
+        yield 'an unknown choice' => [['both' => [['move' => ['to' => 'build']]]], 'childChoices: unknown choice "both", expected one of inherit, own'];
+        yield 'an empty list' => [['own' => []], 'childChoices.own: must be a non-empty list of actions'];
+        yield 'an action a choice may not run' => [['own' => [['detach' => []]]], 'childChoices.own[0]: the action "detach" is not allowed inside a child choice'];
+        yield 'a choice that is not a map' => [['inherit'], 'childChoices: must be a map from a choice to a list of actions'];
+    }
+
     /** @param \Closure(array<string, mixed>): array<string, mixed> $mutate */
     #[DataProvider('refusals')]
     public function test_it_refuses_an_invalid_template(\Closure $mutate, string $message): void

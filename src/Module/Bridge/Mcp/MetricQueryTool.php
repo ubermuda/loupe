@@ -10,13 +10,13 @@ use App\Module\Bridge\Command\MetricQueryHandler;
 use App\Module\Bridge\Metric\Metric;
 use App\Module\Bridge\Metric\MetricBucket;
 use App\Module\Bridge\Metric\MetricGroup;
+use App\Module\Bridge\Metric\MetricKey;
 use App\Module\Bridge\Metric\MetricPoint;
 use App\Module\Bridge\Metric\MetricRange;
 use App\Module\Bridge\Metric\MetricRow;
 use App\Module\Bridge\Metric\MetricSeries;
 use App\Module\Bridge\Metric\MetricStatistic;
 use App\Module\Bridge\Metric\MetricUnit;
-use App\Module\Bridge\Service\BucketRule;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 
@@ -53,16 +53,16 @@ final readonly class MetricQueryTool
     public function __invoke(string $unit, string $metric, string $statistic, string $group = 'none', string $range = 'thirty-days', string $bucket = 'week'): array
     {
         try {
-            [$metricCase, $bucketName] = self::parseMetric($metric);
+            $key = self::parseMetric($metric);
             $command = new MetricQueryCommand(
                 $this->subjects->requireReadableProject(),
                 self::parse(MetricUnit::class, 'unit', $unit),
-                $metricCase,
+                $key->metric,
                 self::parse(MetricStatistic::class, 'statistic', $statistic),
                 self::parse(MetricGroup::class, 'group', $group),
                 self::parse(MetricRange::class, 'range', $range),
                 self::parse(MetricBucket::class, 'bucket', $bucket),
-                $bucketName,
+                $key->bucketName,
             );
 
             try {
@@ -73,7 +73,7 @@ final readonly class MetricQueryTool
 
             return [
                 'unit' => $command->unit->value,
-                'metric' => null === $command->bucketName ? $command->metric->value : $command->metric->value.':'.$command->bucketName,
+                'metric' => $key->key(),
                 'statistic' => $command->statistic->value,
                 'group' => $command->group->value,
                 'range' => $command->range->value,
@@ -108,25 +108,19 @@ final readonly class MetricQueryTool
         ];
     }
 
-    /** @return array{Metric, ?string} the metric and, for bucket-time, the bucket name */
-    private static function parseMetric(string $value): array
+    private static function parseMetric(string $value): MetricKey
     {
+        $key = MetricKey::tryParse($value);
+        if (null !== $key) {
+            return $key;
+        }
+
         $prefix = Metric::BucketTime->value;
         if ($value === $prefix || str_starts_with($value, $prefix.':')) {
-            $name = substr($value, \strlen($prefix) + 1);
-            if (1 !== preg_match(BucketRule::NAME_PATTERN, $name)) {
-                throw new ToolCallException(\sprintf('The metric %s needs the name of a bucket, as in %s:<name>. A name is 1 to 64 characters of a-z, 0-9, "_" and "-". metric_list lists the buckets of the project.', $prefix, $prefix));
-            }
-
-            return [Metric::BucketTime, $name];
+            throw new ToolCallException(\sprintf('The metric %s needs the name of a bucket, as in %s:<name>. A name is 1 to 64 characters of a-z, 0-9, "_" and "-". metric_list lists the buckets of the project.', $prefix, $prefix));
         }
 
-        $case = Metric::tryFrom($value);
-        if (null === $case) {
-            throw new ToolCallException(\sprintf('Unknown metric "%s". Use one of: %s, %s:<name>.', $value, self::valuesOf(Metric::standalone()), $prefix));
-        }
-
-        return [$case, null];
+        throw new ToolCallException(\sprintf('Unknown metric "%s". Use one of: %s, %s:<name>.', $value, self::valuesOf(Metric::standalone()), $prefix));
     }
 
     /**

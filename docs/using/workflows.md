@@ -259,6 +259,12 @@ child and the epic, and it has three options:
 2. **Move the card to Tech design.** The child gets a tech design of its own.
 3. **Detach the card.** The card stops being a child of the epic.
 
+An agent that files the child can answer the question before it opens. It
+passes `childDesign` to `card_create` or `card_update`, with `inherit` for the
+first option or `own` for the second. A child made that way gets no question. A
+child that a person makes on the board, or that a caller makes with no choice,
+still gets it. See [the MCP tools](mcp.md).
+
 The answer is final. Loupe runs the option a short time after you answer,
 because a queue carries the answer to the workflow. The question closes by
 itself, as withdrawn, when the rule stops holding: for example when the child
@@ -270,10 +276,17 @@ When the inbox is off, the rule cannot ask. The child then pauses with the
 reason `inbox-off`. Turn the inbox on, then release the pause, and the
 question opens.
 
+A workflow file declares the choice of an agent in a top-level `childChoices`
+section. It maps `inherit` and `own` to a list of actions. Only `link-document`
+and `move` are allowed there. Loupe runs the actions on the new card in the
+same step that writes it, and a refused action undoes the write. A workflow with
+no such section refuses `childDesign`.
+
 In a workflow file, the action `ask` takes a `question` key and a list of
 `options`. Each option has a `label` and a `then` list of actions. The action
 `link-document` links a document of the parent card to the card. It takes
-`from: parent` and a `tag`. The action `detach` removes the parent of the
+`from: parent` and a `tag`. When the parent has two documents with that tag, it
+links the approved one. The action `detach` removes the parent of the
 card. The `question` and each `label` are translation keys. They can use the
 parameters `%child%` and `%epic%`, which hold the card numbers.
 
