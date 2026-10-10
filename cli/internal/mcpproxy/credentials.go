@@ -157,7 +157,7 @@ func explain(project string, resp *http.Response, err error) (*http.Response, er
 		}
 	}
 
-	return nil, fmt.Errorf("Loupe refused the credentials (HTTP %d): %s. %s", resp.StatusCode, summarise(detail), advice)
+	return nil, fmt.Errorf("%w (HTTP %d): %s. %s", ErrCredentialsRefused, resp.StatusCode, summarise(detail), advice)
 }
 
 // summarise turns a refusal body into one short line.
