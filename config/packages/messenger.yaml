@@ -27,8 +27,6 @@ framework:
             App\Module\Board\Messenger\NeutralizeSiteReviewCheck: async
             App\Module\Board\Messenger\PostFixRunComment: async
             App\Module\Board\Messenger\PostPullRequestNotice: async
-            App\Module\Board\Messenger\SettleSiteReviewChecks: async
-            App\Module\Board\Messenger\SyncNextPullRequest: async
             App\Module\Bridge\Messenger\CollectSessionUsage: async
             App\Module\Bridge\Messenger\RecomputeBucketTimes: async
             App\Module\Bridge\Messenger\ResumeAskingSession: async

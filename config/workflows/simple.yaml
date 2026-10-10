@@ -1,6 +1,7 @@
 key: simple
 version: 1
 defaultType: feature
+epicBranch: 'epic/{number}'
 types:
     - { key: feature, label: board.card.type.feature, tone: lime }
     - { key: bug, label: board.card.type.bug, tone: amber }

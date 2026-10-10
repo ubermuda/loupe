@@ -50,6 +50,7 @@ final readonly class ShowBoardManifestHandler
                     $board->progress[$id] ?? null,
                     $board->runWarnings[$id] ?? null,
                     $board->badges[$id] ?? [],
+                    $board->states[$id] ?? null,
                 ), (string) $view->column->id, $laneKeys[$id] ?? null];
                 // A lane epic has a list row and a lane head, and no card face.
                 if (isset($laneHeads[$id])) {

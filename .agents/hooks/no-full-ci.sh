@@ -19,7 +19,7 @@ deny() {
     exit 0
 }
 
-full_gate="A full local just ci is not the gate, and CI's required checks are. Run just cs, then just phpstan, just arkitect and just gamache, then just phpunit tests/<path> or just phpunit --filter <name>, then just js-test or just cli-test when those changed. Then run the Codex review and push."
+full_gate="A full local just ci is not the gate, and CI's required checks are. Run just cs, then just phpstan, just arkitect and just gamache, then just phpunit tests/<path> or just phpunit --filter <name>, then just js-test or just cli-test when those changed. Then push."
 full_phpunit="A full local PHPUnit run is not the gate, and CI's phpunit check is. Name the tests: just phpunit tests/<path> or just phpunit --filter <name>"
 coverage="A full local PHPUnit coverage run is not the gate. Name the tests: just phpunit-coverage tests/<path>, or fetch the full report with just ci-report phpunit-coverage"
 

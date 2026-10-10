@@ -11,6 +11,7 @@ use App\Module\Inbox\Command\AskInboxItem;
 use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Inbox\Service\CardWaitTrigger;
+use App\Module\Inbox\Service\InboxCardTileRefresher;
 use App\Module\Inbox\Service\InboxLinkResolver;
 use App\Module\Inbox\Service\InboxOpenCountPublisher;
 use App\Module\Inbox\Service\InboxSearchIndexer;
@@ -20,6 +21,7 @@ use App\Tests\Module\Inbox\InboxFixtures;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\AuditOutcome;
 
@@ -128,6 +130,6 @@ final class AskInboxHandlerTest extends KernelTestCase
         $cardWaits = $container->get(CardWaitTrigger::class);
         self::assertInstanceOf(CardWaitTrigger::class, $cardWaits);
 
-        return new AskInboxHandler($items, $sessionAsks, $links, $indexer, $em, $this->audit->auditor, $openCount, $cardWaits);
+        return new AskInboxHandler($items, $sessionAsks, $links, $indexer, $em, $this->audit->auditor, $openCount, $cardWaits, new InboxCardTileRefresher(new EventDispatcher()));
     }
 }

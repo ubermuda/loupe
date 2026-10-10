@@ -36,6 +36,12 @@ final readonly class MissingConditionLeaf extends Expression
     }
 
     #[\Override]
+    public function countAgainst(Facts $facts, bool $wanted): int
+    {
+        return 1;
+    }
+
+    #[\Override]
     public function reads(): array
     {
         return [];

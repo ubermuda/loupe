@@ -5,16 +5,16 @@ declare(strict_types=1);
 namespace App\Module\Board\Workflow;
 
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardPullRequests;
 use App\Module\Workflow\Contract\CardSnapshot;
+use App\Module\Workflow\Contract\EpicBranches;
 
 final readonly class ChildrenFactProvider extends BoardFactProvider
 {
     public function __construct(
         private CardRepository $cards,
         private CardPullRequests $cardPullRequests,
-        private BoardAutomation $boardAutomation,
+        private EpicBranches $epicBranches,
     ) {
     }
 
@@ -35,7 +35,7 @@ final readonly class ChildrenFactProvider extends BoardFactProvider
     {
         $stored = $this->cards->find($card->id) ?? throw new \LogicException('A stored card has an id.');
         $children = $this->cards->childProgressOf($stored);
-        $epicBranch = $this->boardAutomation->settingsOf($stored->project)->epicBranchOf($stored->number);
+        $epicBranch = $this->epicBranches->of($stored->project->requireId(), $stored->number);
 
         return new ChildrenFacts(
             childCount: $children['total'],

@@ -6,15 +6,13 @@ namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardLink;
-use App\Module\Board\Repository\BoardAutomationSettingsRepository;
 use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardPullRequestStates;
-use App\Module\Board\Service\SyncLine;
-use App\Module\Forge\Repository\ForgePullRequestRepository;
+use App\Module\Board\Service\CardStates;
+use App\Module\Bridge\Service\CardRunWarnings;
 use App\Module\Workflow\Contract\CardTypeCatalog;
-use Psr\Clock\ClockInterface;
 
 final readonly class ShowCardHandler
 {
@@ -24,10 +22,9 @@ final readonly class ShowCardHandler
         private CardRepository $cards,
         private CardPullRequestStates $pullRequestStates,
         private ShowCardHistoryHandler $history,
-        private BoardAutomationSettingsRepository $boardAutomationSettings,
-        private ForgePullRequestRepository $forgePullRequests,
-        private ClockInterface $clock,
         private CardTypeCatalog $catalog,
+        private CardStates $cardStates,
+        private CardRunWarnings $runWarnings,
     ) {
     }
 
@@ -43,6 +40,11 @@ final readonly class ShowCardHandler
             );
         }
 
+        $pullRequestStates = $this->pullRequestStates->forCards([$command->card]);
+        $id = $command->card->id ?? throw new \LogicException('A stored card has an id.');
+        $cardId = (string) $id;
+        $warning = $this->runWarnings->forCard($command->card->project, $id);
+
         return new CardView(
             $command->card,
             $this->cardSiteReviewComments->findForCard($command->card),
@@ -50,26 +52,11 @@ final readonly class ShowCardHandler
                 static fn (CardLink $link): RelatedCard => new RelatedCard($link->otherThan($command->card), $link->kindFor($command->card)),
                 $this->cardLinks->findForCard($command->card),
             ),
-            $this->pullRequestStates->forCards([$command->card], $this->syncLine($command->card)),
+            $pullRequestStates,
             ($this->history)(new ShowCardHistoryCommand($command->card)),
             $children,
             $progress,
-        );
-    }
-
-    private function syncLine(Card $card): ?SyncLine
-    {
-        if ($card->pullRequests->isEmpty()) {
-            return null;
-        }
-        $settings = $this->boardAutomationSettings->findOneByProject($card->project);
-        if (null === $settings || !$settings->enabled || !$settings->syncBehind) {
-            return null;
-        }
-
-        return new SyncLine(
-            $this->forgePullRequests->findOpenForProject($card->project->id ?? throw new \LogicException('A card project is persisted.')),
-            $this->clock->now(),
+            $this->cardStates->forCards($command->card->project, [$command->card], $pullRequestStates, null === $warning ? [] : [$cardId => $warning])[$cardId] ?? null,
         );
     }
 }

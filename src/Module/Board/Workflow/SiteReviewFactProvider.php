@@ -11,7 +11,6 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardVerdictDeliveryRepository;
 use App\Module\Board\Repository\CardVerdictRepository;
 use App\Module\Board\Repository\SiteReviewCheckStateRepository;
-use App\Module\Board\Service\BoardAutomation;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Contract\FactProvider;
@@ -24,7 +23,6 @@ final readonly class SiteReviewFactProvider implements FactProvider
         private CardVerdictDeliveryRepository $cardVerdictDeliveries,
         private CardPullRequestRepository $cardPullRequests,
         private SiteReviewCheckStateRepository $siteReviewCheckStates,
-        private BoardAutomation $boardAutomation,
     ) {
     }
 
@@ -50,7 +48,6 @@ final readonly class SiteReviewFactProvider implements FactProvider
         return new SiteReviewFacts(
             $this->cardVerdictDeliveries->findPendingIdsForCard($card),
             $checks,
-            $this->boardAutomation->settingsOf($card->project)->siteReviewCheck,
         );
     }
 

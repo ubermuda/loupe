@@ -20,10 +20,6 @@
                 <source>bridge.heartbeat.validator.hook_run_date</source>
                 <target>This value is not a valid date.</target>
             </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.epic_branch_pattern.invalid">
-                <source>board.form.save_board_automation_settings_form.epic_branch_pattern.invalid</source>
-                <target>The pattern must be a branch name that holds {number} exactly once, or be empty.</target>
-            </trans-unit>
             <trans-unit id="review.form.save_decision_answer_form.note.too_long">
                 <source>review.form.save_decision_answer_form.note.too_long</source>
                 <target>A note can have a maximum of {{ limit }} characters.</target>

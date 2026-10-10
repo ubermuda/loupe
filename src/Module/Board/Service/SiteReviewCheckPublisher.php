@@ -32,7 +32,6 @@ final readonly class SiteReviewCheckPublisher
         private CardPullRequestRepository $cardPullRequests,
         private SiteReviewFactProvider $facts,
         private SiteReviewCheckStateRepository $siteReviewCheckStates,
-        private BoardAutomation $boardAutomation,
         private PullRequestCheckWriters $writers,
         private TranslatorInterface $translator,
         private EntityManagerInterface $em,
@@ -53,7 +52,6 @@ final readonly class SiteReviewCheckPublisher
             return new SiteReviewWriteResult(null, false);
         }
 
-        $optedIn = $this->boardAutomation->settingsOf($card->project)->siteReviewCheck;
         $failure = null;
         $changed = false;
         foreach ($pullRequests as $pullRequest) {
@@ -63,40 +61,33 @@ final readonly class SiteReviewCheckPublisher
             }
             $state = $this->siteReviewCheckStates->findOneByPullRequest($pullRequest);
             $current = null !== $state && $state->headSha === $check->headSha && $state->conclusion === $check->wantedConclusion && $state->noteCount === $check->noteCount && $state->notesDigest === $check->notesDigest;
-            if ($current && (!$optedIn || null !== $state->checkRunId)) {
+            if ($current && null !== $state->checkRunId) {
                 continue;
             }
 
-            $runId = null;
-            if (!$optedIn && null !== $state && null !== $state->checkRunId && CheckWanted::FAILURE === $state->conclusion) {
-                $refused = $this->neutralize($state);
-                if (null !== $refused) {
-                    $failure ??= $refused->cause;
-
-                    continue;
-                }
+            $writer = $this->writers->for($pullRequest->forge);
+            if (null === $writer) {
+                continue;
             }
-            if ($optedIn) {
-                $writer = $this->writers->for($pullRequest->forge);
-                if (null === $writer) {
-                    continue;
-                }
-                $reusable = null !== $state && $state->headSha === $check->headSha;
-                try {
-                    $runId = $writer->publish(
-                        $pullRequest,
-                        self::NAME,
-                        $check->headSha,
-                        CheckWanted::SUCCESS === $check->wantedConclusion ? PullRequestCheckConclusion::Success : PullRequestCheckConclusion::Failure,
-                        $this->title($check),
-                        $this->summary($check),
-                        $reusable ? $state->checkRunId : null,
-                    );
-                } catch (PullRequestCheckFailed $e) {
+            $reusable = null !== $state && $state->headSha === $check->headSha;
+            try {
+                $runId = $writer->publish(
+                    $pullRequest,
+                    self::NAME,
+                    $check->headSha,
+                    CheckWanted::SUCCESS === $check->wantedConclusion ? PullRequestCheckConclusion::Success : PullRequestCheckConclusion::Failure,
+                    $this->title($check),
+                    $this->summary($check),
+                    $reusable ? $state->checkRunId : null,
+                    [],
+                );
+            } catch (PullRequestCheckFailed $e) {
+                // A project with no GitHub App installation has nothing to post a check with.
+                if ('no_installation' !== $e->cause) {
                     $failure ??= $e->cause;
-
-                    continue;
                 }
+
+                continue;
             }
 
             if (null === $state) {
@@ -114,28 +105,6 @@ final readonly class SiteReviewCheckPublisher
         }
 
         return new SiteReviewWriteResult($failure, $changed);
-    }
-
-    /**
-     * Turns each failed run of the project into a neutral one, so a check that Loupe no longer keeps cannot block a merge.
-     *
-     * @return ?PullRequestCheckFailed the first refusal that a retry can fix, or else the first refusal
-     */
-    public function settle(Project $project): ?PullRequestCheckFailed
-    {
-        $failure = null;
-        foreach ($this->siteReviewCheckStates->findPostedFailuresOnOpenPullRequests($project) as $state) {
-            if ($this->checkIsOn($project)) {
-                break;
-            }
-            $refused = $this->neutralize($state);
-            if (null !== $refused && (null === $failure || ($failure->permanent && !$refused->permanent))) {
-                $failure = $refused;
-            }
-            $this->em->flush();
-        }
-
-        return $failure;
     }
 
     /**
@@ -165,6 +134,7 @@ final readonly class SiteReviewCheckPublisher
                 $this->translator->trans('board.site_review_check.title_off'),
                 $this->translator->trans('board.site_review_check.summary_unlinked'),
                 $runId,
+                [],
             );
         } catch (PullRequestCheckFailed $e) {
             return $e;
@@ -174,42 +144,6 @@ final readonly class SiteReviewCheckPublisher
             $this->em->remove($retained);
             $this->em->flush();
         }
-
-        return null;
-    }
-
-    /** Reads the setting from the database, because another worker can switch it while this one writes. */
-    private function checkIsOn(Project $project): bool
-    {
-        $settings = $this->boardAutomation->settingsOf($project);
-        if ($this->em->contains($settings)) {
-            $this->em->refresh($settings);
-        }
-
-        return $settings->siteReviewCheck;
-    }
-
-    /** @return ?PullRequestCheckFailed the refusal of the forge, which keeps the run id */
-    private function neutralize(SiteReviewCheckState $state): ?PullRequestCheckFailed
-    {
-        $writer = $this->writers->for($state->pullRequest->forge);
-        if (null === $writer || null === $state->checkRunId) {
-            return null;
-        }
-        try {
-            $writer->publish(
-                $state->pullRequest,
-                self::NAME,
-                $state->headSha,
-                PullRequestCheckConclusion::Neutral,
-                $this->translator->trans('board.site_review_check.title_off'),
-                $this->translator->trans('board.site_review_check.summary_off'),
-                $state->checkRunId,
-            );
-        } catch (PullRequestCheckFailed $e) {
-            return $e;
-        }
-        $state->checkRunId = null;
 
         return null;
     }

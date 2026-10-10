@@ -242,6 +242,84 @@ final class TemplateParserTest extends TestCase
         self::assertCount(5, $this->parser->parse($template)->rules);
     }
 
+    public function test_a_template_reads_its_epic_branch(): void
+    {
+        $template = $this->parser->parse(self::valid() + ['epicBranch' => 'feature/epic-{number}']);
+
+        self::assertSame('feature/epic-{number}', $template->epicBranch);
+        self::assertSame('feature/epic-42', $template->epicBranchOf(42));
+    }
+
+    public function test_a_template_with_no_epic_branch_has_none(): void
+    {
+        $template = $this->parser->parse(self::valid());
+
+        self::assertNull($template->epicBranch);
+        self::assertNull($template->epicBranchOf(42));
+    }
+
+    #[DataProvider('invalidEpicBranches')]
+    public function test_an_epic_branch_that_is_not_a_branch_name_with_one_placeholder_is_refused_and_a_stored_copy_has_none(mixed $value): void
+    {
+        $source = self::valid() + ['epicBranch' => $value];
+
+        try {
+            $this->parser->parse($source);
+            self::fail('The template should be refused.');
+        } catch (InvalidTemplate $e) {
+            self::assertContains('epicBranch: must be a Git branch name that holds the placeholder {number} exactly once', $e->errors);
+        }
+        self::assertNull($this->parser->parseStored($source)->epicBranch);
+    }
+
+    /** @return iterable<string, array{mixed}> */
+    public static function invalidEpicBranches(): iterable
+    {
+        yield 'blank' => [''];
+        yield 'no placeholder' => ['epic'];
+        yield 'two placeholders' => ['epic/{number}/{number}'];
+        yield 'a space' => ['epic /{number}'];
+        yield 'two dots' => ['epic..{number}'];
+        yield 'a slash at the end' => ['epic/{number}/'];
+        yield 'not a string' => [7];
+        yield 'too long' => [str_repeat('a', 250).'/{number}'];
+    }
+
+    public function test_a_template_reads_its_agent_review_failing_severities_in_the_order_of_the_severities(): void
+    {
+        $template = $this->parser->parse(self::valid() + ['agentReviewFailingSeverities' => ['pre-existing', 'important', 'pre-existing']]);
+
+        self::assertSame(['important', 'pre-existing'], $template->agentReviewFailingSeverities);
+    }
+
+    public function test_a_template_with_no_agent_review_failing_severities_fails_on_an_important_finding(): void
+    {
+        self::assertSame(['important'], $this->parser->parse(self::valid())->agentReviewFailingSeverities);
+    }
+
+    #[DataProvider('invalidAgentReviewFailingSeverities')]
+    public function test_agent_review_failing_severities_that_are_not_known_severities_are_refused_and_a_stored_copy_has_the_default(mixed $value): void
+    {
+        $source = self::valid() + ['agentReviewFailingSeverities' => $value];
+
+        try {
+            $this->parser->parse($source);
+            self::fail('The template should be refused.');
+        } catch (InvalidTemplate $e) {
+            self::assertContains('agentReviewFailingSeverities: must list one or more of important, nit and pre-existing', $e->errors);
+        }
+        self::assertSame(['important'], $this->parser->parseStored($source)->agentReviewFailingSeverities);
+    }
+
+    /** @return iterable<string, array{mixed}> */
+    public static function invalidAgentReviewFailingSeverities(): iterable
+    {
+        yield 'empty' => [[]];
+        yield 'an unknown severity' => [['important', 'blocker']];
+        yield 'not a list' => ['important'];
+        yield 'not a string' => [[7]];
+    }
+
     public function test_a_template_reads_the_retry_policy_for_a_refused_request(): void
     {
         self::assertNull($this->parser->parse(self::valid())->onWorkFailed);
@@ -281,6 +359,19 @@ final class TemplateParserTest extends TestCase
 
             self::assertSame(['write' => $write], $this->parser->parse($template)->rulesFor('review')[0]->then->params);
         }
+    }
+
+    public function test_a_comment_write_names_its_comment_and_needs_no_fallback(): void
+    {
+        $template = self::valid();
+        $template['rules'][2]['then'] = ['forge-write' => ['write' => 'comment', 'comment' => 'fix-run']];
+
+        self::assertSame(['write' => 'comment', 'comment' => 'fix-run'], $this->parser->parse($template)->rulesFor('review')[0]->then->params);
+
+        $template['rules'][2]['then'] = ['forge-write' => ['write' => 'comment']];
+        $this->expectException(InvalidTemplate::class);
+        $this->expectExceptionMessage('missing parameter "comment"');
+        $this->parser->parse($template);
     }
 
     public function test_the_parameters_of_an_action_come_from_its_declarations(): void
@@ -799,7 +890,7 @@ final class TemplateParserTest extends TestCase
             $t['rules'][2]['then']['forge-write']['write'] = 'squash';
 
             return $t;
-        }, 'rules[2] (merge) then.forge-write: parameter "write" must be one of merge, update-branch, change-base, comment, draft, ready, close, open-epic, post-review, site-review-check'];
+        }, 'rules[2] (merge) then.forge-write: parameter "write" must be one of merge, update-branch, change-base, comment, draft, ready, close, open-epic, post-review, site-review-check, agent-review-check, review-ready'];
         yield 'merge with no fallback' => [static function (array $t): array {
             unset($t['rules'][2]['then']['forge-write']['fallback']);
 

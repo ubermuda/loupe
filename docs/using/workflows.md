@@ -141,11 +141,11 @@ it. An agent ends a pause with the `card_pause_release` MCP tool.
 ## Writes to GitHub
 
 A rule can write to a pull request: merge it, update its branch, change its
-base, open an epic pull request, switch it between draft and ready, or close
-it. Each
-write is off until the owner turns it on, on the **Automation** tab. With a
-write off, the rule asks a bridge for the same work instead. See
-[Automation](board.md#automation).
+base, open an epic pull request, switch it between draft and ready, close it,
+or post a comment on it. The rule
+alone decides each write, and the write happens when the rule fires. When the
+project has no GitHub App installation, the rule asks a bridge for the same work
+instead. See [Automation](board.md#automation).
 
 Two more writes come from the [rules the app adds](#rules-the-app-adds). They
 act on a site-review verdict, and they never ask a bridge for work:
@@ -158,11 +158,16 @@ act on a site-review verdict, and they never ask a bridge for work:
 A review that the reviewer sends on their own pull request becomes a comment,
 because GitHub refuses a review from the author of a pull request.
 
-With its opt-in off, a write still settles its rows. A verdict is then stored,
-marked as not sent, and a later verdict starts a new write. The review write
-marks the delivery as skipped. The check write records what it would have
-posted. Turning an opt-in on later posts nothing for a verdict that was settled
-before.
+The `review-ready` write marks the open pull request that the rule acts on as
+ready for review. It skips a closed or merged pull request. It has no fallback.
+
+The `agent-review-check` write posts the reviews that a `review` worker sent
+with the `agent_review_submit` MCP tool. A review of an open GitHub pull request
+of the card gets a new check named `loupe/agent-review` on the commit it
+reviewed. The check fails when a finding has a severity that the template
+counts as failing. Each finding shows as a note on its lines. The write has no
+fallback. A project with no GitHub App installation gets no check, and its
+reviews stay stored.
 
 ## The Lifecycle template
 
@@ -177,14 +182,58 @@ back to Implementation at once when it has no open blocker.
 |---|---|
 | Product design | Asks for an interactive product design session when the card has no product document, and asks for a revision when the product document gets changes requested. An approved product document, with the tag `product-design`, moves the card to Tech design |
 | Tech design | Asks for the tech design when the card has no design document, and for a revision when it gets changes requested. An approved tech design, with the tag `tech-design`, moves the card to Implementation once the card has no open blocker |
-| Implementation | Asks for the implementation, or for a breakdown of an epic into children. An epic gets its breakdown when it enters, with or without children. A pull request that is open, not a draft and whose required checks passed moves the card to In review. Failed checks, a conflict or a request for changes ask for a fix, 3 rounds at most |
-| In review | Asks for a fix as in Implementation. A pull request that turns back into a draft moves the card to Implementation. A stacked pull request whose parent merged gets a new base. An approved pull request that is behind gets its branch updated. A ready pull request merges |
+| Implementation | Asks for the implementation, or for a breakdown of an epic into children. An epic gets its breakdown when it enters, with or without children. A pull request that is open, not a draft, whose required checks passed and whose [agent review](#agent-review) passed moves the card to In review. Failed checks, a conflict or a request for changes ask for a fix, 3 rounds at most |
+| In review | Asks for a fix as in Implementation. A pull request that turns back into a draft moves the card to Implementation. A stacked pull request whose parent merged gets a new base. An approved pull request that is behind gets its branch updated. A ready pull request merges once its agent review passed |
 
 A design document in review, a draft and a revision keep the slot from asking
 for a second design. Archive the document to ask for a new one.
 
 An upgrade retags the existing documents. The tag `product` becomes
 `product-design`, and the tag `design` becomes `tech-design`.
+
+### Agent review
+
+A separate agent reviews each open pull request of a card while it is still a
+draft. The review belongs to one head commit. A new push needs a new review. A
+card of a type that may have children, such as an epic, needs no review. The
+rules of the template turn the review on. A template with none of the rules
+below asks for no review, and its cards follow the other rules.
+
+Four conditions of the **Agent review** group read the reviews:
+
+| Condition | True when |
+|---|---|
+| `agent_review.due` | the card is not an epic, and the head commit of the pull request that the rule acts on has no review |
+| `agent_review.failed` | the newest review of the head commit of the pull request that the rule acts on failed |
+| `agent_review.passed` | the card is an epic, or every open pull request has a head commit and a review of it that passed. It is false when no open pull request has a head commit |
+| `agent_review.unposted` | a stored review of the card has no check on the forge yet |
+
+A review fails when it has a finding of a severity that the template counts as
+failing. The `agentReviewFailingSeverities` value of the template lists those
+severities, from `important`, `nit` and `pre-existing`. A template with no value
+counts `important` alone, and Lifecycle sets `[important]`. The review of an
+older head commit does not count.
+
+To turn the review off, remove the rules `agent-review`,
+`agent-review-in-review`, `fix-agent-review`, `fix-agent-review-in-review` and
+`review-ready` from the template. Also remove `agent_review.passed` from the
+rules that move or merge a card.
+
+Lifecycle uses the conditions in these rules:
+
+| Rule | Slot | Does |
+|---|---|---|
+| `agent-review` and `agent-review-in-review` | Implementation and In review | When `agent_review.due` holds, asks for work of kind `review` |
+| `fix-agent-review` and `fix-agent-review-in-review` | Implementation and In review | When `agent_review.failed` holds, asks for a fix with the reason `agent-review`. The limit is 10 rounds. The count starts again when `agent_review.passed` holds |
+| `review-ready` | Implementation | Marks a draft pull request ready, when its review passed, its checks passed, it has no conflict and no request for changes. It uses the `review-ready` write |
+
+The limit of 10 is fixed in the template. The rules `reviewable`, `merge-ready` and `merge-ready-epic-child`
+also need `agent_review.passed`. The app rule `sync-agent-review-check` posts the
+check of each stored review. See [Rules the app adds](#rules-the-app-adds).
+
+A person who turns a ready pull request back into a draft makes `review-ready`
+fire again while the review and the checks pass. The rule `back-to-draft` first
+moves the card from In review to Implementation.
 
 A pull request is ready to merge when it is reviewable, an approval covers its
 head, its base is the default branch or the card's epic branch, and it has no
@@ -226,6 +275,14 @@ Some rules act from any slot:
    worktree on the bridge.
 8. A child that reaches a terminal column with a pull request merged into its
    epic branch asks for an epic preview refresh.
+9. A fix run that a bridge queues gets one comment on its pull request. The
+   rule is `comment-fix-run`, with the condition `card.fix_run.uncommented`
+   and the write `comment` with `comment: fix-run`. The comment shows the round
+   out of the `limit` of the fix rule. See [Automation](board.md#automation).
+10. A pull request whose approval does not cover its newest commit gets one
+    comment for each such commit. The rule is `comment-stale-approval`, with
+    the condition `card.pr.approval_stale` and the write `comment` with
+    `comment: stale-approval`.
 
 An epic follows its children. An epic whose children all finished moves to In
 review when it has a pull request, and to the terminal column when it has none.
@@ -311,7 +368,7 @@ A request of an app rule can carry a prompt that ships with Loupe. A bridge that
 sets `appPrompts: true` runs it for a kind that its `work:` map does not hold.
 See [Command-line bridge](../extending/cli-bridge.md#work-requests).
 
-The app adds three rules.
+The app adds four rules.
 
 The rule `discovery` watches the Backlog. It asks for work of
 kind `discovery` when the card carries a requested
@@ -322,12 +379,14 @@ the reason that no bridge took the work.
 The rules `post-widget-review` and `sync-site-review-check` watch every column.
 They act on the verdict that a reviewer sends from the
 [site-review widget](site-review.md). Each reads one condition of the Board
-group, and each fires one write:
+group, and each fires one write. The rule `sync-agent-review-check` also watches
+every column. It reads a condition of the Agent review group:
 
 | Rule | Condition | Write |
 |---|---|---|
 | `post-widget-review` | `card.site_review.verdict_unsent`: a verdict of the card has a pull request that no review settled yet | `post-review` |
 | `sync-site-review-check` | `card.site_review.check_stale`: an open GitHub pull request of the card has no check for its head commit, a check with another result than the one the card now wants, or a check that lists other notes than the card now carries | `site-review-check` |
+| `sync-agent-review-check` | `agent_review.unposted`: a stored agent review of the card has no check on the forge yet | `agent-review-check` |
 
 The review is posted under the reviewer's own account. The reviewer connects
 that account from the widget. A review that the connection cannot send, because
@@ -359,9 +418,9 @@ A rule that asks for work names its kind. A bridge runs a kind only when its
 | `implement` | The implementation and its pull request |
 | `breakdown` | The child cards of an epic |
 | `fix` | A fix of a failed check, a conflict or a request for changes |
-| `rebase-stacked` | A new base for a stacked pull request, with the change base write off |
-| `sync` | An update of a branch that is behind, with the sync write off |
-| `merge` | A merge, with the merge write off |
+| `rebase-stacked` | A new base for a stacked pull request, when the project has no GitHub App installation |
+| `sync` | An update of a branch that is behind, when the project has no GitHub App installation |
+| `merge` | A merge, when the project has no GitHub App installation |
 | `teardown` | The removal of the card's worktree |
 | `epic-preview` | A refresh of the epic preview after a child merges into the epic branch |
 | `repair` | A repair of the cause after the work of a rule failed and its retries ran out |
@@ -395,8 +454,14 @@ so a rule whose condition reads no pull request never refills.
 | Pull request number | the number of the pull request that the rule acts on |
 | Pull request link | the link to that pull request, as the card holds it |
 | Head commit | the head commit of that pull request. A later push leaves it behind |
-| Reason | `conflict`, `checks-failed` or `changes-requested`, from the state of that pull request. A `repair` request holds the refusal code of the failed work |
+| Reason | `conflict`, `checks-failed` or `changes-requested`, from the state of that pull request, or the code that the optional `reason` parameter of the request rule sets, such as `agent-review`. A `repair` request holds the refusal code of the failed work |
 | Document | the id of the document that a revision works on |
+
+A fix request also writes a `fix-requested` event to the card history. The event
+holds the same reason. A request rule can set the reason with the optional
+`reason` parameter. The parameter replaces the reason that the state of the
+pull request gives, in the context and in the event. The fix rules for the
+[agent review](#agent-review) use `reason: agent-review`.
 
 A request rule names its document with the optional `document` parameter. It is
 a map with the key `tag`, and an optional `status`: `in-review`, `approved`,

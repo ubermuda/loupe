@@ -43,6 +43,15 @@ class PullRequestNoticeRepository extends ServiceEntityRepository
         return \is_string($id) ? Uuid::fromString($id) : null;
     }
 
+    /** Whether the pull request has a notice for the key, whatever its state. */
+    public function hasKey(Uuid $projectId, string $forge, string $repository, int $number, string $noticeKey): bool
+    {
+        return false !== $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT 1 FROM board_pull_request_notices WHERE project_id = :project AND forge = :forge AND repository = :repository AND number = :number AND notice_key = :noticeKey',
+            ['project' => $projectId->toRfc4122(), 'forge' => $forge, 'repository' => $repository, 'number' => $number, 'noticeKey' => $noticeKey],
+        );
+    }
+
     /**
      * Points every notice of one repository at its new path, posted ones included, so a rename keeps one notice per key.
      * A row that the new path already holds wins, and the old one goes.

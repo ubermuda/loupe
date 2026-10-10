@@ -272,4 +272,80 @@ final class ExpressionTest extends TestCase
         self::assertSame([], $child->missingKeys());
         self::assertSame([], new AllOf([])->missingKeys());
     }
+
+    public function test_all_of_counts_every_false_child_to_turn_true_and_its_cheapest_child_to_turn_false(): void
+    {
+        $child = new ConditionLeaf(new CardParentExists(), []);
+        $blocker = new ConditionLeaf(new CardHasOpenBlocker(), []);
+        $epic = new ConditionLeaf(new CardHasType(), ['type' => 'epic']);
+        $all = new AllOf([$child, $blocker, $epic]);
+
+        self::assertSame(3, $all->countAgainst(FactsMother::facts(), true));
+        self::assertSame(1, $all->countAgainst(FactsMother::facts(card: FactsMother::card(hasOpenBlocker: true, isChild: true)), true));
+        self::assertSame(0, $all->countAgainst(FactsMother::facts(), false));
+        self::assertSame(1, $all->countAgainst(FactsMother::facts(card: FactsMother::card(type: 'epic', hasOpenBlocker: true, isChild: true)), false));
+    }
+
+    public function test_an_empty_all_of_needs_no_change_to_be_true_and_cannot_turn_false(): void
+    {
+        self::assertSame(0, new AllOf([])->countAgainst(FactsMother::facts(), true));
+        self::assertSame(\PHP_INT_MAX, new AllOf([])->countAgainst(FactsMother::facts(), false));
+    }
+
+    public function test_any_of_counts_its_cheapest_child_to_turn_true_and_every_true_child_to_turn_false(): void
+    {
+        $child = new ConditionLeaf(new CardParentExists(), []);
+        $blocker = new ConditionLeaf(new CardHasOpenBlocker(), []);
+        $any = new AnyOf([new AllOf([$child, $blocker]), $blocker]);
+
+        self::assertSame(1, $any->countAgainst(FactsMother::facts(), true));
+        self::assertSame(0, $any->countAgainst(FactsMother::facts(), false));
+        self::assertSame(2, $any->countAgainst(FactsMother::facts(card: FactsMother::card(hasOpenBlocker: true, isChild: true)), false));
+    }
+
+    public function test_not_counts_its_inner_expression_against_the_opposite_value(): void
+    {
+        $child = new ConditionLeaf(new CardParentExists(), []);
+        $blocker = new ConditionLeaf(new CardHasOpenBlocker(), []);
+        $not = new Not(new AllOf([$child, $blocker]));
+        $both = FactsMother::facts(card: FactsMother::card(hasOpenBlocker: true, isChild: true));
+
+        self::assertSame(1, $not->countAgainst($both, true));
+        self::assertSame(0, $not->countAgainst(FactsMother::facts(), true));
+        self::assertSame(2, $not->countAgainst(FactsMother::facts(), false));
+    }
+
+    public function test_a_nested_expression_counts_the_leaves_that_must_change(): void
+    {
+        $child = new ConditionLeaf(new CardParentExists(), []);
+        $blocker = new ConditionLeaf(new CardHasOpenBlocker(), []);
+        $epic = new ConditionLeaf(new CardHasType(), ['type' => 'epic']);
+        $expression = new AllOf([$epic, new AnyOf([new AllOf([$child, $blocker]), new Not($blocker)]), new Not($blocker)]);
+        $facts = FactsMother::facts(card: FactsMother::card(hasOpenBlocker: true));
+
+        self::assertSame(3, $expression->countAgainst($facts, true));
+    }
+
+    public function test_an_unreadable_leaf_counts_as_one_whatever_the_wanted_value(): void
+    {
+        $failed = new Unreadable(UnreadableKind::Failed, 'workflow.source.board');
+        $facts = FactsMother::facts(provided: [ProvidedFacts::class => $failed]);
+        $provided = new ConditionLeaf(new ProvidedFactsReady(), []);
+        $blocker = new ConditionLeaf(new CardHasOpenBlocker(), []);
+
+        self::assertSame(1, $provided->countAgainst($facts, true));
+        self::assertSame(1, $provided->countAgainst($facts, false));
+        self::assertSame(1, new Not($provided)->countAgainst($facts, true));
+        self::assertSame(2, new AllOf([$provided, $blocker])->countAgainst($facts, true));
+    }
+
+    public function test_a_missing_condition_counts_as_one(): void
+    {
+        $missing = new MissingConditionLeaf('card.gone', []);
+        $blocker = new ConditionLeaf(new CardHasOpenBlocker(), []);
+
+        self::assertSame(1, $missing->countAgainst(FactsMother::facts(), true));
+        self::assertSame(1, $missing->countAgainst(FactsMother::facts(), false));
+        self::assertSame(2, new AllOf([$missing, $blocker])->countAgainst(FactsMother::facts(), true));
+    }
 }

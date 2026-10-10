@@ -91,7 +91,7 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
         $this->reportState(Uuid::v4(), WorkerRunState::Queued, cardId: $cardId);
 
         self::assertCount(0, $this->published);
-        $this->assertPublishedAtTerminate(2);
+        $this->assertPublishedAtTerminate(3);
         $this->assertSignalsTheProject($this->published[0]);
         self::assertSame([(string) $cardId], $this->warnedCards());
     }
@@ -111,13 +111,13 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
         $runKey = Uuid::v4();
         $cardId = Uuid::v7();
         $this->reportState($runKey, WorkerRunState::Queued, cardId: $cardId);
-        $this->assertPublishedAtTerminate(2);
+        $this->assertPublishedAtTerminate(3);
 
         $result = $this->reportState($runKey, WorkerRunState::Queued, cardId: $cardId);
 
         // Guard: the report reached the run, so only the publish stayed away.
         self::assertNotNull($result->run);
-        $this->assertPublishedAtTerminate(2);
+        $this->assertPublishedAtTerminate(3);
     }
 
     public function test_a_report_for_a_project_the_owner_does_not_hold_publishes_nothing(): void
@@ -147,15 +147,15 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
         $cardId = Uuid::v7();
         $runKey = Uuid::v4();
         $this->reportState($runKey, WorkerRunState::Running, cardId: $cardId);
-        $this->assertPublishedAtTerminate(2);
+        $this->assertPublishedAtTerminate(3);
 
         $this->reportState($runKey, WorkerRunState::GaveUp, cardId: $cardId);
-        $this->assertPublishedAtTerminate(4);
+        $this->assertPublishedAtTerminate(6);
         self::assertSame([(string) $cardId, (string) $cardId], $this->warnedCards());
 
         $result = $this->reportState($runKey, WorkerRunState::GaveUp, cardId: $cardId);
         self::assertNotNull($result->run);
-        $this->assertPublishedAtTerminate(4);
+        $this->assertPublishedAtTerminate(6);
     }
 
     public function test_a_blocked_state_report_signals_the_card(): void
@@ -164,7 +164,7 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
 
         $this->reportState(Uuid::v4(), WorkerRunState::Blocked, cardId: $cardId);
 
-        $this->assertPublishedAtTerminate(2);
+        $this->assertPublishedAtTerminate(3);
         self::assertSame([(string) $cardId], $this->warnedCards());
     }
 
@@ -175,7 +175,7 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
 
         $this->reportState(Uuid::v4(), WorkerRunState::Succeeded, cardId: $cardId);
 
-        $this->assertPublishedAtTerminate(2);
+        $this->assertPublishedAtTerminate(3);
         self::assertSame([(string) $cardId], $this->warnedCards());
     }
 
@@ -188,11 +188,11 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
         );
 
         self::assertTrue($fail()[1]);
-        $this->assertPublishedAtTerminate(2);
+        $this->assertPublishedAtTerminate(3);
         self::assertSame([(string) $cardId], $this->warnedCards());
 
         self::assertFalse($fail()[1]);
-        $this->assertPublishedAtTerminate(2);
+        $this->assertPublishedAtTerminate(3);
     }
 
     public function test_an_inventory_publishes_only_when_it_moves_a_run(): void
@@ -206,7 +206,7 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
         $this->assertPublishedAtTerminate(0);
 
         self::assertCount(1, $inventory(new ReportBridgeRunsCommand($this->owner, $bridgeId, [])));
-        $this->assertPublishedAtTerminate(2);
+        $this->assertPublishedAtTerminate(3);
         $this->assertSignalsTheProject($this->published[0]);
         self::assertSame([(string) $run->subjectId], $this->warnedCards());
     }
@@ -254,7 +254,7 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
         ));
         $topics = array_map(static fn (Update $update): array => $update->getTopics(), $runPages);
         self::assertEqualsCanonicalizing([[$this->runTopic($this->project)], [$this->runTopic($other)]], $topics);
-        self::assertCount(5, $this->published);
+        self::assertCount(8, $this->published);
         self::assertEqualsCanonicalizing(\array_slice($cards, 0, 2), $this->warnedCards());
     }
 
@@ -448,7 +448,7 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
         self::assertNotNull($this->service(WorkerRunRepository::class)->findWarningRowOfCard($this->project, $cardId));
     }
 
-    /** @return list<string> the card of each board message so far */
+    /** @return list<string> the card of each warning message so far */
     private function warnedCards(): array
     {
         $cards = [];
@@ -458,7 +458,9 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
             }
             $data = json_decode($update->getData(), true, flags: \JSON_THROW_ON_ERROR);
             self::assertIsArray($data);
-            self::assertSame(WorkerRunChangedPublisher::CARD_WARNING_CHANGED, $data['type']);
+            if (WorkerRunChangedPublisher::CARD_WARNING_CHANGED !== $data['type']) {
+                continue;
+            }
             self::assertIsString($data['cardId']);
             $cards[] = $data['cardId'];
         }

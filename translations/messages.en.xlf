@@ -2598,6 +2598,10 @@
                 <source>project.connect.tool.feedback_mark_addressed</source>
                 <target>Mark feedback items as addressed after fixing them. Accepts the feedback ids from feedback_list or card_get. Items that are unknown, already addressed or resolved are skipped, not fatal.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.agent_review_submit">
+                <source>project.connect.tool.agent_review_submit</source>
+                <target>Submit the review of a pull request of a card, with its findings on file lines. Only a running review worker of the card can call it. Loupe shows the review as a check on the pull request when the agent review is on.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.card_create">
                 <source>project.connect.tool.card_create</source>
                 <target>Add a card to the project board, with a type, a reporter, the pull requests that carry the work and the cards it links to (relatedCards).</target>
@@ -4445,6 +4449,14 @@
                 <source>landing.feature.harnesses.text</source>
                 <target>Your bridge runs each stage worker on Claude Code or Codex, on your own subscriptions or on an API key such as OpenRouter. An experiment compares them on cost, speed and outcome.</target>
             </trans-unit>
+            <trans-unit id="landing.feature.agent_review.title">
+                <source>landing.feature.agent_review.title</source>
+                <target>An agent reviews each pull request</target>
+            </trans-unit>
+            <trans-unit id="landing.feature.agent_review.text">
+                <source>landing.feature.agent_review.text</source>
+                <target>A separate agent reviews each pull request before you see it, and posts its findings beside the lines they concern. A failed review asks for a fix at once. The pull request reaches you when the review passes.</target>
+            </trans-unit>
             <trans-unit id="landing.feature.cost_analysis.title">
                 <source>landing.feature.cost_analysis.title</source>
                 <target>Cost and experiment analysis</target>
@@ -4747,7 +4759,7 @@
             </trans-unit>
             <trans-unit id="landing.faq.board.answer">
                 <source>landing.faq.board.answer</source>
-                <target>Yes. Your agent files cards on the project board over MCP, in the columns you set for each board, and links the pull requests that carry each one. An epic card groups the small cards of one large feature, and the board shows each epic as a swimlane with its progress. Each board follows a workflow template, so Loupe moves a card through its stages and asks your bridge for the next piece of work. When you connect a repository through the GitHub App, Loupe follows the pull request of each card, shows its checks, conflicts and review on the board, and can carry it through to the merge.</target>
+                <target>Yes. Your agent files cards on the project board over MCP, in the columns you set for each board, and links the pull requests that carry each one. An epic card groups the small cards of one large feature, and the board shows each epic as a swimlane with its progress. Each board follows a workflow template, so Loupe moves a card through its stages and asks your bridge for the next piece of work. When you connect a repository through the GitHub App, Loupe follows the pull request of each card, shows its checks, conflicts and review, and can carry it through to the merge. Each card on the board shows one mark that says what it needs now: Stuck, Needs you, Working or Waiting. A tooltip gives the reason, and your agent reads the same state over MCP.</target>
             </trans-unit>
             <trans-unit id="landing.faq.harnesses.question">
                 <source>landing.faq.harnesses.question</source>
@@ -6244,6 +6256,7 @@
             <trans-unit id="bridge.experiments.fix_reason.conflict"><source>bridge.experiments.fix_reason.conflict</source><target>Conflict</target></trans-unit>
             <trans-unit id="bridge.experiments.fix_reason.checks-failed"><source>bridge.experiments.fix_reason.checks-failed</source><target>Checks failed</target></trans-unit>
             <trans-unit id="bridge.experiments.fix_reason.changes-requested"><source>bridge.experiments.fix_reason.changes-requested</source><target>Changes requested</target></trans-unit>
+            <trans-unit id="bridge.experiments.fix_reason.agent-review"><source>bridge.experiments.fix_reason.agent-review</source><target>Agent review failed</target></trans-unit>
             <trans-unit id="bridge.experiments.fix_reason.other"><source>bridge.experiments.fix_reason.other</source><target>Other reason: %reason%</target></trans-unit>
             <trans-unit id="bridge.experiments.too_few_cards"><source>bridge.experiments.too_few_cards</source><target>Too few cards</target></trans-unit>
             <trans-unit id="bridge.experiments.range"><source>bridge.experiments.range</source><target>%low%–%high%</target></trans-unit>
@@ -6676,24 +6689,74 @@
             <trans-unit id="board.card.link.mergeability.conflicting"><source>board.card.link.mergeability.conflicting</source><target>Conflict</target></trans-unit>
             <trans-unit id="board.card.link.mergeability.behind"><source>board.card.link.mergeability.behind</source><target>Behind base</target></trans-unit>
             <trans-unit id="board.card.link.mergeability.blocked"><source>board.card.link.mergeability.blocked</source><target>Merge blocked</target></trans-unit>
-            <trans-unit id="board.card.link.sync.waits_for_approval"><source>board.card.link.sync.waits_for_approval</source><target>Waits for an approval</target></trans-unit>
-            <trans-unit id="board.card.link.sync.conflicts"><source>board.card.link.sync.conflicts</source><target>Conflicts with the base</target></trans-unit>
-            <trans-unit id="board.card.link.sync.waits_turn"><source>board.card.link.sync.waits_turn</source><target>Waits its turn behind #%number%</target></trans-unit>
-            <trans-unit id="board.card.link.sync.synced_checks_running"><source>board.card.link.sync.synced_checks_running</source><target>Synced, checks running</target></trans-unit>
-            <trans-unit id="board.card.link.sync.sync_failed"><source>board.card.link.sync.sync_failed</source><target>Sync failed: %reason%</target></trans-unit>
-            <trans-unit id="board.card.link.sync.reason.permission"><source>board.card.link.sync.reason.permission</source><target>the app may not write to the repository</target></trans-unit>
-            <trans-unit id="board.card.link.sync.reason.refused"><source>board.card.link.sync.reason.refused</source><target>the forge refused the update</target></trans-unit>
-            <trans-unit id="board.card.link.sync.reason.timeout"><source>board.card.link.sync.reason.timeout</source><target>the update did not finish in time</target></trans-unit>
-            <trans-unit id="board.card.link.sync.reason.no_updater"><source>board.card.link.sync.reason.no_updater</source><target>Loupe cannot update a pull request on this forge</target></trans-unit>
-            <trans-unit id="board.card.link.sync.reason.retries_exhausted"><source>board.card.link.sync.reason.retries_exhausted</source><target>the forge failed each try to update the branch</target></trans-unit>
             <trans-unit id="board.card.link.review.approved"><source>board.card.link.review.approved</source><target>Approved</target></trans-unit>
             <trans-unit id="board.card.link.review.approval_outdated"><source>board.card.link.review.approval_outdated</source><target>Approval outdated</target></trans-unit>
             <trans-unit id="board.card.link.review.changes_requested"><source>board.card.link.review.changes_requested</source><target>Changes requested</target></trans-unit>
             <trans-unit id="board.card.link.review.required"><source>board.card.link.review.required</source><target>Review required</target></trans-unit>
             <trans-unit id="board.card.badge.paused"><source>board.card.badge.paused</source><target>Paused</target></trans-unit>
+            <trans-unit id="board.card_state.status"><source>board.card_state.status</source><target>Status</target></trans-unit>
+            <trans-unit id="board.card_state.remedy_label.stuck"><source>board.card_state.remedy_label.stuck</source><target>To unstick it</target></trans-unit>
+            <trans-unit id="board.card_state.remedy_label.needs_you"><source>board.card_state.remedy_label.needs_you</source><target>What to do</target></trans-unit>
+            <trans-unit id="board.card_state.remedy_label.working"><source>board.card_state.remedy_label.working</source><target>What happens next</target></trans-unit>
+            <trans-unit id="board.card_state.remedy_label.waiting"><source>board.card_state.remedy_label.waiting</source><target>To release it</target></trans-unit>
+            <trans-unit id="board.card_state.since_label.stuck"><source>board.card_state.since_label.stuck</source><target>Since</target></trans-unit>
+            <trans-unit id="board.card_state.since_label.needs_you"><source>board.card_state.since_label.needs_you</source><target>Waiting since</target></trans-unit>
+            <trans-unit id="board.card_state.since_label.working"><source>board.card_state.since_label.working</source><target>Started</target></trans-unit>
+            <trans-unit id="board.card_state.since_label.waiting"><source>board.card_state.since_label.waiting</source><target>Since</target></trans-unit>
+            <trans-unit id="board.card_state.remedy.paused"><source>board.card_state.remedy.paused</source><target>Fix the cause of the pause, then release the pause in the Workflow panel.</target></trans-unit>
+            <trans-unit id="board.card_state.remedy.run_stopped"><source>board.card_state.remedy.run_stopped</source><target>Read the summary of the last run, then resume the run or start the work again.</target></trans-unit>
+            <trans-unit id="board.card_state.remedy.checks_failed"><source>board.card_state.remedy.checks_failed</source><target>Fix the failing checks, or start a fix run.</target></trans-unit>
+            <trans-unit id="board.card_state.remedy.conflicting"><source>board.card_state.remedy.conflicting</source><target>Merge the base branch into the pull request, or start a fix run.</target></trans-unit>
+            <trans-unit id="board.card_state.held_for"><source>board.card_state.held_for</source><target>%state% for %age%</target></trans-unit>
+            <trans-unit id="board.card_state.since_value"><source>board.card_state.since_value</source><target>%clock%, %age%</target></trans-unit>
+            <trans-unit id="board.card_state.since.stuck"><source>board.card_state.since.stuck</source><target>Since %clock%, %age%</target></trans-unit>
+            <trans-unit id="board.card_state.since.needs_you"><source>board.card_state.since.needs_you</source><target>Waiting since %clock%, %age%</target></trans-unit>
+            <trans-unit id="board.card_state.since.working"><source>board.card_state.since.working</source><target>Started %clock%, %age%</target></trans-unit>
+            <trans-unit id="board.card_state.since.waiting"><source>board.card_state.since.waiting</source><target>Since %clock%, %age%</target></trans-unit>
+            <trans-unit id="board.card_state.ago.now"><source>board.card_state.ago.now</source><target>just now</target></trans-unit>
+            <trans-unit id="board.card_state.ago.minute"><source>board.card_state.ago.minute</source><target>1 minute ago</target></trans-unit>
+            <trans-unit id="board.card_state.ago.minutes"><source>board.card_state.ago.minutes</source><target>%count% minutes ago</target></trans-unit>
+            <trans-unit id="board.card_state.ago.hour"><source>board.card_state.ago.hour</source><target>1 hour ago</target></trans-unit>
+            <trans-unit id="board.card_state.ago.hours"><source>board.card_state.ago.hours</source><target>%count% hours ago</target></trans-unit>
+            <trans-unit id="board.card_state.ago.day"><source>board.card_state.ago.day</source><target>1 day ago</target></trans-unit>
+            <trans-unit id="board.card_state.ago.days"><source>board.card_state.ago.days</source><target>%count% days ago</target></trans-unit>
+            <trans-unit id="board.card_state.duration.now"><source>board.card_state.duration.now</source><target>under a minute</target></trans-unit>
+            <trans-unit id="board.card_state.duration.minute"><source>board.card_state.duration.minute</source><target>1 min</target></trans-unit>
+            <trans-unit id="board.card_state.duration.minutes"><source>board.card_state.duration.minutes</source><target>%count% min</target></trans-unit>
+            <trans-unit id="board.card_state.duration.hour"><source>board.card_state.duration.hour</source><target>1 h</target></trans-unit>
+            <trans-unit id="board.card_state.duration.hours"><source>board.card_state.duration.hours</source><target>%count% h</target></trans-unit>
+            <trans-unit id="board.card_state.duration.day"><source>board.card_state.duration.day</source><target>1 d</target></trans-unit>
+            <trans-unit id="board.card_state.duration.days"><source>board.card_state.duration.days</source><target>%count% d</target></trans-unit>
+            <trans-unit id="board.card_state.remedy.ready_not_merged"><source>board.card_state.remedy.ready_not_merged</source><target>Merge the pull request, or change the card so that a merge rule of its column matches it.</target></trans-unit>
+            <trans-unit id="board.card_state.remedy.document_in_review"><source>board.card_state.remedy.document_in_review</source><target>Review the document, then approve it or ask for changes.</target></trans-unit>
+            <trans-unit id="board.card_state.remedy.waits_for_approval"><source>board.card_state.remedy.waits_for_approval</source><target>Review the pull request, then approve it or ask for changes.</target></trans-unit>
+            <trans-unit id="board.card_state.remedy.open_question"><source>board.card_state.remedy.open_question</source><target>Answer the question in Needs you.</target></trans-unit>
+            <trans-unit id="board.card_state.remedy.run_open"><source>board.card_state.remedy.run_open</source><target>Nothing. The card moves on when the worker ends.</target></trans-unit>
+            <trans-unit id="board.card_state.remedy.work_requested"><source>board.card_state.remedy.work_requested</source><target>Start a bridge that takes this kind of work.</target></trans-unit>
+            <trans-unit id="board.card_state.remedy.forge_request_pending"><source>board.card_state.remedy.forge_request_pending</source><target>Nothing. Loupe reads the pull request again on its next sweep.</target></trans-unit>
+            <trans-unit id="board.card_state.remedy.held_by_blocker"><source>board.card_state.remedy.held_by_blocker</source><target>Finish the blocking card, or remove the block.</target></trans-unit>
+            <trans-unit id="board.card_state.others"><source>board.card_state.others</source><target>Also applies</target></trans-unit>
+            <trans-unit id="board.card_state.stuck"><source>board.card_state.stuck</source><target>Stuck</target></trans-unit>
+            <trans-unit id="board.card_state.needs_you"><source>board.card_state.needs_you</source><target>Needs you</target></trans-unit>
+            <trans-unit id="board.card_state.working"><source>board.card_state.working</source><target>Working</target></trans-unit>
+            <trans-unit id="board.card_state.waiting"><source>board.card_state.waiting</source><target>Waiting</target></trans-unit>
+            <trans-unit id="board.card_state.reason.paused"><source>board.card_state.reason.paused</source><target>Paused: %reason%.</target></trans-unit>
+            <trans-unit id="board.card_state.reason.run_stopped"><source>board.card_state.reason.run_stopped</source><target>The last worker run did not finish its work.</target></trans-unit>
+            <trans-unit id="board.card_state.reason.checks_failed"><source>board.card_state.reason.checks_failed</source><target>The checks of pull request #%number% fail, and no fix is under way.</target></trans-unit>
+            <trans-unit id="board.card_state.reason.conflicting"><source>board.card_state.reason.conflicting</source><target>Pull request #%number% has a merge conflict, and no fix is under way.</target></trans-unit>
+            <trans-unit id="board.card_state.reason.ready_not_merged"><source>board.card_state.reason.ready_not_merged</source><target>Pull request #%number% is ready to merge, and no merge rule matches it.</target></trans-unit>
+            <trans-unit id="board.card_state.reason.document_in_review"><source>board.card_state.reason.document_in_review</source><target>The document "%title%" waits for your review.</target></trans-unit>
+            <trans-unit id="board.card_state.reason.waits_for_approval"><source>board.card_state.reason.waits_for_approval</source><target>Pull request #%number% waits for your approval.</target></trans-unit>
+            <trans-unit id="board.card_state.reason.open_question"><source>board.card_state.reason.open_question</source><target>Question #%number% waits for your answer: %title%</target></trans-unit>
+            <trans-unit id="board.card_state.reason.work_requested"><source>board.card_state.reason.work_requested</source><target>Work waits for a bridge to take it.</target></trans-unit>
+            <trans-unit id="board.card_state.reason.run_open"><source>board.card_state.reason.run_open</source><target>A worker runs on this card.</target></trans-unit>
+            <trans-unit id="board.card_state.reason.forge_request_pending"><source>board.card_state.reason.forge_request_pending</source><target>Loupe asked the forge to change pull request #%number%, and the forge has not answered.</target></trans-unit>
+            <trans-unit id="board.card_state.reason.held_by_blocker"><source>board.card_state.reason.held_by_blocker</source><target>Card #%number% blocks this card: %title%</target></trans-unit>
+            <trans-unit id="board.card_state.open_card"><source>board.card_state.open_card</source><target>Open card</target></trans-unit>
             <trans-unit id="board.card.badge.unmanaged"><source>board.card.badge.unmanaged</source><target>Unmanaged</target></trans-unit>
             <trans-unit id="board.card.history.reason.conflict"><source>board.card.history.reason.conflict</source><target>the pull request has a merge conflict</target></trans-unit>
             <trans-unit id="board.card.history.reason.checks_failed"><source>board.card.history.reason.checks_failed</source><target>the checks fail</target></trans-unit>
+            <trans-unit id="board.card.history.reason.agent_review"><source>board.card.history.reason.agent_review</source><target>the agent review found problems</target></trans-unit>
             <trans-unit id="board.card.history.reason.changes_requested"><source>board.card.history.reason.changes_requested</source><target>a reviewer requested changes</target></trans-unit>
             <trans-unit id="board.card.linked_work.title"><source>board.card.linked_work.title</source><target>Linked work</target></trans-unit>
             <trans-unit id="board.card.linked_work.empty"><source>board.card.linked_work.empty</source><target>No documents or pull requests are linked to this card.</target></trans-unit>
@@ -7008,7 +7071,7 @@
             </trans-unit>
             <trans-unit id="board.automation.description">
                 <source>board.automation.description</source>
-                <target>Loupe watches the pull requests of your cards. These settings control the fix and merge requests that Loupe sends to your bridge.</target>
+                <target>The workflow of the board decides each action on a pull request, and the rules of the workflow are the only switches. This setting stops the whole workflow.</target>
             </trans-unit>
             <trans-unit id="board.automation.submit">
                 <source>board.automation.submit</source>
@@ -7018,9 +7081,9 @@
                 <source>board.automation.flash.saved</source>
                 <target>Automation settings saved.</target>
             </trans-unit>
-            <trans-unit id="board.automation.error.epic_branch_pattern_invalid">
-                <source>board.automation.error.epic_branch_pattern_invalid</source>
-                <target>The pattern must be a branch name that holds {number} exactly once, or be empty.</target>
+            <trans-unit id="board.automation.error.stuck_delay_invalid">
+                <source>board.automation.error.stuck_delay_invalid</source>
+                <target>The stuck delay must be a number of minutes from 1 to 1440.</target>
             </trans-unit>
             <trans-unit id="board.fix_run_comment.intro">
                 <source>board.fix_run_comment.intro</source>
@@ -7041,6 +7104,10 @@
             <trans-unit id="board.fix_run_comment.reason.changes-requested">
                 <source>board.fix_run_comment.reason.changes-requested</source>
                 <target>changes requested</target>
+            </trans-unit>
+            <trans-unit id="board.fix_run_comment.reason.agent-review">
+                <source>board.fix_run_comment.reason.agent-review</source>
+                <target>the agent review found problems</target>
             </trans-unit>
             <trans-unit id="board.fix_run_comment.reason.other">
                 <source>board.fix_run_comment.reason.other</source>
@@ -7066,97 +7133,17 @@
                 <source>board.form.save_board_automation_settings_form.enabled.help</source>
                 <target>When this is on, the workflow of the board moves the cards and asks for their work. Loupe records the pull request facts in all cases.</target>
             </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.comment_on_fix_queued.label">
-                <source>board.form.save_board_automation_settings_form.comment_on_fix_queued.label</source>
-                <target>Comment on the pull request when a fix run is queued</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.comment_on_fix_queued.help">
-                <source>board.form.save_board_automation_settings_form.comment_on_fix_queued.help</source>
-                <target>Loupe posts a new comment on the GitHub pull request each time a bridge queues a fix run for it. The GitHub App needs "Pull requests: read and write". It needs a bridge that reports the event that queued a run. An older bridge sends none, so no comment posts.</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.comment_on_stale_approval.label">
-                <source>board.form.save_board_automation_settings_form.comment_on_stale_approval.label</source>
-                <target>Comment on a pull request when new commits follow its approval</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.comment_on_stale_approval.help">
-                <source>board.form.save_board_automation_settings_form.comment_on_stale_approval.help</source>
-                <target>An approval that does not cover the newest commit starts no merge. Loupe then posts one comment on the GitHub pull request for that commit. The GitHub App needs "Pull requests: read and write".</target>
-            </trans-unit>
             <trans-unit id="board.stale_approval_notice.body">
                 <source>board.stale_approval_notice.body</source>
                 <target>Not merged: commit `%sha%` came after your approval. Approve the new head to merge.</target>
             </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.sync_behind.label">
-                <source>board.form.save_board_automation_settings_form.sync_behind.label</source>
-                <target>Sync an approved pull request that is behind</target>
+            <trans-unit id="board.form.save_board_automation_settings_form.stuck_delay_minutes.label">
+                <source>board.form.save_board_automation_settings_form.stuck_delay_minutes.label</source>
+                <target>Stuck delay in minutes</target>
             </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.sync_behind.help">
-                <source>board.form.save_board_automation_settings_form.sync_behind.help</source>
-                <target>Loupe updates the branch of the next approved pull request that is behind its base, one at a time. The GitHub App needs "Contents: read and write".</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.merge_pull_requests.label">
-                <source>board.form.save_board_automation_settings_form.merge_pull_requests.label</source>
-                <target>Merge a pull request when the workflow asks</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.merge_pull_requests.help">
-                <source>board.form.save_board_automation_settings_form.merge_pull_requests.help</source>
-                <target>Loupe merges a pull request when the workflow of the board asks for it. The GitHub App needs "Contents: read and write".</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.change_base.label">
-                <source>board.form.save_board_automation_settings_form.change_base.label</source>
-                <target>Change the base of a pull request when the workflow asks</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.change_base.help">
-                <source>board.form.save_board_automation_settings_form.change_base.help</source>
-                <target>Loupe changes the base branch of a pull request when the workflow of the board asks for it. The GitHub App needs "Pull requests: read and write".</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.epic_draft_switch.label">
-                <source>board.form.save_board_automation_settings_form.epic_draft_switch.label</source>
-                <target>Switch an epic pull request between draft and ready when the workflow asks</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.epic_draft_switch.help">
-                <source>board.form.save_board_automation_settings_form.epic_draft_switch.help</source>
-                <target>Loupe marks the pull request of an epic as a draft while the epic is in implementation, and as ready when it moves to review. The GitHub App needs "Pull requests: read and write".</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.close_epic_pull_requests.label">
-                <source>board.form.save_board_automation_settings_form.close_epic_pull_requests.label</source>
-                <target>Close the pull requests of an epic when the workflow asks</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.close_epic_pull_requests.help">
-                <source>board.form.save_board_automation_settings_form.close_epic_pull_requests.help</source>
-                <target>Loupe closes the pull requests of an epic that a person moves back to the Backlog. The GitHub App needs "Pull requests: read and write".</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.open_epic_pull_requests.label">
-                <source>board.form.save_board_automation_settings_form.open_epic_pull_requests.label</source>
-                <target>Open the epic pull request</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.open_epic_pull_requests.help">
-                <source>board.form.save_board_automation_settings_form.open_epic_pull_requests.help</source>
-                <target>Loupe opens a draft pull request from the epic branch to the default branch after the first child merges, and links it to the epic. The GitHub App needs "Pull requests: read and write".</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.post_widget_reviews.label">
-                <source>board.form.save_board_automation_settings_form.post_widget_reviews.label</source>
-                <target>Post a widget verdict as a review on GitHub</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.post_widget_reviews.help">
-                <source>board.form.save_board_automation_settings_form.post_widget_reviews.help</source>
-                <target>When a reviewer sends a verdict from the site-review widget, Loupe posts it as a review on the pull requests of the card, under the reviewer's own GitHub account. The reviewer connects that account once.</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.site_review_check.label">
-                <source>board.form.save_board_automation_settings_form.site_review_check.label</source>
-                <target>Keep a "Loupe site review" check on pull requests</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.site_review_check.help">
-                <source>board.form.save_board_automation_settings_form.site_review_check.help</source>
-                <target>Loupe posts a check named "Loupe site review" on each open pull request of a managed card. It fails while open site-review notes remain. The GitHub App needs "Checks: read and write".</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.epic_branch_pattern.label">
-                <source>board.form.save_board_automation_settings_form.epic_branch_pattern.label</source>
-                <target>Epic branch pattern</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.epic_branch_pattern.help">
-                <source>board.form.save_board_automation_settings_form.epic_branch_pattern.help</source>
-                <target>The branch that the breakdown pushes for an epic. {number} stands for the epic card number. The pattern must match the epic branch of your repository profile. Leave it empty when the project uses no epic branches.</target>
+            <trans-unit id="board.form.save_board_automation_settings_form.stuck_delay_minutes.help">
+                <source>board.form.save_board_automation_settings_form.stuck_delay_minutes.help</source>
+                <target>How long a ready pull request may wait for a merge before its card shows Stuck on the board. Use a number from 1 to 1440.</target>
             </trans-unit>
             <trans-unit id="board.automation.comment_failure.summary">
                 <source>board.automation.comment_failure.summary</source>
@@ -7777,8 +7764,20 @@
             <trans-unit id="workflow.waiting.not.card_discovery_requested"><source>workflow.waiting.not.card_discovery_requested</source><target>Waiting: the card has a requested discovery.</target></trans-unit>
             <trans-unit id="workflow.waiting.site_review_verdict_unsent"><source>workflow.waiting.site_review_verdict_unsent</source><target>Waiting: no verdict of the card waits to be sent.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.site_review_verdict_unsent"><source>workflow.waiting.not.site_review_verdict_unsent</source><target>Waiting: a verdict of the card waits to be sent.</target></trans-unit>
+            <trans-unit id="workflow.waiting.card_fix_run_uncommented"><source>workflow.waiting.card_fix_run_uncommented</source><target>Waiting: each open or recent fix run of the card has a pull request comment.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.card_fix_run_uncommented"><source>workflow.waiting.not.card_fix_run_uncommented</source><target>Waiting: an open or recent fix run of the card has no pull request comment.</target></trans-unit>
+            <trans-unit id="workflow.waiting.card_pr_approval_stale"><source>workflow.waiting.card_pr_approval_stale</source><target>Waiting: no open pull request of the card has a stale approval without a notice.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.card_pr_approval_stale"><source>workflow.waiting.not.card_pr_approval_stale</source><target>Waiting: an open pull request of the card has a stale approval without a notice.</target></trans-unit>
             <trans-unit id="workflow.waiting.site_review_check_stale"><source>workflow.waiting.site_review_check_stale</source><target>Waiting: the site review check of each open pull request is up to date.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.site_review_check_stale"><source>workflow.waiting.not.site_review_check_stale</source><target>Waiting: the site review check of an open pull request is out of date.</target></trans-unit>
+            <trans-unit id="workflow.waiting.agent_review_due"><source>workflow.waiting.agent_review_due</source><target>Waiting: no open pull request head needs an agent review.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.agent_review_due"><source>workflow.waiting.not.agent_review_due</source><target>Waiting: the head of an open pull request needs an agent review.</target></trans-unit>
+            <trans-unit id="workflow.waiting.agent_review_failed"><source>workflow.waiting.agent_review_failed</source><target>Waiting: no agent review of an open pull request head failed.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.agent_review_failed"><source>workflow.waiting.not.agent_review_failed</source><target>Waiting: the agent review of an open pull request head failed.</target></trans-unit>
+            <trans-unit id="workflow.waiting.agent_review_passed"><source>workflow.waiting.agent_review_passed</source><target>Waiting: an open pull request head has no agent review that passed.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.agent_review_passed"><source>workflow.waiting.not.agent_review_passed</source><target>Waiting: every open pull request head has an agent review that passed.</target></trans-unit>
+            <trans-unit id="workflow.waiting.agent_review_unposted"><source>workflow.waiting.agent_review_unposted</source><target>Waiting: every agent review has its check on the forge.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.agent_review_unposted"><source>workflow.waiting.not.agent_review_unposted</source><target>Waiting: an agent review has no check on the forge yet.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_child_merged_into_epic_branch"><source>workflow.waiting.card_child_merged_into_epic_branch</source><target>Waiting: no child pull request merged into the epic branch.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.card_child_merged_into_epic_branch"><source>workflow.waiting.not.card_child_merged_into_epic_branch</source><target>Waiting: a child pull request merged into the epic branch.</target></trans-unit>
             <trans-unit id="workflow.waiting.card_has_children"><source>workflow.waiting.card_has_children</source><target>Waiting: the card has no child cards.</target></trans-unit>
@@ -7838,6 +7837,7 @@
             <trans-unit id="workflow.source.board"><source>workflow.source.board</source><target>Board</target></trans-unit>
             <trans-unit id="workflow.source.forge"><source>workflow.source.forge</source><target>Forge</target></trans-unit>
             <trans-unit id="workflow.source.bridge"><source>workflow.source.bridge</source><target>Bridge</target></trans-unit>
+            <trans-unit id="workflow.source.agent_review"><source>workflow.source.agent_review</source><target>Agent review</target></trans-unit>
             <trans-unit id="workflow.source.readiness"><source>workflow.source.readiness</source><target>Readiness</target></trans-unit>
             <trans-unit id="workflow.slot.next"><source>workflow.slot.next</source><target>Next</target></trans-unit>
             <trans-unit id="workflow.slot.product_design"><source>workflow.slot.product_design</source><target>Product design</target></trans-unit>
@@ -8049,8 +8049,13 @@
             <trans-unit id="board.site_review_check.title"><source>board.site_review_check.title</source><target>{0} No open site review notes|{1} One site review note is open|]1,Inf[ %count% site review notes are open</target></trans-unit>
             <trans-unit id="board.site_review_check.summary_clear"><source>board.site_review_check.summary_clear</source><target>Every site review note of this card is closed.</target></trans-unit>
             <trans-unit id="board.site_review_check.title_off"><source>board.site_review_check.title_off</source><target>Loupe no longer keeps this check</target></trans-unit>
-            <trans-unit id="board.site_review_check.summary_off"><source>board.site_review_check.summary_off</source><target>The site review check is off for this project, so this check does not block the pull request.</target></trans-unit>
             <trans-unit id="board.site_review_check.summary_unlinked"><source>board.site_review_check.summary_unlinked</source><target>No card links this pull request any more, so this check does not block it.</target></trans-unit>
+            <trans-unit id="agent_review.check.title"><source>agent_review.check.title</source><target>Agent review: %findings%</target></trans-unit>
+            <trans-unit id="agent_review.check.title_clear"><source>agent_review.check.title_clear</source><target>Agent review: no findings</target></trans-unit>
+            <trans-unit id="agent_review.check.count.important"><source>agent_review.check.count.important</source><target>{0} no important findings|{1} 1 important finding|]1,Inf[ %count% important findings</target></trans-unit>
+            <trans-unit id="agent_review.check.count.nit"><source>agent_review.check.count.nit</source><target>{0} no nits|{1} 1 nit|]1,Inf[ %count% nits</target></trans-unit>
+            <trans-unit id="agent_review.check.count.pre-existing"><source>agent_review.check.count.pre-existing</source><target>{0} no pre-existing findings|{1} 1 pre-existing finding|]1,Inf[ %count% pre-existing findings</target></trans-unit>
+            <trans-unit id="agent_review.check.summary_more"><source>agent_review.check.summary_more</source><target>{0} No more findings.|{1} And one more finding.|]1,Inf[ And %count% more findings.</target></trans-unit>
             <trans-unit id="board.site_review_check.summary_more"><source>board.site_review_check.summary_more</source><target>{0} No more notes.|{1} And one more note.|]1,Inf[ And %count% more notes.</target></trans-unit>
         </body>
     </file>

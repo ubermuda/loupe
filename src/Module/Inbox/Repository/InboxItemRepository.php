@@ -15,6 +15,7 @@ use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Entity\InboxLinkedPage;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\LockMode;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Query\Expr\Join;
@@ -31,6 +32,34 @@ class InboxItemRepository extends ServiceEntityRepository
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, InboxItem::class);
+    }
+
+    /**
+     * The open items that ask a person something and name one of the cards, in one query, oldest first.
+     * A wait item is Loupe's own mark of a card that waits for a person, and a notice names no card.
+     *
+     * @param list<string> $cardIds RFC 4122 ids
+     *
+     * @return list<array{card_id: string, number: int, title: string, created_at: string}>
+     */
+    public function findOpenAsksOfCards(Project $project, array $cardIds): array
+    {
+        if ([] === $cardIds) {
+            return [];
+        }
+
+        /** @var list<array{card_id: string, number: int, title: string, created_at: string}> $rows */
+        $rows = $this->getEntityManager()->getConnection()->executeQuery(
+            "SELECT ic.card_id, i.number, i.title, i.created_at
+             FROM inbox_item_cards ic
+             JOIN inbox_items i ON i.id = ic.item_id
+             WHERE i.project_id = :project AND i.state = 'open' AND i.kind NOT IN ('wait', 'notice') AND ic.card_id IN (:cards)
+             ORDER BY i.created_at, i.id",
+            ['project' => (string) ($project->id ?? throw new \LogicException('Project has no id.')), 'cards' => $cardIds],
+            ['cards' => ArrayParameterType::STRING],
+        )->fetchAllAssociative();
+
+        return $rows;
     }
 
     /** Read-then-write: a caller holds a lock on the project, or two items can take one number. */

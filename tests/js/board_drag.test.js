@@ -231,6 +231,22 @@ it('releases the drag when the page cannot place the card', () => {
     expect(controller.pendingForm).toBeNull();
 });
 
+it('starts no drag from a press inside an interactive tooltip', () => {
+    const moved = document.getElementById('board-card-a');
+    moved.innerHTML =
+        '<span class="lp-tooltip lp-tooltip--interactive"><a id="tooltip-link" href="/x">Open</a></span>';
+    controller.press({
+        pointerId: 1,
+        pointerType: 'mouse',
+        button: 0,
+        target: document.getElementById('tooltip-link'),
+        clientX: 250,
+        clientY: 100,
+    });
+
+    expect(controller.pressedCard).toBeNull();
+});
+
 describe('the lane heads a drop changes', () => {
     /** The epics this page asks to redraw, in the order it asks. */
     function watchLanes() {

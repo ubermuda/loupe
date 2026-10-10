@@ -1,0 +1,29 @@
+/* The state mark. `templates/components/Ds/StateMark.html.twig` renders it. */
+@layer components {
+    /* One icon that names the state of a card, with an interactive tooltip. */
+    .lp-state-mark {
+        @apply relative ml-auto inline-flex shrink-0;
+    }
+    .lp-state-mark__icon {
+        @apply inline-flex size-5 cursor-help items-center justify-center rounded-md outline-none focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink;
+    }
+    .lp-state-mark__glyph {
+        @apply size-3.5 shrink-0;
+    }
+    .lp-state-mark--stuck {
+        @apply text-status-danger;
+    }
+    .lp-state-mark--needs-you {
+        @apply text-status-pending;
+    }
+    .lp-state-mark--working {
+        @apply text-status-active;
+    }
+    .lp-state-mark--waiting {
+        @apply text-fg-dim;
+    }
+    /* The colour and the tooltip still say Working, so a reader who asked for less motion gets a still mark. */
+    .lp-state-mark--working .lp-state-mark__glyph {
+        @apply motion-safe:animate-spin;
+    }
+}

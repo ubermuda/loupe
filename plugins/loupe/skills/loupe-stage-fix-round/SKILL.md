@@ -29,21 +29,21 @@ Answer one round of feedback on the current stage of a card.
 
 ### Code round
 
-The prompt line `Pull request <url> needs a fix: <reason>.` names what started the round. The reason is `checks-failed`, `conflict` or `changes-requested`. A run by hand can have no reason. Whatever the reason, fix everything that is open: a conflict with the base, each failing check, each open feedback item and each pending site-review note.
+The prompt line `Pull request <url> needs a fix: <reason>.` names what started the round. The reason is `checks-failed`, `conflict`, `changes-requested` or `agent-review`. A run by hand can have no reason. Whatever the reason, fix everything that is open: a conflict with the base, each failing check, each open feedback item and each pending site-review note.
 
 The round ends at the push. It never waits for CI, because the app reads the new head and sends the next fix request or the merge decision.
 
 1. Read `references/pull-request-feedback.md`, then read each linked pull request with the forge adapter. When none is open, stop with `STAGE RESULT: no open pull request`.
 2. Read the mergeability, then the checks and the open feedback items, per the reference. Read the checks once, and never wait for a pending one.
-3. Read the pending site-review notes of the card, per "Site-review notes" in the reference. Drop each review item that repeats a note, as that section says.
-4. When the pull request is mergeable, no check fails, no item is open and no note is pending, stop with `STAGE RESULT: nothing to fix`. An epic pull request takes the round as any other pull request, and the round pushes to the epic branch.
+3. Read the pending site-review notes of the card, per "Site-review notes" in the reference. Drop each review item that repeats a note, as that section says. Then read the agent review of the head, per "Agent review findings" in the reference, whatever the reason of the request. A CI fix and a review fix share one live request, so a round that started for one reason must fix the other too.
+4. When the pull request is mergeable, no check fails, no item is open, no note is pending and the agent review of the head holds no finding to fix, stop with `STAGE RESULT: nothing to fix`. An epic pull request takes the round as any other pull request, and the round pushes to the epic branch.
 5. Read `../loupe-stage-implementation/references/commands.md`, and load the profile `Instruction files`.
 6. Check the worker folder, and sync it with the pull request branch, per the reference. Keep every existing commit, except a sync of the base that the sync procedure resets.
 7. When the branch differs from the pull request branch, stop with `STAGE RESULT: blocked: worker folder is not on the PR branch`.
 8. When the pull request conflicts, resolve it first, per "Resolve a conflict with the base" in the reference.
-9. Fix every open item, every pending note and every failing check. Read the log of each failed check, and fix the cause. Fix a gap that the conflict resolution shows in this round too, never in a card (implementation contract rule 12). Follow the implementation skill for sub-agents, the gate and the code review. In this round, `<base>` is the base branch of the pull request, such as the epic branch of an epic child. Before the gate, run implementation step 11 on the diff of the pull request, so the deploy notes stay true.
+9. Fix every open item, every pending note, every failing check and every finding of the agent review of the head. Read the log of each failed check, and fix the cause. Fix a gap that the conflict resolution shows in this round too, never in a card (implementation contract rule 12). Follow the implementation skill for sub-agents, the gate and the code review. In this round, `<base>` is the base branch of the pull request, such as the epic branch of an epic child. Before the gate, run implementation step 11 on the diff of the pull request, so the deploy notes stay true.
 10. Push as "Push without force" in `../loupe-stage-implementation/references/commands.md` says.
-11. Post a marker reply for each handled item, per the reference. A conflict has no item, so it gets no reply.
+11. Post a marker reply for each handled item, per the reference. A conflict has no item, so it gets no reply. An agent review finding has no thread, so it gets no reply either.
 12. Mark each fixed note addressed, per "Site-review notes" in the reference.
 13. Stop with `STAGE RESULT: waiting <pr url>`. Never move the card.
 14. When a step cannot go on, record the block as "Record a block" in `../loupe-stage-implementation/references/commands.md` says. Post the refusal comment on the pull request, per "Post a refusal comment" in the same file. Stop with `STAGE RESULT: blocked: <reason>`.

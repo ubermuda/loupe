@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Migrations;
 
+use App\Module\AgentReview\Entity\AgentReview;
+use App\Module\AgentReview\Entity\AgentReviewConclusion;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
@@ -218,6 +220,9 @@ final class BindEveryProjectMigrationTest extends KernelTestCase
         $mergeable->mergeability = PullRequestMergeability::Mergeable;
         $mergeable->review = PullRequestReview::Approved;
         $mergeable->coveredSha = $mergeable->headSha;
+        $passed = new AgentReview($project, $cards['mergeable'], $mergeable, $mergeable->headSha ?? '', 'Fine.', AgentReviewConclusion::Success, []);
+        $passed->postedAt = new \DateTimeImmutable(self::NOW);
+        $this->em()->persist($passed);
         $cards['implementation merged'] = $this->card($project, 'implementation');
         $this->pullRequest($cards['implementation merged'], PullRequestState::Merged);
         $cards['done'] = $this->card($project, 'done');

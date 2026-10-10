@@ -6,6 +6,7 @@ namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardSiteReviewComment;
+use App\Module\Board\Service\CardState;
 use App\Module\Board\Service\PullRequestStates;
 
 /** Everything one card page renders. */
@@ -16,6 +17,7 @@ final readonly class CardView
      * @param list<RelatedCard>           $relatedCards
      * @param list<Card>                  $children        empty for a card that is not an epic
      * @param ?CardProgress               $progress        null for a card that is not an epic
+     * @param ?CardState                  $state           null for a card in no state, and for a card in a terminal column
      */
     public function __construct(
         public Card $card,
@@ -25,6 +27,7 @@ final readonly class CardView
         public CardHistoryView $history,
         public array $children = [],
         public ?CardProgress $progress = null,
+        public ?CardState $state = null,
     ) {
     }
 }
