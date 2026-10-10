@@ -3,12 +3,15 @@ import { Controller } from '@hotwired/stimulus';
 const STORAGE_KEY = 'loupe.review.panels';
 const PANEL_ORDER = ['decisions', 'comments', 'outline'];
 const DEFAULT_PANELS = ['decisions'];
+const MENU_GAP = 6;
+const MENU_MARGIN = 8;
 
 export default class extends Controller {
     static targets = [
         'button',
         'panel',
         'filter',
+        'filterMenu',
         'thread',
         'option',
         'empty',
@@ -23,6 +26,10 @@ export default class extends Controller {
     static values = { mode: { type: String, default: 'document' } };
 
     connect() {
+        this.onFilterScroll = () => {
+            this.filterTarget.open = false;
+        };
+        this.onFilterResize = () => this.placeFilter();
         const stored = this.modeValue === 'columns' ? [] : this.#storedPanels();
         if (stored !== null) {
             for (const button of this.buttonTargets) {
@@ -118,6 +125,64 @@ export default class extends Controller {
         this.refreshFilter();
         this.filterTarget.open = false;
         this.filterTarget.querySelector('summary').focus();
+    }
+
+    disconnect() {
+        this.#unwatchFilter();
+    }
+
+    /**
+     * The panel column scrolls, so a menu inside it would be clipped. The menu
+     * is fixed instead, hung from its toggle. A scroll closes it, and a resize
+     * hangs it again.
+     */
+    placeFilter() {
+        if (!this.hasFilterMenuTarget) {
+            return;
+        }
+        const menu = this.filterMenuTarget;
+        if (!this.filterTarget.open) {
+            menu.removeAttribute('data-placed');
+            this.#unwatchFilter();
+
+            return;
+        }
+        menu.style.left = '0px';
+        menu.style.top = '0px';
+        const origin = menu.getBoundingClientRect();
+        const toggle = this.filterTarget
+            .querySelector('summary')
+            .getBoundingClientRect();
+        const left = Math.max(
+            MENU_MARGIN,
+            Math.min(
+                toggle.right - origin.width,
+                window.innerWidth - origin.width - MENU_MARGIN,
+            ),
+        );
+        let top = toggle.bottom + MENU_GAP;
+        const above = toggle.top - MENU_GAP - origin.height;
+        if (
+            top + origin.height > window.innerHeight - MENU_MARGIN &&
+            above >= MENU_MARGIN
+        ) {
+            top = above;
+        }
+        top = Math.max(
+            MENU_MARGIN,
+            Math.min(top, window.innerHeight - origin.height - MENU_MARGIN),
+        );
+        // A transformed ancestor moves the fixed origin, so offset from where 0,0 landed.
+        menu.style.left = `${left - origin.left}px`;
+        menu.style.top = `${top - origin.top}px`;
+        menu.setAttribute('data-placed', '');
+        window.addEventListener('scroll', this.onFilterScroll, true);
+        window.addEventListener('resize', this.onFilterResize);
+    }
+
+    #unwatchFilter() {
+        window.removeEventListener('scroll', this.onFilterScroll, true);
+        window.removeEventListener('resize', this.onFilterResize);
     }
 
     resolvedFilter(event) {

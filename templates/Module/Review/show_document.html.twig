@@ -17,18 +17,37 @@
 {% if document.status.value in ['draft', 'in-review'] %}
 {% include '@Review/_finish_review_button.html.twig' with {inReviewMenu: true} only %}
 {% elseif document.status.value in ['approved', 'changes-requested'] %}
+{% set verdictLabel = ('review.document.verdict.' ~ document.status.value)|trans %}
 <div class="lp-review-topbar-actions">
-    <span class="lp-verdict-chip lp-verdict-chip--{{ document.status.value }}" title="{{ ('review.document.verdict.' ~ document.status.value ~ '_detail')|trans }}">
-        <span class="lp-verdict-chip__dot" aria-hidden="true"></span>
-        <span class="lp-verdict-chip__title">{{ ('review.document.verdict.' ~ document.status.value)|trans }}</span>
-        <twig:Ds:Button variant="ghost" size="sm" type="button" data-controller="review-finish" data-action="click->review-finish#open">{{ 'review.document.verdict.change'|trans }}</twig:Ds:Button>
-        {% if review is not null and undoVerdictForm is defined %}
-        {{ form_start(undoVerdictForm, {attr: {class: 'lp-verdict-chip__undo'}}) }}
-            {{ form_widget(undoVerdictForm.reviewId) }}
-            <twig:Ds:Button variant="ghost" size="sm" type="submit">{{ 'review.document.verdict.undo'|trans }}</twig:Ds:Button>
-        {{ form_end(undoVerdictForm) }}
-        {% endif %}
-    </span>
+    <div class="lp-verdict-chip lp-verdict-chip--{{ document.status.value }}" data-controller="popover">
+        <button type="button" class="lp-verdict-chip__trigger"
+                aria-label="{{ verdictLabel }}"
+                aria-expanded="false"
+                aria-controls="verdict-chip-panel"
+                data-popover-target="trigger"
+                data-action="click->popover#toggle">
+            <span class="lp-verdict-chip__dot" aria-hidden="true"></span>
+            <span class="lp-verdict-chip__title">{{ verdictLabel }}</span>
+            <twig:ux:icon name="lucide:chevron-down" class="lp-verdict-chip__caret" />
+        </button>
+        <div class="lp-verdict-chip__panel" id="verdict-chip-panel" data-popover-target="panel" hidden>
+            <p class="lp-verdict-chip__word">{{ verdictLabel }}</p>
+            {% if review is not null %}
+            <p class="lp-verdict-chip__meta">{{ review.reviewer.fullName }} · {{ review.submittedAt|relative_time }} · {{ 'v' ~ review.version.versionNumber }}</p>
+            {% if review.note %}<p class="lp-verdict-chip__note">{{ review.note }}</p>{% endif %}
+            {% endif %}
+            <p class="lp-verdict-chip__detail">{{ ('review.document.verdict.' ~ document.status.value ~ '_detail')|trans }}</p>
+            <div class="lp-verdict-chip__actions">
+                <twig:Ds:Button variant="ghost" size="sm" type="button" data-controller="review-finish" data-action="click->review-finish#open">{{ 'review.document.verdict.change'|trans }}</twig:Ds:Button>
+                {% if review is not null and undoVerdictForm is defined %}
+                {{ form_start(undoVerdictForm, {attr: {class: 'lp-verdict-chip__undo'}}) }}
+                    {{ form_widget(undoVerdictForm.reviewId) }}
+                    <twig:Ds:Button variant="ghost" size="sm" type="submit">{{ 'review.document.verdict.undo'|trans }}</twig:Ds:Button>
+                {{ form_end(undoVerdictForm) }}
+                {% endif %}
+            </div>
+        </div>
+    </div>
 </div>
 {% endif %}
 {% endif %}
@@ -117,14 +136,6 @@
                 showNewTextSwitch: not diffMode,
             } only %}
 
-            {% if not readOnly and not diffMode and review is not null and document.status.value in ['approved', 'changes-requested'] %}
-            <p class="lp-review-doc__verdict-detail">
-                <span class="lp-review-doc__verdict-word">{{ ('review.document.verdict.' ~ document.status.value)|trans }}</span>
-                {{ review.reviewer.fullName }} · {{ review.submittedAt|relative_time }} · {{ 'v' ~ review.version.versionNumber }}
-                {% if review.note %}<span class="lp-review-verdict-note">{{ review.note }}</span>{% endif %}
-            </p>
-            {% endif %}
-
             {# The way back to a discussion a revision left behind: comments
                resolved on an earlier version stay there, so the thread is
                otherwise unreachable once revised. A single version with a
@@ -172,31 +183,40 @@
                         idPrefix: 'diff',
                         autoSubmit: true,
                     } only %}
-                    <nav class="lp-diff-views" aria-label="{{ 'review.document.diff.view.label'|trans }}">
-                        <twig:Ds:Button variant="ghost" class="lp-diff-views__link"
-                           href="{{ path('app_document_review_diff', viewParams|merge({view: 'rendered'})) }}"
-                           :aria-current="diffView.value == 'rendered' ? 'page' : null"
-                           :aria-describedby="diffColumns ? 'diff-columns-notice' : null"
-                           data-label="{{ 'review.document.diff.view.rendered'|trans }}"
-                        >{{ 'review.document.diff.view.rendered'|trans }}</twig:Ds:Button>
-                        {# describedby rather than a second link: the notice below says
-                           why this view is worth opening, and this is the control that
-                           opens it. Second of the three: it reads the same document,
-                           where the columns rebuild the page. #}
-                        <twig:Ds:Button variant="ghost" class="lp-diff-views__link"
-                           href="{{ path('app_document_review_diff', viewParams|merge({view: 'source'})) }}"
-                           :aria-current="diffView.value == 'source' ? 'page' : null"
-                           :aria-describedby="diffUnmarked ? 'diff-unmarked-notice' : null"
-                           data-label="{{ 'review.document.diff.view.source'|trans }}"
-                        >{{ 'review.document.diff.view.source'|trans }}</twig:Ds:Button>
-                        {# The same rendered blocks in two columns. The notice
-                           below says what it gives up, and this link opens it. #}
-                        <twig:Ds:Button variant="ghost" class="lp-diff-views__link"
-                           href="{{ path('app_document_review_diff', viewParams|merge({view: 'side-by-side'})) }}"
-                           :aria-current="diffColumns ? 'page' : null"
-                           data-label="{{ 'review.document.diff.view.side_by_side'|trans }}"
-                        >{{ 'review.document.diff.view.side_by_side'|trans }}</twig:Ds:Button>
-                    </nav>
+                    <div class="lp-diff-views" data-controller="popover">
+                        <twig:Ds:Button variant="icon" type="button" class="lp-diff-views__trigger"
+                                aria-label="{{ 'review.document.diff.view.label'|trans }}"
+                                title="{{ 'review.document.diff.view.label'|trans }}"
+                                aria-expanded="false"
+                                aria-controls="diff-views-menu"
+                                data-popover-target="trigger"
+                                data-action="click->popover#toggle">
+                            <twig:ux:icon name="lucide:settings-2" />
+                        </twig:Ds:Button>
+                        <nav class="lp-diff-views__panel" id="diff-views-menu" aria-label="{{ 'review.document.diff.view.label'|trans }}" data-popover-target="panel" hidden>
+                            <p class="lp-diff-views__heading" aria-hidden="true">{{ 'review.document.diff.view.label'|trans }}</p>
+                            <a class="lp-diff-views__link"
+                               href="{{ path('app_document_review_diff', viewParams|merge({view: 'rendered'})) }}"
+                               {% if diffView.value == 'rendered' %}aria-current="page"{% endif %}
+                               {% if diffColumns %}aria-describedby="diff-columns-notice"{% endif %}>
+                                <twig:ux:icon name="lucide:check" class="lp-diff-views__check" />{{ 'review.document.diff.view.rendered'|trans }}</a>
+                            {# describedby rather than a second link: the notice below says
+                               why this view is worth opening, and this is the control that
+                               opens it. Second of the three: it reads the same document,
+                               where the columns rebuild the page. #}
+                            <a class="lp-diff-views__link"
+                               href="{{ path('app_document_review_diff', viewParams|merge({view: 'source'})) }}"
+                               {% if diffView.value == 'source' %}aria-current="page"{% endif %}
+                               {% if diffUnmarked %}aria-describedby="diff-unmarked-notice"{% endif %}>
+                                <twig:ux:icon name="lucide:check" class="lp-diff-views__check" />{{ 'review.document.diff.view.source'|trans }}</a>
+                            {# The same rendered blocks in two columns. The notice
+                               below says what it gives up, and this link opens it. #}
+                            <a class="lp-diff-views__link"
+                               href="{{ path('app_document_review_diff', viewParams|merge({view: 'side-by-side'})) }}"
+                               {% if diffColumns %}aria-current="page"{% endif %}>
+                                <twig:ux:icon name="lucide:check" class="lp-diff-views__check" />{{ 'review.document.diff.view.side_by_side'|trans }}</a>
+                        </nav>
+                    </div>
                     </div>
                     {% if diffNavigation %}
                         {% include '@Review/_diff_navigation.html.twig' with {changeCount: diffChangeCount} only %}

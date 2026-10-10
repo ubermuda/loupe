@@ -1010,17 +1010,22 @@
 .lp-review .lp-new-text-switch[aria-disabled='true'] {
     @apply cursor-not-allowed opacity-60 hover:bg-transparent;
 }
-.lp-review .lp-review-doc__verdict-detail {
-    @apply -mt-8 mb-8 flex max-w-3xl flex-col gap-1 text-sm text-fg-dim;
-}
-.lp-review .lp-review-doc__verdict-word {
-    @apply font-semibold text-ink;
-}
+/* The cards that wait on the review, as one byline item with a tooltip. */
 .lp-review .lp-review-doc__wait {
-    @apply mt-2 mb-0 text-sm text-fg-dim;
+    @apply relative inline-flex items-center gap-1 text-sm text-fg-dim;
+}
+.lp-review .lp-review-doc__wait-icon {
+    @apply size-3.5 shrink-0;
 }
 .lp-review .lp-review-doc__wait a {
     @apply font-semibold text-ink;
+}
+.lp-review .lp-review-doc__wait .lp-tooltip {
+    @apply w-max max-w-72;
+}
+.lp-review .lp-review-doc__wait:hover .lp-tooltip,
+.lp-review .lp-review-doc__wait:focus-within .lp-tooltip {
+    @apply visible opacity-100;
 }
 @media (width < 56.25rem) {
     .lp-review .lp-review-doc__title {
@@ -1091,10 +1096,6 @@
 .lp-review .lp-review-panel__head h2 {
     @apply m-0 font-display text-sm font-extrabold text-ink;
 }
-/* The Outline names itself as a quiet label rather than a heading. */
-.lp-review .lp-review-panel__head--label h2 {
-    @apply font-sans text-xs font-semibold text-fg-dim;
-}
 .lp-review .lp-review-panel__count {
     @apply text-xs font-semibold text-status-ok-deep;
 }
@@ -1156,6 +1157,14 @@
 /* ── Comments panel ─────────────────────────────────────────────── */
 .lp-review .lp-review-filter {
     @apply ml-0;
+}
+/* Fixed, so the scrolling panel column cannot clip it. The controller places
+   it under its toggle, and it stays hidden until then. */
+.lp-review .lp-review-filter__menu {
+    @apply fixed top-0 right-auto left-0;
+}
+.lp-review .lp-review-filter__menu:not([data-placed]) {
+    @apply invisible;
 }
 .lp-review .lp-review-filter__toggle {
     @apply h-6.5 w-auto gap-1.25 rounded-md border border-line bg-surface-1 px-2 text-xs text-fg-label hover:bg-surface-1 hover:text-ink;
@@ -1263,11 +1272,13 @@
 }
 
 /* ── Column ─────────────────────────────────────────────────────── */
-/* One text column of 48rem with no card or border, and the panel column of
-   16.5rem 3.5rem to its right. The two centre as a pair. Below 75rem the
-   toolbar and the open panels stack above the document. */
+/* One text column of 48rem with no card or border, at the left, and the panel
+   column 3.5rem to its right. The panel column takes 20rem, and grows to 24rem
+   where the room allows. Below 75rem the toolbar and the open panels stack
+   above the document. */
 .lp-review .lp-review-block {
-    --doc-margin: calc(var(--spacing) * 66);
+    --doc-margin: calc(var(--spacing) * 80);
+    --doc-margin-max: calc(var(--spacing) * 96);
     --doc-margin-gap: calc(var(--spacing) * 14);
 }
 @media (width >= 56.25rem) {
@@ -1290,14 +1301,7 @@
             var(--container-3xl),
             100% - var(--doc-margin-gap) - var(--doc-margin)
         );
-        --review-column-start: max(
-            0rem,
-            (
-                    100% - var(--review-column) - var(--doc-margin-gap) -
-                        var(--doc-margin)
-                ) /
-                2
-        );
+        --review-column-start: 0rem;
     }
     /* The side-by-side view keeps the compare bar in the text column of the
        other views, so a switch of view moves no control. The sticky wrapper
@@ -1320,7 +1324,10 @@
             var(--review-column-start) + var(--review-column) +
                 var(--doc-margin-gap)
         );
-        width: var(--doc-margin);
+        width: min(
+            var(--doc-margin-max),
+            100% - var(--review-column) - var(--doc-margin-gap)
+        );
     }
     /* Side by side starts with every panel hidden. An open one takes the panel
        column of the other views, and the version columns shrink beside it. */
@@ -1345,7 +1352,7 @@
 }
 @media (width < 75rem) {
     .lp-review .lp-review-doc:not(.lp-review-doc--wide) {
-        @apply mx-auto flex max-w-3xl flex-col;
+        @apply flex max-w-3xl flex-col;
     }
     .lp-review .lp-review-doc:not(.lp-review-doc--wide) > * {
         order: 20;
@@ -1354,19 +1361,14 @@
     .lp-review
         .lp-review-doc--wide
         > :is(.lp-doc-meta-bar, .lp-review-doc__head) {
-        @apply mx-auto w-full max-w-3xl;
+        @apply w-full max-w-3xl;
     }
     .lp-review .lp-review-doc:not(.lp-review-doc--wide) > .lp-review-panels {
         order: 0;
     }
     .lp-review
         .lp-review-doc:not(.lp-review-doc--wide)
-        > :is(
-            .lp-review-doc__head,
-            .lp-review-doc__verdict-detail,
-            .lp-doc-meta-bar,
-            .lp-decision-status
-        ) {
+        > :is(.lp-review-doc__head, .lp-doc-meta-bar, .lp-decision-status) {
         order: 10;
     }
 }
@@ -1422,6 +1424,10 @@
     content: 'Pick one';
     @apply float-right mb-0 ml-3 bg-transparent p-0 font-sans text-xs leading-6 font-normal tracking-normal text-fg-dim normal-case;
 }
+/* A block that asks no question is titled by its id, as the decisions panel names it. */
+.lp-review .lp-decision__prompt[data-untitled]::after {
+    content: attr(data-untitled);
+}
 .lp-review
     .lp-decision[data-decision-type='multiple']
     .lp-decision__prompt::before {
@@ -1447,6 +1453,9 @@
 .lp-review .lp-decision__option:has(input:checked) {
     @apply bg-accent-faint;
 }
+.lp-review .lp-decision__option:has(input:not(:disabled, :checked)):hover {
+    @apply bg-surface-3;
+}
 .lp-review .lp-decision__option label {
     @apply flex-1;
 }
@@ -1458,7 +1467,7 @@
 }
 /* Three stars show the confidence of a recommendation: filled for the steps it
    reaches, outlined for the rest. The star elements hold no text, so they
-   never join the anchor basis. The words sit in `title` and `aria-label`.
+   never join the anchor basis. The words sit in `aria-label` and the tooltip.
    The star shape is the committed Lucide star, inlined as a mask. */
 .lp-review .lp-decision__badge {
     @apply relative z-1 ml-auto inline-flex shrink-0 cursor-help items-center gap-px rounded-md bg-transparent px-1.25 py-0.75 font-sans text-xs leading-4 font-semibold text-accent-ink hover:bg-accent-faint;
@@ -1496,35 +1505,24 @@
 .lp-review .lp-decision__badge:empty[aria-label]::after {
     content: attr(aria-label);
 }
-/* Hover shows the native `title`. Keyboard focus shows this tooltip, which is
-   generated content, so the words never join the anchor basis either. */
+/* The Ds tooltip, with its words drawn from an attribute so they never join
+   the anchor basis. It shows at once, on hover and on keyboard focus. */
 .lp-review .lp-decision__badge:not(:empty):focus-visible {
     @apply outline-2 outline-offset-2 outline-review-tab;
 }
-.lp-review .lp-decision__badge:not(:empty):focus-visible::after {
-    @apply absolute right-0 bottom-full z-10 mb-1.5 rounded-md bg-ink px-2 py-1 font-normal whitespace-nowrap text-surface-1;
-    content: 'Recommended';
+.lp-review .lp-decision__badge:is(:hover, :focus-visible) {
+    @apply z-10;
+}
+.lp-review .lp-decision__tooltip {
+    @apply right-0 left-auto w-max max-w-72 text-left whitespace-normal transition-none;
+}
+.lp-review .lp-decision__tooltip::before {
+    content: attr(data-label);
 }
 .lp-review
-    .lp-decision__badge:not(
-        :empty
-    )[data-decision-recommended='high']:focus-visible::after {
-    content: 'Recommended, high confidence';
-}
-.lp-review
-    .lp-decision__badge:not(
-        :empty
-    )[data-decision-recommended='moderate']:focus-visible::after {
-    content: 'Recommended, moderate confidence';
-}
-.lp-review
-    .lp-decision__badge:not(
-        :empty
-    )[data-decision-recommended='low']:focus-visible::after {
-    content: 'Recommended, low confidence';
-}
-.lp-review .lp-decision__badge:not(:empty)[aria-label]:focus-visible::after {
-    content: attr(aria-label);
+    .lp-decision__badge:is(:hover, :focus-visible)
+    > .lp-decision__tooltip {
+    @apply visible opacity-100;
 }
 /* Clear choice sits in the header row, beside the kind-of-answer chip and away
    from the note field. The chip moves left to make room for it. */
@@ -1760,24 +1758,40 @@
 .lp-review .lp-diff-bar .lp-version-compare select {
     @apply h-8 min-h-8 w-auto min-w-16 rounded-lg border-line-strong bg-surface-1 py-0 pr-8 pl-2 text-sm;
 }
-/* The three views read as one segmented control at the right of the bar. */
+/* The views wait behind a settings button at the right of the bar. */
 .lp-review .lp-diff-views {
-    @apply ml-auto gap-0.5 rounded-lg bg-surface-3 p-0.75;
+    @apply relative ml-auto;
+}
+.lp-review .lp-diff-views__trigger {
+    @apply size-8 min-h-8 rounded-lg border-transparent bg-transparent text-fg-label hover:bg-surface-3 hover:text-ink;
+}
+.lp-review .lp-diff-views__trigger[aria-expanded='true'] {
+    @apply bg-surface-3 text-ink;
+}
+.lp-review .lp-diff-views__trigger svg {
+    @apply size-4;
+}
+.lp-review .lp-diff-views__panel {
+    @apply absolute top-full right-0 z-30 mt-1 flex w-48 flex-col rounded-xl border border-line bg-elev p-1.5 shadow-card;
+}
+.lp-review .lp-diff-views__panel[hidden] {
+    @apply hidden;
+}
+.lp-review .lp-diff-views__heading {
+    @apply m-0 px-2.5 pt-1 pb-1.5 text-xs font-semibold text-fg-dim;
 }
 .lp-review .lp-diff-views__link {
-    @apply h-7 min-h-7 rounded-md border-0 bg-transparent px-2.5 py-0 text-sm font-normal text-fg-label hover:bg-transparent hover:text-ink;
+    @apply flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-fg-label no-underline transition-colors hover:bg-tint hover:text-ink;
 }
+/* The check and the weight together, so the current view is not colour alone. */
 .lp-review .lp-diff-views__link[aria-current] {
-    @apply bg-surface-1 font-semibold text-ink shadow-xs hover:bg-surface-1;
+    @apply font-semibold text-ink;
 }
-/* A hidden bold copy of the label holds each link at its bold width, so the
-   switch does not move when the current view changes. */
-.lp-review .lp-diff-views__link {
-    @apply inline-grid content-center justify-items-center;
+.lp-review .lp-diff-views__check {
+    @apply invisible size-4 shrink-0 text-accent-ink;
 }
-.lp-review .lp-diff-views__link::after {
-    @apply invisible h-0 overflow-hidden font-semibold;
-    content: attr(data-label);
+.lp-review .lp-diff-views__link[aria-current] .lp-diff-views__check {
+    @apply visible;
 }
 .lp-review .lp-diff-nav {
     @apply ml-0 flex-none justify-end gap-0.5 text-fg-label;
@@ -1788,16 +1802,27 @@
 .lp-review .lp-diff-nav .lp-btn--icon {
     @apply size-8 min-h-8 rounded-lg border-transparent bg-transparent text-fg-label hover:bg-surface-3;
 }
-@media (width < 56.25rem) {
-    .lp-review .lp-diff-views {
-        @apply ml-0;
-    }
-}
 .lp-review .lp-diff-notes {
     @apply m-0 mt-2 max-w-none rounded-none border-0 bg-transparent p-0 text-sm text-fg-dim;
 }
 .lp-review .lp-diff-notes__title {
-    @apply min-h-7 font-sans text-sm leading-7 tracking-normal text-fg-dim normal-case;
+    @apply inline-flex min-h-7 list-none items-center gap-1.5 font-sans text-sm leading-7 tracking-normal text-fg-dim normal-case hover:text-ink;
+}
+.lp-review .lp-diff-notes__title::-webkit-details-marker {
+    display: none;
+}
+.lp-review .lp-diff-notes__chevron {
+    @apply size-4 shrink-0 motion-safe:transition-transform motion-safe:duration-200;
+}
+/* The disclosure controller keeps `open` until a collapse ends, and sets
+   data-expanded when it starts. */
+.lp-review
+    .lp-diff-notes[open]:not([data-expanded='false'])
+    .lp-diff-notes__chevron {
+    @apply rotate-90;
+}
+.lp-review .lp-diff-notes__body {
+    @apply overflow-hidden;
 }
 .lp-review .lp-diff-notes__entry {
     @apply my-2 leading-relaxed;
@@ -1891,6 +1916,11 @@
         .lp-history__action,
         .lp-diff-views__link
     ) {
+    @apply cursor-pointer;
+}
+/* A highlight is no element, so the controller marks the pane while the
+   pointer is over a passage that opens a thread. */
+.lp-review .lp-comment-anchor-hovered {
     @apply cursor-pointer;
 }
 /* The whole option row answers a click, not the words alone. The label covers
@@ -3847,9 +3877,6 @@
     .lp-review-verdict-actions {
         @apply flex items-center justify-end gap-3 pt-2;
     }
-    .lp-review-verdict-note {
-        @apply whitespace-pre-wrap text-sm text-ink;
-    }
     .lp-review-doc__back {
         @apply inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-line bg-surface-1 text-fg-mute transition-colors hover:bg-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
     }
@@ -4295,18 +4322,6 @@
     /** Comparison controls wrap within the reading column on narrow screens. */
     .lp-diff-bar {
         @apply flex flex-wrap items-center gap-3 py-3 border-b border-line;
-    }
-    /* The two views of one comparison, as links rather than a control: each is
-       addressable, and switching is a plain navigation. */
-    .lp-diff-views {
-        @apply inline-flex items-center gap-0.5 shrink-0 rounded-lg bg-surface-2 p-0.5;
-    }
-    .lp-diff-views__link {
-        @apply rounded-md no-underline text-fg-dim hover:text-fg;
-    }
-    /* Weight and tint together, so the current view is not colour alone. */
-    .lp-diff-views__link[aria-current] {
-        @apply font-semibold bg-app text-ink;
     }
 
     .lp-diff-nav {
@@ -4967,21 +4982,57 @@
     .lp-review-topbar-actions--compact .lp-btn > span {
         @apply hidden lg:inline;
     }
+    /* The verdict as a button, which opens who gave it, when, and the way to
+       change or undo it. The verdict's own colour is the fill. */
+    /* A phone hangs the dropdown from the whole top bar, which is wider. */
     .lp-verdict-chip {
-        @apply inline-flex items-center gap-2 rounded-lg py-1 pl-3 pr-1.5 text-sm;
+        @apply relative inline-flex max-sm:static;
     }
-    .lp-verdict-chip--approved {
+    .lp-verdict-chip__trigger {
+        @apply inline-flex min-h-8 cursor-pointer items-center gap-2 rounded-lg py-1 pr-2 pl-3 text-sm transition hover:brightness-95 active:brightness-90;
+    }
+    .lp-verdict-chip--approved .lp-verdict-chip__trigger {
         @apply bg-status-ok-border;
     }
-    .lp-verdict-chip--changes-requested {
+    .lp-verdict-chip--changes-requested .lp-verdict-chip__trigger {
         @apply bg-status-danger-chip;
     }
-    /* A phone keeps the two links and drops the words, which the line under the title repeats. */
     .lp-verdict-chip__dot {
-        @apply hidden size-2.5 shrink-0 rounded-full bg-ink lg:block;
+        @apply size-2.5 shrink-0 rounded-full bg-ink;
     }
+    /* A phone keeps the colour and the dot, and the dropdown names the verdict. */
     .lp-verdict-chip__title {
-        @apply hidden font-bold text-ink lg:inline;
+        @apply hidden font-bold whitespace-nowrap text-ink sm:inline;
+    }
+    .lp-verdict-chip__caret {
+        @apply size-4 shrink-0 text-ink motion-safe:transition-transform;
+    }
+    .lp-verdict-chip__trigger[aria-expanded='true'] .lp-verdict-chip__caret {
+        @apply rotate-180;
+    }
+    .lp-verdict-chip__panel {
+        @apply absolute top-full right-0 z-40 mt-1 flex w-72 flex-col gap-1 rounded-xl border border-line bg-elev p-3 text-sm shadow-card max-sm:right-3.5 max-sm:left-3.5 max-sm:w-auto;
+    }
+    .lp-verdict-chip__panel[hidden] {
+        @apply hidden;
+    }
+    /* The top bar's backdrop blur makes it a stacking context painted under
+       the paper, so it rises while the dropdown hangs over the page. */
+    .lp-topbar:has(.lp-verdict-chip__trigger[aria-expanded='true']) {
+        @apply relative z-30;
+    }
+    .lp-verdict-chip__word {
+        @apply m-0 font-semibold text-ink;
+    }
+    .lp-verdict-chip__meta,
+    .lp-verdict-chip__detail {
+        @apply m-0 text-fg-dim;
+    }
+    .lp-verdict-chip__note {
+        @apply m-0 whitespace-pre-wrap text-ink;
+    }
+    .lp-verdict-chip__actions {
+        @apply -mx-1.5 mt-1 flex items-center gap-1 border-t border-line-faint pt-2;
     }
     .lp-verdict-chip__undo {
         @apply m-0 inline-flex;

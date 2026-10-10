@@ -105,11 +105,17 @@ test('comparison controls keep the compact compare bar metrics', async ({
         await expect(picker).toHaveCSS('height', '32px');
         await expect(picker).toHaveCSS('font-size', '14px');
     }
+    // The views wait behind one settings button, the height of the pickers.
+    const trigger = page.getByRole('button', {
+        name: 'Diff view',
+        exact: true,
+    });
+    await expect(trigger).toHaveCSS('height', '32px');
+    await trigger.click();
     const views = page.locator('.lp-diff-views__link');
     await expect(views).toHaveCount(3);
     for (const view of await views.all()) {
         await expect(view).toBeVisible();
-        await expect(view).toHaveCSS('height', '28px');
     }
     await page.goto(`${reviewPath.split('/documents/')[0]}/documents`);
     for (const selector of ['.lp-filter-input', '.lp-filter-select']) {
@@ -224,6 +230,10 @@ test('the two columns pair the blocks and carry no comment column', async ({
 
     await page
         .locator(VIEWS)
+        .getByRole('button', { name: 'Diff view', exact: true })
+        .click();
+    await page
+        .locator(VIEWS)
         .getByRole('link', { name: 'Side by side' })
         .click();
     await expect(page).toHaveURL(
@@ -324,6 +334,10 @@ test('the two columns pair the blocks and carry no comment column', async ({
 
     // Going back restores the rail, so the reader loses nothing by looking.
     // Scoped: the sidebar and the crumbs both carry a Documents link.
+    await page
+        .locator(VIEWS)
+        .getByRole('button', { name: 'Diff view', exact: true })
+        .click();
     await page
         .locator(VIEWS)
         .getByRole('link', { name: 'Rendered', exact: true })

@@ -570,7 +570,7 @@ final readonly class DecisionBlockService
             ) ?? throw new \RuntimeException('Decision note marking failed: '.preg_last_error_msg().'.');
         }
 
-        $html = $this->withBadgeLabels($html, $badgeLabels);
+        $html = $this->withUntitledPrompts($this->withBadgeLabels($html, $badgeLabels));
 
         $marked = preg_replace_callback(
             '~<input[^>]*\s'.self::OPTION_MARKER.'="('.self::ID_PATTERN.'):(\d+)"[^>]*>~',
@@ -594,6 +594,19 @@ final readonly class DecisionBlockService
     }
 
     /**
+     * Gives a block that asks no question its id as the title. The id stays in
+     * an attribute that CSS draws, so the anchor basis is untouched.
+     */
+    public function withUntitledPrompts(string $html): string
+    {
+        return preg_replace(
+            '~(<fieldset[^>]*\s'.self::BLOCK_MARKER.'="('.self::ID_PATTERN.')"[^>]*>)<legend class="lp-decision__prompt"></legend>~',
+            '$1<legend class="lp-decision__prompt" data-untitled="$2"></legend>',
+            $html,
+        ) ?? throw new \RuntimeException('Decision title marking failed: '.preg_last_error_msg().'.');
+    }
+
+    /**
      * Names each recommendation badge in the reader's language.
      *
      * @param array<string, string> $badgeLabels keyed by confidence
@@ -605,15 +618,20 @@ final readonly class DecisionBlockService
         }
 
         return preg_replace_callback(
-            '~<span class="lp-decision__badge" '.self::BADGE_MARKER.'="([a-z]+)"(?: tabindex="0")?>~',
+            '~<span class="lp-decision__badge" '.self::BADGE_MARKER.'="([a-z]+)"(?: tabindex="0")?>(?=(<span class="lp-decision__star))?~',
             static function (array $matches) use ($badgeLabels): string {
                 if (!isset($badgeLabels[$matches[1]])) {
                     return $matches[0];
                 }
 
                 $label = htmlspecialchars($badgeLabels[$matches[1]], \ENT_QUOTES | \ENT_HTML5);
+                // The words stay in an attribute, so the tooltip adds no text to
+                // the anchor basis. A badge with no stars must stay :empty.
+                $tooltip = isset($matches[2])
+                    ? '<span class="lp-tooltip lp-decision__tooltip" role="tooltip" data-label="'.$label.'"></span>'
+                    : '';
 
-                return substr($matches[0], 0, -1).' role="note" aria-label="'.$label.'" title="'.$label.'">';
+                return substr($matches[0], 0, -1).' role="note" aria-label="'.$label.'">'.$tooltip;
             },
             $html,
         ) ?? throw new \RuntimeException('Decision badge labelling failed: '.preg_last_error_msg().'.');

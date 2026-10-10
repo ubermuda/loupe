@@ -216,7 +216,7 @@ final class SubmitReviewControllerTest extends WebTestCase
         self::assertResponseRedirects("/projects/$projectId/documents/$docId/review");
         $client->followRedirect();
         self::assertSelectorExists('.lp-flash--success');
-        self::assertSelectorTextContains('.lp-review-verdict-note', 'Explain the retry behaviour.');
+        self::assertSelectorTextContains('.lp-verdict-chip__note', 'Explain the retry behaviour.');
 
         $freshDoc = static::getContainer()->get(EntityManagerInterface::class)->find(Document::class, $docId);
         self::assertInstanceOf(Document::class, $freshDoc);

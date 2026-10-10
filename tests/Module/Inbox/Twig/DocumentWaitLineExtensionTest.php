@@ -63,9 +63,12 @@ final class DocumentWaitLineExtensionTest extends KernelTestCase
 
         $line = $this->extension->waitLine($this->twig, $this->document);
 
-        self::assertStringContainsString('Card <a', $line);
-        self::assertStringContainsString('#12</a> waits on this review', $line);
+        // A compact item of the byline: the card link, with the sentence as its tooltip.
+        self::assertStringContainsString('id="document-wait-line"', $line);
+        self::assertStringContainsString('aria-describedby="document-wait-line-tooltip">#12</a>', $line);
         self::assertStringContainsString('inbox-item-3', $line);
+        self::assertStringContainsString('id="document-wait-line-tooltip"', $line);
+        self::assertStringContainsString('>Card #12 waits on this review</span>', preg_replace('/\s+/', ' ', $line) ?? '');
     }
 
     public function test_it_joins_two_cards_with_and(): void

@@ -27,6 +27,8 @@ export default class extends Controller {
 
     syncExpandedState() {
         if (this.disclosureElement instanceof HTMLDetailsElement) {
+            // `open` stays set until a collapse ends, so a caret keys off this.
+            this.disclosureElement.dataset.expanded = String(this.expanded);
             return;
         }
         for (const trigger of this.triggerTargets) {

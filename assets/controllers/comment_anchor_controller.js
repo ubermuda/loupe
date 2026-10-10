@@ -1643,6 +1643,7 @@ export default class extends Controller {
                         this.hoverHighlight?.clear();
                         this.hoverHighlight?.add(range);
                     }
+                    this.docTarget.classList.add('lp-comment-anchor-hovered');
                     return;
                 }
             }
@@ -1651,6 +1652,9 @@ export default class extends Controller {
     }
 
     #clearAnchorHover() {
+        if (this.hasDocTarget) {
+            this.docTarget.classList.remove('lp-comment-anchor-hovered');
+        }
         if (this.hoveredThread) {
             this.hoveredThread.classList.remove('lp-comment-thread--active');
             this.hoveredThread = null;
@@ -2143,10 +2147,15 @@ export default class extends Controller {
             // button that holds icons would delete them.
             const label =
                 toggle.querySelector('[data-resolved-toggle-label]') ?? toggle;
-            label.textContent =
+            const text =
                 toggle.dataset[
                     this.hideResolvedValue ? 'labelShow' : 'labelHide'
                 ];
+            // Every layout runs this, and an unchanged write is still a
+            // childList mutation that schedules the next layout.
+            if (label.textContent !== text) {
+                label.textContent = text;
+            }
         }
     }
 

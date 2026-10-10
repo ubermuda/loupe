@@ -131,7 +131,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('.lp-diff-doc .lp-decision__badge[data-decision-recommended="moderate"][role="note"][aria-label="Recommended, moderate confidence"][title="Recommended, moderate confidence"]');
+        self::assertSelectorExists('.lp-diff-doc .lp-decision__badge[data-decision-recommended="moderate"][role="note"][aria-label="Recommended, moderate confidence"]:not([title]) > .lp-tooltip[role="tooltip"][data-label="Recommended, moderate confidence"]');
     }
 
     public function test_every_run_of_changes_is_one_numbered_jump_target(): void
@@ -412,6 +412,9 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
 
         $rendered = $client->request(Request::METHOD_GET, $base);
         self::assertCount(3, $rendered->filter('.lp-diff-views__link'));
+        // The views wait behind a settings button, in a menu that starts closed.
+        self::assertSame('Diff view', $rendered->filter('.lp-diff-views__trigger')->attr('aria-label'));
+        self::assertCount(3, $rendered->filter('.lp-diff-views__panel[hidden] .lp-diff-views__link'));
         self::assertSame(
             'Rendered',
             $rendered->filter('.lp-diff-views__link[aria-current]')->text(),

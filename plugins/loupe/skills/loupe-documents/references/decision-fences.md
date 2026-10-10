@@ -21,8 +21,8 @@ Which host should an emailed reset link be built from?
 **A single paragraph before the options becomes the card's question**, and it is
 the only prose the fence accepts. Write it as one short question that stands on
 its own without the paragraph above the fence, because a reviewer reads that
-line to know what they are being asked. It is optional, and a fence of only
-options still converts, with no question on the card. Two paragraphs are one too
+line to know what they are being asked. It is optional. A fence of only options
+still converts, and the card shows its id as the title. Two paragraphs are one too
 many: the block keeps all of its prose, degrades to the plain list it already
 was, and mints no controls.
 

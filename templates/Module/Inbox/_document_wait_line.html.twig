@@ -1,10 +1,18 @@
-{# Params: project, waiting (card number => inbox item number). #}
-<p class="lp-review-doc__wait" id="document-wait-line">
-    {%- set links -%}
-        {%- for cardNumber, itemNumber in waiting -%}
-            <a href="{{ path('app_project_inbox', {id: project.id, _fragment: 'inbox-item-' ~ itemNumber}) }}">#{{ cardNumber }}</a>
-            {%- if loop.revindex == 2 %} {{ 'inbox.document_wait.and'|trans }} {% elseif not loop.last %}, {% endif -%}
-        {%- endfor -%}
-    {%- endset -%}
-    {{ 'inbox.document_wait.line'|trans({'%count%': waiting|length, '%cards%': links})|raw }}
-</p>
+{# One item of the document byline: the waiting cards, linked to their inbox
+   items, with the full sentence as their tooltip.
+   Params: project, waiting (card number => inbox item number). #}
+{%- set cards -%}
+    {%- for cardNumber in waiting|keys -%}
+        #{{ cardNumber }}
+        {%- if loop.revindex == 2 %} {{ 'inbox.document_wait.and'|trans }} {% elseif not loop.last %}, {% endif -%}
+    {%- endfor -%}
+{%- endset -%}
+<span class="lp-review-doc__middot" aria-hidden="true">·</span>
+<span class="lp-review-doc__wait" id="document-wait-line">
+    <twig:ux:icon name="lucide:hourglass" class="lp-review-doc__wait-icon" aria-hidden="true" />
+    {% for cardNumber, itemNumber in waiting -%}
+        <a href="{{ path('app_project_inbox', {id: project.id, _fragment: 'inbox-item-' ~ itemNumber}) }}" aria-describedby="document-wait-line-tooltip">#{{ cardNumber }}</a>
+        {%- if not loop.last %}, {% endif %}
+    {% endfor %}
+    <twig:Ds:Tooltip id="document-wait-line-tooltip">{{ 'inbox.document_wait.line'|trans({'%count%': waiting|length, '%cards%': cards}) }}</twig:Ds:Tooltip>
+</span>

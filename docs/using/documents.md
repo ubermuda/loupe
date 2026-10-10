@@ -66,8 +66,8 @@ Threads carry a status: pending, addressed, or resolved.
 Select **Finish review** in the top bar to approve the version or request changes.
 A request for changes needs a review note only when the version has no open comment.
 An open comment is a thread that is pending or addressed. An approval can include a note.
-After a verdict, the top bar shows the verdict with **Change verdict** and **Undo**.
-The saved verdict shows the reviewer, version, time and note under the title.
+After a verdict, the top bar shows the verdict as a button.
+Select it to see the reviewer, version, time and note, with **Change verdict** and **Undo**.
 The account export and `document_get_review` result include the note.
 Open threads do not prevent approval.
 
@@ -75,7 +75,7 @@ A verdict applies to the version shown when the reviewer opens the page.
 If another verdict or revision arrives first, Loupe rejects the submission and keeps the note visible.
 Reload the page before submitting a fresh verdict.
 
-Select **Change verdict** in the top bar to give another verdict in one step.
+Select **Change verdict** under the verdict in the top bar to give another verdict in one step.
 The document goes straight to the new status, so a workflow never sees it in review between the two verdicts.
 Select **Undo** next to it to withdraw it and reopen review.
 The history retains the original verdict and its withdrawal.
@@ -238,9 +238,10 @@ your last visit** in the byline, or **Compare versions** in the **⋯** menu, to
 open one.
 
 A tinted compare bar sits under the byline and stays in view while you scroll.
-From left to right it holds **Document**, the two version pickers, the view
-switch (**Rendered**, **Markdown** and **Side by side**), and the change counter
-with the two jump arrows. A change of version compares the new pair at once. The
+From left to right it holds **Document**, the two version pickers, the
+**Diff view** settings button, and the change counter with the two jump arrows.
+The settings button opens the views **Rendered**, **Markdown** and **Side by
+side**, with a check on the current one. A change of version compares the new pair at once. The
 counter reads "2 of 42 changes" after a jump. `j` and `k` move between changes
 as well. **Document** goes back to the current version.
 
@@ -324,6 +325,9 @@ Which host should an emailed reset link be built from?
 
 <!-- /decision -->
 ```
+
+The paragraph before the options is the question at the top of the block. It
+is optional. A block with no question shows its identifier as the title.
 
 A click on an option saves it at once. Each block also has a note field. Use it
 to explain your choice, or to write your own answer with no option picked. The

@@ -373,10 +373,11 @@ An agent can link an item to cards and documents of the project. The page of
 each linked card then shows an **Inbox items** section with those items. The
 section is absent while the flag is off, and on a page that no item links to.
 
-A document page shows one line under its byline instead: **Card #N waits on
-this review**. Two or more cards read **Cards #N and #M wait on this review**.
-Each number links to its inbox item. The line is absent while the flag is off,
-and when no card waits on the document. Answer the item in the inbox.
+A document page shows an hourglass and the card numbers in its byline instead.
+Each number links to its inbox item. Its tooltip reads **Card #N waits on this
+review**, or **Cards #N and #M wait on this review** for two or more cards. The
+item is absent while the flag is off, and when no card waits on the document.
+Answer the item in the inbox.
 
 The project inbox lists linked cards, documents, and the pull requests attached to those cards.
 Each pull request URL appears once per item, even when several linked cards share it.

@@ -235,6 +235,30 @@ final class DecisionBlockServiceTest extends TestCase
     }
 
     /**
+     * A block with no question shows its id as the title. The id goes in an
+     * attribute, so the text that comment anchors measure stays the same.
+     */
+    public function test_a_block_without_a_question_takes_its_id_as_a_title_on_display(): void
+    {
+        $stored = $this->renderer->render(self::FENCE);
+
+        $html = $this->decisions->withSelections($stored, [], readOnly: false);
+
+        self::assertStringContainsString('<legend class="lp-decision__prompt" data-untitled="deploy-target"></legend>', $html);
+        self::assertSame(strip_tags($stored), strip_tags($html));
+        self::assertSame('', $this->decisions->extract($html)[0]->prompt);
+    }
+
+    public function test_a_block_with_a_question_keeps_its_legend_on_display(): void
+    {
+        $stored = $this->renderer->render(self::MULTIPLE_FENCE);
+
+        $html = $this->decisions->withUntitledPrompts($stored);
+
+        self::assertSame($stored, $html);
+    }
+
+    /**
      * Two paragraphs are past what a card can show, so the block degrades to the
      * prose it already was — and must keep both, since an author who wrote a
      * sentence should never find it deleted from the rendered document.
@@ -889,13 +913,23 @@ final class DecisionBlockServiceTest extends TestCase
         ]);
 
         self::assertStringContainsString(
-            '<span class="lp-decision__badge" data-decision-recommended="moderate" tabindex="0" role="note" aria-label="Advised &amp; sure" title="Advised &amp; sure">',
+            '<span class="lp-decision__badge" data-decision-recommended="moderate" tabindex="0" role="note" aria-label="Advised &amp; sure"><span class="lp-tooltip lp-decision__tooltip" role="tooltip" data-label="Advised &amp; sure"></span><span class="lp-decision__star',
             $marked,
         );
         self::assertSame(strip_tags($html), strip_tags($marked));
         self::assertStringContainsString(
             '<span class="lp-decision__badge" data-decision-recommended="moderate" tabindex="0"><span',
             $this->decisions->withSelections($html, [], readOnly: false),
+        );
+    }
+
+    public function test_a_badge_stored_before_the_stars_stays_empty_so_css_draws_its_name(): void
+    {
+        $stored = '<span class="lp-decision__badge" data-decision-recommended="high"></span>';
+
+        self::assertSame(
+            '<span class="lp-decision__badge" data-decision-recommended="high" role="note" aria-label="Strongly advised"></span>',
+            $this->decisions->withBadgeLabels($stored, ['high' => 'Strongly advised']),
         );
     }
 

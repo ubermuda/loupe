@@ -170,6 +170,10 @@ test('S8: side by side hides the panels and lines up the table rows', async ({
 
     await page
         .locator('.lp-diff-views')
+        .getByRole('button', { name: 'Diff view', exact: true })
+        .click();
+    await page
+        .locator('.lp-diff-views')
         .getByRole('link', { name: 'Side by side' })
         .click();
     await expect(page).toHaveURL(

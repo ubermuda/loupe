@@ -180,3 +180,13 @@ it('removes a reduced-motion flash without WAAPI', async () => {
     expect(controller.element.isConnected).toBe(false);
     expect(animations).toHaveLength(0);
 });
+
+it('marks a details element collapsed while it is still open for the animation', async () => {
+    const controller = await disclosure('details');
+    expect(controller.disclosureElement.dataset.expanded).toBe('true');
+
+    controller.toggle({ preventDefault() {} });
+
+    expect(controller.disclosureElement.open).toBe(true);
+    expect(controller.disclosureElement.dataset.expanded).toBe('false');
+});

@@ -599,6 +599,43 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertSame(CommentStatus::Pending, $fetched->status);
     }
 
+    public function test_the_verdict_chip_opens_the_verdict_detail_with_its_actions(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'chipowner', 'chip@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Chip Doc');
+        $version = $doc->addVersion('# Done', '<h1>Done</h1>');
+        $doc->status = DocumentStatus::ChangesRequested;
+        $em->persist($doc);
+        $em->persist(new Review($version, Verdict::ChangesRequested, $owner, note: 'Split the second step.'));
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $documentId = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$documentId.'/review');
+
+        self::assertResponseIsSuccessful();
+        // The detail lives in the chip's dropdown, not under the title.
+        self::assertSelectorNotExists('.lp-review-doc__verdict-detail');
+        $trigger = $crawler->filter('.lp-verdict-chip__trigger');
+        self::assertSame('false', $trigger->attr('aria-expanded'));
+        self::assertStringContainsString('Changes requested', $trigger->text());
+        $panel = $crawler->filter('.lp-verdict-chip__panel[hidden]');
+        self::assertCount(1, $panel);
+        self::assertStringContainsString('Chipowner', $panel->text());
+        self::assertStringContainsString('v1', $panel->text());
+        self::assertStringContainsString('Split the second step.', $panel->text());
+        self::assertCount(1, $panel->filter('button[data-action="click->review-finish#open"]'));
+        self::assertCount(1, $panel->filter('.lp-verdict-chip__undo button'));
+    }
+
     public function test_undoing_a_verdict_returns_the_document_to_review(): void
     {
         $client = static::createClient();
@@ -1269,6 +1306,26 @@ final class ShowDocumentControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, $base.'/diff/1/2');
         self::assertResponseIsSuccessful();
         self::assertCount(0, $crawler->filter('[role="switch"]'));
+    }
+
+    public function test_a_document_with_one_version_has_no_new_text_switch(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-one-version', 'owner-one-version@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Single Version Doc');
+        $doc->addVersion('# v1', '<h1>v1</h1>');
+        $em->persist($doc);
+        $em->flush();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/documents/'.$doc->id.'/review');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('.lp-new-text-switch'));
     }
 
     /**

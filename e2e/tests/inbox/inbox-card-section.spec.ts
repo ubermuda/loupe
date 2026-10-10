@@ -372,6 +372,7 @@ for (const target of ['document', 'pull-request']) {
             await page.goto(
                 `/projects/${projectId}/documents/${documentId}/review`,
             );
+            await page.locator('.lp-verdict-chip__trigger').click();
             await page.locator('.lp-verdict-chip__undo button').click();
             await expect(page.locator('.lp-flash')).toContainText(
                 'Your verdict has been withdrawn.',

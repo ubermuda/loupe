@@ -896,6 +896,8 @@ test('a stale withdrawal preserves the verdict from another tab', async ({
     await suppressToolbar(current);
     await suppressWidget(current);
     await current.goto(review.reviewUrl);
+    // Undo and Change verdict wait in the dropdown the verdict chip opens.
+    await current.locator('.lp-verdict-chip__trigger').click();
     await submitRedirectingForm(
         current,
         current
@@ -920,10 +922,11 @@ test('a stale withdrawal preserves the verdict from another tab', async ({
         current.getByRole('button', { name: 'Submit review' }),
         `${review.reviewUrl}/submit`,
     );
-    await expect(
-        current.locator('.lp-review-doc__verdict-detail'),
-    ).toContainText('Clarify the retry policy.');
+    await expect(current.locator('.lp-verdict-chip__panel')).toContainText(
+        'Clarify the retry policy.',
+    );
 
+    await page.locator('.lp-verdict-chip__trigger').click();
     await page
         .locator('.lp-verdict-chip__undo')
         .getByRole('button', { name: 'Undo', exact: true })
@@ -931,13 +934,14 @@ test('a stale withdrawal preserves the verdict from another tab', async ({
     await expect(page.locator('[data-review-withdrawal-errors]')).toContainText(
         'The review changed after this page loaded.',
     );
-    await expect(page.locator('.lp-review-doc__verdict-detail')).toContainText(
+    await expect(page.locator('.lp-verdict-chip__panel')).toContainText(
         'Clarify the retry policy.',
     );
     await page.reload();
-    await expect(page.locator('.lp-review-doc__verdict-detail')).toContainText(
+    await expect(page.locator('.lp-verdict-chip__panel')).toContainText(
         'Clarify the retry policy.',
     );
+    await page.locator('.lp-verdict-chip__trigger').click();
     await submitRedirectingForm(
         page,
         page
@@ -975,6 +979,7 @@ test('a standing verdict changes in one step', async ({ page, review }) => {
         page.locator('.lp-verdict-chip--changes-requested'),
     ).toBeVisible();
 
+    await page.locator('.lp-verdict-chip__trigger').click();
     await page
         .locator('.lp-verdict-chip')
         .getByRole('button', { name: 'Change verdict', exact: true })
@@ -1017,7 +1022,7 @@ test('requesting changes asks for a note and keeps it across Cancel', async ({
         page.getByRole('textbox', { name: 'Review note' }),
     ).toHaveValue('Explain the retry behaviour.');
     await page.getByRole('button', { name: 'Submit review' }).click();
-    await expect(page.locator('.lp-review-verdict-note')).toHaveText(
+    await expect(page.locator('.lp-verdict-chip__note')).toHaveText(
         'Explain the retry behaviour.',
         { timeout: coverageScaled(10000) },
     );
@@ -1038,7 +1043,7 @@ test('requesting changes needs no note when the document has an open comment', a
     await expect(
         page.locator('.lp-verdict-chip--changes-requested'),
     ).toBeVisible({ timeout: coverageScaled(10000) });
-    await expect(page.locator('.lp-review-verdict-note')).toHaveCount(0);
+    await expect(page.locator('.lp-verdict-chip__note')).toHaveCount(0);
 });
 
 test('requesting changes shows the verdict on the project dashboard', async ({
@@ -1084,7 +1089,7 @@ test('requesting changes shows the verdict on the project dashboard', async ({
     // Leave and come back: the verdict is stored, not a property of the response
     // that happened to follow the POST.
     await page.goto(review.reviewUrl);
-    await expect(page.locator('.lp-review-verdict-note')).toHaveText(
+    await expect(page.locator('.lp-verdict-chip__note')).toHaveText(
         'Explain the retry behaviour.',
     );
     await page.goto(review.dashboardUrl);

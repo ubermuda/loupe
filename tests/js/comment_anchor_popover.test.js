@@ -82,14 +82,19 @@ function card(id, quote, status = 'pending') {
         data-anchor-status="${status}" data-anchor-kind="comment"></div>`;
 }
 
-async function mount({ earlyStatus = 'pending', markers = false } = {}) {
+async function mount({
+    earlyStatus = 'pending',
+    markers = false,
+    resolvedToggle = false,
+} = {}) {
     document.body.innerHTML = `<main class="lp-main"><div data-controller="comment-anchor">
+        ${resolvedToggle ? '<button type="button" data-resolved-toggle data-label-hide="Hide resolved" data-label-show="Show resolved" hidden>Hide resolved</button>' : ''}
         <div data-comment-anchor-target="block">
             ${markers ? '<div class="lp-review-doc__head"></div><div data-comment-anchor-target="markers"></div>' : ''}
             <form data-comment-anchor-target="composer" hidden>
                 <textarea data-comment-anchor-target="composerBody"></textarea>
             </form>
-            <div data-comment-anchor-target="doc" data-action="click->comment-anchor#onDocClick">Alpha beta gamma delta</div>
+            <div data-comment-anchor-target="doc" data-action="click->comment-anchor#onDocClick mousemove->comment-anchor#onDocMousemove">Alpha beta gamma delta</div>
             <div data-comment-anchor-target="margin">${row('late')}${row('early')}</div>
             <div id="comment-threads">${card('early', 'beta', earlyStatus)}${card('late', 'delta')}</div>
         </div>
@@ -291,41 +296,68 @@ it('skips the passage of a resolved thread the Open filter hides', async () => {
     expect(opened).toEqual([cardOf('late')]);
 });
 
-it('draws the gutter markers once, and their redraw starts no new layout', async () => {
-    const offsetParent = Object.getOwnPropertyDescriptor(
-        HTMLElement.prototype,
-        'offsetParent',
-    );
-    const boundingBox = Element.prototype.getBoundingClientRect;
-    Object.defineProperty(HTMLElement.prototype, 'offsetParent', {
-        configurable: true,
-        get() {
-            return document.querySelector('.lp-main');
-        },
-    });
-    Element.prototype.getBoundingClientRect = function () {
-        return this.matches('.lp-main')
-            ? { top: 0, left: 0, right: 1200, width: 1200 }
-            : { top: 0, left: 0, right: 600, width: 600 };
-    };
-    try {
-        await mount({ markers: true });
-        const layer = document.querySelector(
-            '[data-comment-anchor-target="markers"]',
+it('shows a hand over a passage that opens a thread', async () => {
+    await mount();
+    const doc = document.querySelector('[data-comment-anchor-target="doc"]');
+    const move = (clientX) =>
+        doc.dispatchEvent(
+            new MouseEvent('mousemove', {
+                bubbles: true,
+                clientX,
+                clientY: 110,
+            }),
         );
-        const marker = layer.firstElementChild;
-        expect(marker).not.toBeNull();
 
-        await nextFrame();
-        await nextFrame();
+    move(60);
+    await nextFrame();
+    expect(doc.classList).toContain('lp-comment-anchor-hovered');
 
-        expect(layer.firstElementChild).toBe(marker);
-    } finally {
-        Object.defineProperty(
+    move(500);
+    await nextFrame();
+    expect(doc.classList).not.toContain('lp-comment-anchor-hovered');
+});
+
+it.each([
+    ['', {}],
+    [' beside the resolved toggle', { resolvedToggle: true }],
+])(
+    'draws the gutter markers once%s, and their redraw starts no new layout',
+    async (_, options) => {
+        const offsetParent = Object.getOwnPropertyDescriptor(
             HTMLElement.prototype,
             'offsetParent',
-            offsetParent,
         );
-        Element.prototype.getBoundingClientRect = boundingBox;
-    }
-});
+        const boundingBox = Element.prototype.getBoundingClientRect;
+        Object.defineProperty(HTMLElement.prototype, 'offsetParent', {
+            configurable: true,
+            get() {
+                return document.querySelector('.lp-main');
+            },
+        });
+        Element.prototype.getBoundingClientRect = function () {
+            return this.matches('.lp-main')
+                ? { top: 0, left: 0, right: 1200, width: 1200 }
+                : { top: 0, left: 0, right: 600, width: 600 };
+        };
+        try {
+            await mount({ markers: true, ...options });
+            const layer = document.querySelector(
+                '[data-comment-anchor-target="markers"]',
+            );
+            const marker = layer.firstElementChild;
+            expect(marker).not.toBeNull();
+
+            await nextFrame();
+            await nextFrame();
+
+            expect(layer.firstElementChild).toBe(marker);
+        } finally {
+            Object.defineProperty(
+                HTMLElement.prototype,
+                'offsetParent',
+                offsetParent,
+            );
+            Element.prototype.getBoundingClientRect = boundingBox;
+        }
+    },
+);

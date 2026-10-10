@@ -49,14 +49,14 @@
                  aria-labelledby="review-panel-comments-title" hidden>
             <div class="lp-review-panel__head">
                 <h2 id="review-panel-comments-title">{{ 'review.document.panels.comments'|trans }}</h2>
-                <details class="lp-review-filter" data-review-panels-target="filter" data-action="keydown.esc->review-panels#closeFilter">
+                <details class="lp-review-filter" data-review-panels-target="filter" data-action="keydown.esc->review-panels#closeFilter toggle->review-panels#placeFilter">
                     <summary class="lp-review-filter__toggle"
                              aria-label="{{ 'review.document.margin.filter'|trans }}"
                              title="{{ 'review.document.margin.filter'|trans }}">
                         <twig:ux:icon name="lucide:list-filter" />
                         <span data-review-panels-target="filterLabel">{{ 'review.document.margin.filter_open'|trans }} · {{ openCommentCount }}</span>
                     </summary>
-                    <div class="lp-review-filter__menu">
+                    <div class="lp-review-filter__menu" data-review-panels-target="filterMenu">
                         {% for filterName in ['open', 'resolved', 'unanchored', 'all'] %}
                         <button type="button" data-review-panels-target="option" data-review-panels-filter-param="{{ filterName }}" data-filter-label="{{ ('review.document.margin.filter_' ~ filterName)|trans }}" data-action="review-panels#filter" aria-pressed="{{ filterName == 'open' ? 'true' : 'false' }}">{{ ('review.document.margin.filter_' ~ filterName)|trans }} <span data-filter-count>0</span></button>
                         {% endfor %}
@@ -76,7 +76,7 @@
 
         <section class="lp-review-panel" id="review-panel-outline" data-review-panels-target="panel" data-review-panel="outline"
                  data-panel="contents" data-controller="contents-rail" aria-labelledby="review-panel-outline-title"{{ 'outline' not in openPanels ? ' hidden' }}>
-            <div class="lp-review-panel__head lp-review-panel__head--label">
+            <div class="lp-review-panel__head">
                 <h2 id="review-panel-outline-title">{{ 'review.document.panels.outline_heading'|trans }}</h2>
             </div>
             {% if sectionRows|length > 0 %}

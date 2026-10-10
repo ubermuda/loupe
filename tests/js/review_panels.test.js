@@ -346,3 +346,40 @@ it('keeps the Comments button count, its label and the filter summary in step wi
             .textContent,
     ).toBe('open · 1');
 });
+
+it('hangs the filter menu from its toggle in the window, so no panel clips it', async () => {
+    document.body.innerHTML = `<div data-controller="review-panels">
+        <details data-review-panels-target="filter" data-action="toggle->review-panels#placeFilter">
+            <summary>Filter</summary>
+            <div data-review-panels-target="filterMenu"></div>
+        </details>
+    </div>`;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const filter = document.querySelector('details');
+    const menu = document.querySelector(
+        '[data-review-panels-target="filterMenu"]',
+    );
+    filter.querySelector('summary').getBoundingClientRect = () => ({
+        top: 100,
+        bottom: 126,
+        left: 300,
+        right: 400,
+    });
+    menu.getBoundingClientRect = () => ({
+        top: 0,
+        left: 0,
+        width: 200,
+        height: 150,
+    });
+
+    filter.open = true;
+    filter.dispatchEvent(new Event('toggle'));
+
+    expect(menu.style.left).toBe('200px');
+    expect(menu.style.top).toBe('132px');
+    expect(menu.hasAttribute('data-placed')).toBe(true);
+
+    window.dispatchEvent(new Event('scroll'));
+
+    expect(filter.open).toBe(false);
+});

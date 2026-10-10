@@ -569,10 +569,15 @@ test('a recommended marker shows a badge on its option', async ({ page }) => {
         'aria-label',
         'Recommended, high confidence',
     );
-    await expect(badges).toHaveAttribute(
-        'title',
+    await expect(badges).not.toHaveAttribute('title');
+    const tooltip = badges.locator('.lp-decision__tooltip');
+    await expect(tooltip).toHaveAttribute(
+        'data-label',
         'Recommended, high confidence',
     );
+    await expect(tooltip).toBeHidden();
+    await badges.hover();
+    await expect(tooltip).toBeVisible();
     await expect(badges.locator('.lp-decision__star')).toHaveCount(3);
     await expect(badges.locator('.lp-decision__star--filled')).toHaveCount(3);
     await badges.focus();

@@ -97,6 +97,7 @@ test('the History tab records a verdict and its withdrawal', async ({
     await expect(page.locator('.lp-verdict-chip--approved')).toBeVisible({
         timeout: 20000,
     });
+    await page.locator('.lp-verdict-chip__trigger').click();
     await page
         .locator('.lp-verdict-chip')
         .getByRole('button', { name: 'Undo', exact: true })

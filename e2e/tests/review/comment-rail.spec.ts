@@ -338,6 +338,17 @@ test('the comment filter stays within narrow viewports', async ({ page }) => {
         expect(bounds).not.toBeNull();
         expect(bounds!.x).toBeGreaterThanOrEqual(0);
         expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+        // The panel column scrolls, so a clipped menu hides its last option.
+        const last = (await menu.locator('button').last().boundingBox())!;
+        expect(
+            await page.evaluate(
+                ([x, y]) =>
+                    document
+                        .elementFromPoint(x, y)
+                        ?.closest('.lp-review-filter__menu') != null,
+                [last.x + last.width / 2, last.y + last.height / 2],
+            ),
+        ).toBe(true);
         await page.keyboard.press('Escape');
         await expect(filter.locator('summary')).toBeFocused();
     }

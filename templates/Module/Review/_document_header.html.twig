@@ -10,6 +10,7 @@
         <span class="lp-review-doc__middot" aria-hidden="true">·</span>
         <span class="lp-review-doc__version">{{ 'v' ~ version.versionNumber }}</span>
         {% endif %}
+        {% if showWaitLine|default(false) %}{{ inbox_document_wait_line(document) }}{% endif %}
         {% set lastSeen = lastSeenVersionNumber|default(null) %}
         {% if lastSeen is not null and lastSeen < version.versionNumber %}
         <twig:Ds:Button variant="ghost" size="sm" class="lp-doc-meta__unread"
@@ -18,7 +19,7 @@
             {{ 'review.document.since_last_visit.chip'|trans({'%from%': lastSeen, '%to%': version.versionNumber}) }}
         </twig:Ds:Button>
         {% endif %}
-        {% if showNewTextSwitch|default(false) %}
+        {% if showNewTextSwitch|default(false) and versionCount > 1 %}
         {% set newTextUnavailable = version.versionNumber == 1 ? 'review.document.new_text.no_previous'|trans : null %}
         <button type="button" class="lp-new-text-switch" role="switch" aria-checked="false"
                 {% if newTextUnavailable %}aria-disabled="true"{% endif %}
@@ -48,7 +49,6 @@
             {% endif %}
         </span>
     </div>
-    {% if showWaitLine|default(false) %}{{ inbox_document_wait_line(document) }}{% endif %}
     {# The document page reaches its history and its comparison from the "⋯"
        menu. The history page keeps the tabs, which are its way back. #}
     {% if activeView == 'history' %}

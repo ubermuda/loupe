@@ -96,10 +96,10 @@ final readonly class DiffDocumentVersionsHandler
                 $headings = $sourceHeadings->headings;
             } else {
                 $rendered = $this->renderedDiffs->build(
-                    $this->decisionBlocks->withBadgeLabels(
+                    $this->decisionBlocks->withUntitledPrompts($this->decisionBlocks->withBadgeLabels(
                         $this->markdownRenderer->renderDiff($diff),
                         DecisionBlockService::badgeLabels($this->translator),
-                    ),
+                    )),
                     $isCurrent ? $version->plainText() : null,
                 );
                 $changeCount = $rendered->changeCount;
