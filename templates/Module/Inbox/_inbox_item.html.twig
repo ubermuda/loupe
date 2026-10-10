@@ -27,13 +27,16 @@
         <ul class="lp-inbox-waits" data-inbox-waits>
             {% for wait in watch.waits|filter(wait => wait.endedAt is null)|merge(watch.waits|filter(wait => wait.endedAt is not null)) %}
                 <li{% if wait.endedAt %} class="lp-inbox-waits__wait--ended"{% endif %} data-inbox-wait="{{ wait.endedAt ? 'ended' : 'current' }}">
-                    {%- if wait.documentId and wait.documentId.toRfc4122 in linkedDocumentIds -%}
-                        <a class="lp-inbox-waits__link" href="{{ path('app_document_review', {projectId: item.project.id, documentId: wait.documentId}) }}" data-turbo-frame="_top">{{ wait.reason }}</a>
-                    {%- elseif wait.runId -%}
-                        <a class="lp-inbox-waits__link" href="{{ path('app_project_worker_runs', {id: item.project.id, search: wait.runId}) }}" data-turbo-frame="_top">{{ wait.reason }}</a>
-                    {%- else -%}
-                        {{ wait.reason }}
-                    {%- endif -%}
+                    {%- set line = inbox_wait_line(wait, wait.documentId and wait.documentId.toRfc4122 in linkedDocumentIds) -%}
+                    <span class="lp-inbox-waits__reason">{{ line.key|trans(line.params) }}</span>
+                    {%- if wait.endedAt %}
+                        <span class="lp-inbox-waits__ended">{{ ('inbox.wait.ended.' ~ wait.endReason.value|replace({'-': '_'}))|trans }}</span>
+                    {%- elseif line.href %}
+                        <a class="lp-inbox-waits__link" href="{{ line.href }}" data-turbo-frame="_top"{% if wait.type.value == 'pull-request' %} target="_blank" rel="noopener noreferrer"{% endif %}>{{ line.actionKey|trans(line.params) }}</a>
+                    {%- endif %}
+                    {%- if line.detail %}
+                        <pre class="lp-inbox-waits__detail">{{ line.detail }}</pre>
+                    {%- endif %}
                 </li>
             {% endfor %}
         </ul>
@@ -220,6 +223,7 @@
                 {% if item.kind.value == 'wait' %}
                     <div class="lp-inbox-item__buttons">
                         <twig:Ds:Button variant="danger-ghost" size="sm" type="submit">{{ 'inbox.item.dismiss'|trans }}</twig:Ds:Button>
+                        <p class="lp-inbox-item__hint">{{ 'inbox.wait.dismiss_help'|trans }}</p>
                     </div>
                 {% endif %}
             {{ form_end(declineForm) }}

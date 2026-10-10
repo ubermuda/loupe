@@ -38,6 +38,9 @@ final readonly class PullRequestSnapshot
         /** The head the approval covers, as Loupe judged it. A forge read leaves it null, and apply() ignores it. */
         public ?string $coveredSha = null,
         public ?string $headBranch = null,
+        /** The forge's id of the author account, as a string. Null for a deleted account or one the forge gives no id. */
+        public ?string $authorId = null,
+        public ?string $authorLogin = null,
     ) {
     }
 
@@ -50,7 +53,7 @@ final readonly class PullRequestSnapshot
 
     /**
      * Strict, because a loose `==` holds two numeric-looking commit hashes equal.
-     * The times and the approval and branch facts are left out, so a fact read first on a stored row announces no change.
+     * The times and the approval, branch and author facts are left out, so a fact read first on a stored row announces no change.
      */
     public function equals(self $other): bool
     {

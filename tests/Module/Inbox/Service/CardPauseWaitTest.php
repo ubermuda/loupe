@@ -12,6 +12,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPause;
 use App\Module\Inbox\Entity\InboxCardWait;
 use App\Module\Inbox\Entity\InboxCardWaitEndReason;
+use App\Module\Inbox\Entity\InboxCardWaitReason;
 use App\Module\Inbox\Entity\InboxCardWaitTrigger;
 use App\Module\Inbox\Entity\InboxCardWatch;
 use App\Module\Inbox\Entity\InboxItemState;
@@ -59,7 +60,7 @@ final class CardPauseWaitTest extends KernelTestCase
 
         $wait = $this->onlyWait($this->onlyWatch());
         self::assertSame(InboxCardWaitTrigger::CardPaused, $wait->trigger);
-        self::assertSame('Workflow paused: owner-review', $wait->reason);
+        self::assertSame(InboxCardWaitReason::PauseRule, $wait->reason);
         self::assertEquals($pause->id, $wait->pauseId);
         self::assertSame(InboxItemState::Open, $this->onlyWatch()->item->state);
 

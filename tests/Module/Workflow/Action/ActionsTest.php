@@ -48,7 +48,7 @@ final class ActionsTest extends TestCase
         ])]);
 
         $move = $actions->call('move', ['to' => 'build', 'from' => 'plan']);
-        self::assertEquals(new ActionTraits(endsPass: true, option: true), $move->traits);
+        self::assertEquals(new ActionTraits(endsPass: true, option: true, childChoice: true), $move->traits);
         self::assertSame('plan', $move->from);
         self::assertNull($actions->call('move', ['to' => 'build'])->from);
         self::assertNull($actions->call('detach', [])->from);

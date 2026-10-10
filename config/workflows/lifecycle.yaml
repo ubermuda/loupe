@@ -23,6 +23,9 @@ manualMoves:
     - { from: next, to: product-design }
     - { from: next, to: tech-design }
     - { from: implementation, to: tech-design }
+childChoices:
+    inherit: [{ link-document: { from: parent, tag: tech-design } }]
+    own: [{ move: { to: tech-design } }]
 backoffMinutes: [10, 60, 360]
 workTimeoutMinutes: 120
 onWorkFailed:

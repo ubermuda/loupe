@@ -741,7 +741,7 @@ test('a completed review leaves another tabs unsent review recoverable', async (
     context,
     review,
 }) => {
-    // Two tabs, a submit with its redirect and two page loads, after a login
+    // Two tabs, a submit with its redirect and three page loads, after a login
     // that took 15 s of the 30 s budget on a loaded runner.
     test.slow();
     await page
@@ -1028,7 +1028,8 @@ test('requesting changes shows the verdict on the project dashboard', async ({
     page,
     review,
 }) => {
-    // A comment, a resolve, a verdict and three page loads, each a server round trip.
+    // Three page loads after a submit, a comment and a resolve, after a login
+    // that took 10 s of the 30 s budget on a loaded runner.
     test.slow();
     // A verdict is reached on a document that has been commented on, so the
     // thread is part of the state under test, not incidental setup.

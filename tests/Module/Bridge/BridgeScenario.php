@@ -138,6 +138,14 @@ trait BridgeScenario
         return $usage;
     }
 
+    /** @param array<int|string, int> $times bucket name => milliseconds */
+    private function seedBucketTimes(EntityManagerInterface $em, WorkerRun $run, array $times): void
+    {
+        foreach ($times as $bucket => $ms) {
+            $em->getConnection()->insert('bridge_worker_run_bucket_times', ['id' => (string) Uuid::v7(), 'run_id' => (string) $run->id, 'bucket' => (string) $bucket, 'ms' => $ms]);
+        }
+    }
+
     /** With no kind given, Bash is shell and any other tool is tool. */
     private function seedToolCall(WorkerRun $run, int $seq = 1, string $tool = 'Bash', ?WorkerRunToolCallKind $kind = null): void
     {

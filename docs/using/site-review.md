@@ -108,6 +108,77 @@ On such a page, every note goes to that card. The widget does not ask for a
 choice, and it does not change the choice you keep for other pages. When the
 card is closed or deleted, the widget refuses notes and says so.
 
+## Sending a verdict
+
+On a page that locks a card, the panel shows three buttons when the card has at
+least one open GitHub pull request: **Approve**, **Request changes** and
+**Comment**. The buttons stay hidden on every other page. That includes a page
+that names no card, a card without an open pull request, and the landing demo.
+
+A button opens a confirm panel. Loupe records nothing until you press **Send**.
+Press **Cancel** to close the panel without a record.
+
+The confirm panel shows:
+
+- The name of the card.
+- The pull request. When the card has two or more, you tick each one that gets
+  the review. Send covers the ticked pull requests.
+- The open notes that go with the verdict. On an approval, the panel says how
+  many notes are still open, and you can still send.
+- A field for a message.
+- What Loupe does with the verdict. When the workflow writes nothing to GitHub,
+  the panel says **Recorded in Loupe only**.
+
+**Request changes** and **Comment** need a message when the card has no open
+note. **Send** stays off until you write one. When notes are open, they go with
+the verdict, and the message is optional. **Approve** needs no message.
+
+After a send, the panel says **Sent to the workflow**. Loupe then posts the
+review on GitHub when the project allows it. See
+[Board automation](board.md).
+
+When a send fails and you press **Send** again with the same verdict, Loupe
+keeps one verdict. It does not post the review twice. If you change the
+message or the ticks first, the panel sends a new verdict.
+
+### Connecting GitHub
+
+Loupe posts a review under your own GitHub account. When you have not
+connected that account, or the connection ended, a **Connect GitHub to send
+this review** button replaces **Send**. The button opens a GitHub window. Allow
+pop-ups for the page if your browser blocks it.
+
+When you return, the panel reads your connection again. Your message and ticks
+stay. If you close the window or the connection fails, the draft stays too.
+
+### Your own pull request
+
+GitHub accepts no approval and no change request from the author of a pull
+request. When a ticked pull request is yours, the panel says so, and the review
+goes as a comment.
+
+### The result
+
+The panel shows the last verdict of the card with its time. Each pull request
+has a line that says one of these:
+
+- **Waiting to post**: Loupe has not posted the review yet.
+- **Review posted** or **Posted as a comment**: the line links to the review.
+- **Not posted**: the line gives the reason. For example, the pull request is
+  no longer open, or the project does not post reviews.
+
+When your GitHub connection ended, the line says so and offers **Connect
+again**.
+
+### What the review says on GitHub
+
+Every review that Loupe posts opens with one line. The line says that the
+review comes from the Loupe site review of the card, and links to the
+**Feedback** tab of the card. It also links to the page of the first note, when
+the review has a note. Only members of the project can open the card link. The
+message and the notes follow the line, and an approval with no message posts
+the line alone.
+
 ## Retrying a save
 
 A failed save keeps the draft open. Press **Save** again to retry it.

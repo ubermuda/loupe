@@ -560,6 +560,16 @@ card with a parent cannot change to such a type, and a card with children keeps
 its type. Both tools also take `laneEnabled`, which says whether the board draws
 a lane for a card of a type with the `lane` capability. It defaults to `true`.
 
+Both tools also take `childDesign`, for a child of a parent whose tech design is
+approved. The value `inherit` links the tech design of the parent. The value
+`own` moves the card to Tech design, so a call that passes `own` passes no
+`status`. When the owner would otherwise get the
+[unplanned child question](workflows.md#asking-about-an-unplanned-child),
+`card_create` is refused without the choice, and so is a `card_update` that
+sets `parentCardId`. The call is also refused when the card has no parent, when
+the parent has no tech design to inherit, or when the workflow does not allow
+the move. A refused call changes nothing.
+
 `card_list` takes `parentCardId` as a filter, which reads the children of one
 card. The full card, from `card_get` or from `card_list` with `full`, carries
 `state` on each entry of `pullRequests`, the last state Loupe read.
@@ -608,9 +618,11 @@ fact of the project. A notice holds no card and takes no answer.
 
 `inbox_get` also returns `cardId` and `waits`. For a `wait` item, `cardId` names
 the card, and `waits` lists each reason the card waited, current and ended, in
-start order. Each entry holds `trigger`, `reason`, `documentId`,
+start order. Each entry holds `trigger`, `type`, `reason`, `documentId`,
 `versionNumber`, `runId`, `pullRequestId`, `headSha`, `pauseId`, `startedAt`, `endedAt`
-and `endReason`. An id, a commit or a date that does not apply is null. `endedAt` and `endReason` are null for a
+and `endReason`. `type` is `document`, `pull-request`, `worker-run` or `card-pause`. `reason` is a
+code, such as `waiting-for-review`, `new-commits-after-approval`, `blocked`, `gave-up`,
+`waits-for-person` or the kind of a pause. It is no sentence. An id, a commit or a date that does not apply is null. `endedAt` and `endReason` are null for a
 current wait. `endReason` is `resolved`, `card-finished`, `card-deleted`,
 `switched-off` or `dismissed`. For any other kind,
 `cardId` is null and `waits` is empty.

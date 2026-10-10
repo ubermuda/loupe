@@ -125,7 +125,7 @@ final class WaitItemPageTest extends WebTestCase
     {
         $this->reconcile();
 
-        $crawler = $this->client->request(Request::METHOD_GET, $this->pageUrl().'?q=Tech');
+        $crawler = $this->client->request(Request::METHOD_GET, $this->pageUrl().'?q=document');
 
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('.lp-inbox-request__byline [data-inbox-source="loupe"]'));
@@ -145,17 +145,20 @@ final class WaitItemPageTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $current = $crawler->filter('#inbox-item-1 [data-inbox-wait="current"]');
         self::assertCount(1, $current);
-        self::assertStringContainsString('Tech design in review, version 2', $current->text());
+        self::assertStringContainsString('The document "Tech design", version 2, of card 4 waits for your review.', $current->text());
+        self::assertStringContainsString('Review the document', $current->filter('a')->text());
         self::assertSame('/projects/'.$this->project->id.'/documents/'.$this->document->id.'/review', $current->filter('a')->attr('href'));
         $ended = $crawler->filter('#inbox-item-1 [data-inbox-wait="ended"]');
         self::assertCount(1, $ended);
-        self::assertStringContainsString('Tech design in review, version 1', $ended->text());
+        self::assertStringContainsString('version 1', $ended->text());
+        self::assertStringContainsString('Closed', $ended->text());
 
         self::assertCount(0, $crawler->filter('form[name="inbox_done_'.$item->id.'"]'));
         self::assertCount(0, $crawler->filter('form[name="inbox_answer_'.$item->id.'"]'));
         $dismiss = $crawler->filter('form[name="inbox_decline_'.$item->id.'"] button[type="submit"]');
         self::assertCount(1, $dismiss);
         self::assertSame('Dismiss', trim($dismiss->text()));
+        self::assertStringContainsString('Dismiss hides this item.', $crawler->filter('#inbox-item-1')->text());
         self::assertCount(1, $crawler->filter('#inbox-item-1 button[type="submit"]'));
     }
 
@@ -171,7 +174,7 @@ final class WaitItemPageTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $wait = $crawler->filter('#inbox-item-1 [data-inbox-wait]');
         self::assertCount(1, $wait);
-        self::assertStringContainsString('Tech design in review, version 1', $wait->text());
+        self::assertStringContainsString('version 1', $wait->text());
         self::assertCount(0, $wait->filter('a'));
     }
 
@@ -197,7 +200,8 @@ final class WaitItemPageTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $link = $crawler->filter('#inbox-item-1 [data-inbox-wait="current"] a');
         self::assertCount(1, $link);
-        self::assertSame('Run blocked: Needs the API key', trim($link->text()));
+        self::assertSame('Open the run', trim($link->text()));
+        self::assertStringContainsString('Needs the API key', $crawler->filter('#inbox-item-1 [data-inbox-wait="current"] pre')->text());
         self::assertSame('/projects/'.$this->project->id.'/worker-runs?search='.$run->id, $link->attr('href'));
         self::assertSame('_top', $link->attr('data-turbo-frame'));
     }

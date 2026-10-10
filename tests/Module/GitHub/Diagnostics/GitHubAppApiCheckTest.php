@@ -53,7 +53,7 @@ final class GitHubAppApiCheckTest extends TestCase
     public function test_every_installation_with_the_permissions_works(): void
     {
         $diagnostic = $this->check([
-            ['id' => 1, 'account' => ['login' => 'ubermuda'], 'permissions' => ['contents' => 'write', 'pull_requests' => 'write'] + self::ALL_READ + ['members' => 'read']],
+            ['id' => 1, 'account' => ['login' => 'ubermuda'], 'permissions' => ['checks' => 'write', 'contents' => 'write', 'pull_requests' => 'write'] + self::ALL_READ + ['members' => 'read']],
             ['id' => 2, 'account' => ['login' => 'acme'], 'permissions' => ['checks' => 'write', 'contents' => 'write', 'pull_requests' => 'write'] + self::ALL_READ],
         ]);
 
@@ -86,6 +86,18 @@ final class GitHubAppApiCheckTest extends TestCase
         self::assertSame(DiagnosticState::Warning, $diagnostic->state);
         self::assertSame('github.system_status.app_api.missing_contents_write', $diagnostic->detail);
         self::assertSame(['%accounts%' => 'ubermuda, other'], $diagnostic->detailParameters);
+    }
+
+    public function test_an_installation_that_reads_checks_without_write_warns_and_names_the_account(): void
+    {
+        $diagnostic = $this->check([
+            ['id' => 1, 'account' => ['login' => 'ubermuda'], 'permissions' => ['contents' => 'write', 'pull_requests' => 'write'] + self::ALL_READ],
+            ['id' => 2, 'account' => ['login' => 'acme'], 'permissions' => ['checks' => 'write', 'contents' => 'write', 'pull_requests' => 'write'] + self::ALL_READ],
+        ]);
+
+        self::assertSame(DiagnosticState::Warning, $diagnostic->state);
+        self::assertSame('github.system_status.app_api.missing_checks_write', $diagnostic->detail);
+        self::assertSame(['%accounts%' => 'ubermuda'], $diagnostic->detailParameters);
     }
 
     public function test_no_installation_is_not_a_failure(): void

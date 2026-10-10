@@ -22,7 +22,7 @@ use App\Module\Workflow\Contract\ParameterType;
 
 /**
  * Links the document of the parent card that carries the tag to the card, whatever the status of the document.
- * Two such documents give the one linked first. The card keeps the documents it has.
+ * Of two such documents, an approved one wins, then the one linked first. The card keeps the documents it has.
  */
 final readonly class LinkDocument implements Action
 {
@@ -30,6 +30,7 @@ final readonly class LinkDocument implements Action
     public const string LINK_REFUSED = 'document-link-refused';
 
     public const string KEY = 'link-document';
+    private const string APPROVED = 'approved';
 
     public function __construct(
         private CardRepository $cards,
@@ -61,7 +62,7 @@ final readonly class LinkDocument implements Action
     #[\Override]
     public static function traits(): ActionTraits
     {
-        return new ActionTraits(option: true);
+        return new ActionTraits(option: true, childChoice: true);
     }
 
     #[\Override]
@@ -81,7 +82,8 @@ final readonly class LinkDocument implements Action
     {
         $card = $this->cards->find($context->card->id) ?? throw new \LogicException('A stored card has an id.');
         $tag = $context->string('tag');
-        $document = array_find($context->facts->get(ParentDocumentsFacts::class)->documents, static fn (DocumentFacts $document): bool => \in_array($tag, $document->tags, true));
+        $tagged = array_filter($context->facts->get(ParentDocumentsFacts::class)->documents, static fn (DocumentFacts $document): bool => \in_array($tag, $document->tags, true));
+        $document = array_find($tagged, static fn (DocumentFacts $document): bool => self::APPROVED === $document->status) ?? array_first($tagged);
         if (null === $document) {
             return ActionOutcome::refused(self::NO_PARENT_DOCUMENT);
         }

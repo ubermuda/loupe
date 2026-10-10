@@ -298,7 +298,7 @@ final readonly class CardWaitReconciler
             if (null === $trigger) {
                 continue;
             }
-            $waits[] = [$cardId, WantedCardWait::forRun($trigger, Uuid::fromString($row['id']), $row['output'])];
+            $waits[] = [$cardId, WantedCardWait::forRun($trigger, Uuid::fromString($row['id']))];
         }
 
         return $waits;
@@ -341,8 +341,8 @@ final readonly class CardWaitReconciler
 
             if ($idle && self::waitsForReview($row, $row->headSha)) {
                 $waits[] = [$cardId, PullRequestReview::Approved === $row->review
-                    ? WantedCardWait::forPullRequestChangedAfterApproval($rowId, $row->number, $row->headSha)
-                    : WantedCardWait::forPullRequestReady($rowId, $row->number, $row->headSha)];
+                    ? WantedCardWait::forPullRequestChangedAfterApproval($rowId, $row->headSha)
+                    : WantedCardWait::forPullRequestReady($rowId, $row->headSha)];
             }
         }
 
@@ -462,6 +462,7 @@ final readonly class CardWaitReconciler
             $open[$key] = new InboxCardWait(
                 watch: $watch,
                 trigger: $wanted->trigger,
+                type: $wanted->type,
                 reason: $wanted->reason,
                 documentId: $wanted->document?->id,
                 versionNumber: $wanted->versionNumber,
@@ -516,7 +517,7 @@ final readonly class CardWaitReconciler
         $open = array_filter($watch->waits->toArray(), static fn (InboxCardWait $wait): bool => null === $wait->endedAt);
         usort($open, static fn (InboxCardWait $a, InboxCardWait $b): int => [$a->startedAt, $a->key()] <=> [$b->startedAt, $b->key()]);
         $title = self::title($card);
-        $body = implode("\n", array_map(static fn (InboxCardWait $wait): string => $wait->reason, $open));
+        $body = implode("\n", array_map(static fn (InboxCardWait $wait): string => $wait->type->value.' '.$wait->reason->value, $open));
 
         $item = $watch->item;
         if ($item->title === $title && $item->body === $body) {
