@@ -25,8 +25,8 @@ Merge one card's pull request when it is ready, or bring a branch that is behind
 2. Load `working-with-prs` when the profile `Instruction files` section names it.
 3. Read the prompt. The line `Loupe asks for epic preview work.` asks for an epic preview refresh after a child merge. Take the merged pull request of the card `pullRequests` whose base is the epic branch of `parent.number`, as "Epic branches" says. When there is none, stop with `STAGE RESULT: blocked: no merged epic child`. Then take "Refresh the epic preview", and skip steps 4 to 8. The line `Pull request <url> is ready to merge at <sha>.` asks for a merge. The line `Pull request <url> is behind its base.` asks for an update. The line `Loupe asks for merge work.` asks for a merge, and `Loupe asks for sync work.` asks for an update. A merge or sync work request names no pull request, so take the one open pull request of the card `pullRequests`, and its head commit from the forge adapter as the SHA of the prompt. When the card has no open pull request, stop with `STAGE RESULT: no open pull request`. When it has more than one, stop with `STAGE RESULT: blocked: more than one open pull request`. Any other prompt: stop with `STAGE RESULT: blocked: no merge request in the prompt`.
 4. The URL must be one of the card `pullRequests`. Otherwise stop with `STAGE RESULT: blocked: pull request not linked to the card`.
-5. Find and validate the pull request with the forge adapter. When it is outside this repository, stop with `STAGE RESULT: blocked: pull request outside this repository`. When its state is `MERGED`, stop with `STAGE RESULT: merged <url>`. When it is `CLOSED`, stop with `STAGE RESULT: no open pull request`.
-6. Read the merge state with the forge adapter. From this step on, post the refusal comment before each `not ready` or `blocked:` stop. Follow "Post a refusal comment" in `../loupe-stage-implementation/references/commands.md`.
+5. Find and validate the pull request with the forge adapter. When it is outside this repository, stop with `STAGE RESULT: blocked: pull request outside this repository`. When its state is `merged`, stop with `STAGE RESULT: merged <url>`. When it is `closed`, stop with `STAGE RESULT: no open pull request`.
+6. Read the merge state with the forge adapter. Read its Report words only, as `../loupe-stage-implementation/references/commands.md` "Report words" lists them. From this step on, post the refusal comment before each `not ready` or `blocked:` stop. Follow "Post a refusal comment" in `../loupe-stage-implementation/references/commands.md`.
 7. Sort the pull request, as "Epic branches" says. An epic child skips the stacked check. For any other pull request, compare the base with the base branch of the profile `Merge` section. When they differ, stop with `STAGE RESULT: not ready <url>: stacked on <base>`. A stacked pull request never merges into its parent.
 8. For an update, take "Update". For a merge, take "Merge".
 
@@ -41,12 +41,12 @@ An epic child merges with no approval, because the epic pull request carries the
 
 ### Update
 
-This step serves a project that has no GitHub App writer. With one, the sync rule updates the branch itself, and the workflow asks for no sync work.
+This step serves a project whose forge has no connection that writes the update. With one, the sync rule updates the branch itself, and the workflow asks for no sync work.
 
 An epic pull request updates as any other pull request. The update merges the base into the epic branch.
 
-1. When `mergeable` is `CONFLICTING`, stop with `STAGE RESULT: not ready <url>: conflicting`. The app sends a fix request for a conflict.
-2. When the review decision is not `APPROVED`, stop with `STAGE RESULT: not ready <url>: not approved`. The merge would stop there too. An epic child skips this item.
+1. When the mergeability is `conflicting`, stop with `STAGE RESULT: not ready <url>: conflicting`. The app sends a fix request for a conflict.
+2. When the review is not `approved`, stop with `STAGE RESULT: not ready <url>: not approved`. The merge would stop there too. An epic child skips this item.
 3. Check that the approval covers the head, as "Merge" item 4 says. Use the head of step 6 in place of the SHA of the prompt. When there is no approval, stop with `STAGE RESULT: not ready <url>: not approved`. When the check holds for another reason, stop with `STAGE RESULT: not ready <url>: <reason>`. When it cannot read the approval, stop with `STAGE RESULT: blocked: approval unreadable <url>`. Each update costs a full CI run, and the base can move again before an approval arrives. An epic child skips this item.
 4. Update the branch with the forge adapter. When the forge says the branch is already up to date, stop with `STAGE RESULT: not ready <url>: not behind`.
 5. Stop with `STAGE RESULT: waiting <url>`. The app reads the new head and its checks.
@@ -57,15 +57,15 @@ Merge only when every item holds. The first item that fails ends the run with `S
 
 1. The head commit equals the SHA of the prompt.
 2. The pull request is not a draft.
-3. The review decision is `APPROVED`.
+3. The review is `approved`.
 4. Every current approval covers every commit up to the SHA of the prompt. Check it with the forge adapter. When the profile `Merge` section names an approver, only that reviewer's approval counts.
-5. Every required check passes, and none fails or is pending. Count the checks against the required count of the profile `Gate` section. An epic branch has no required checks of its own. For an epic child, check by name the required checks of the base branch of the profile `Merge` section, as the forge adapter says.
-6. `mergeStateStatus` is `CLEAN`, `HAS_HOOKS` or `UNSTABLE`.
-7. An epic child is not behind its base. Compare the SHA of the prompt with the base, as the forge adapter says. When `behind_by` is above 0, take "Update" from item 4. The app sends no behind event for a base with no strict rule, so this item replaces it. A sync of the epic branch with a merge of its base puts each open child behind, and the forge adapter's update merges the epic branch into the child.
+5. The checks are `passed`: every required check passes, and none fails or is pending. Count the checks against the required count of the profile `Gate` section. An epic branch has no required checks of its own. For an epic child, check by name the required checks of the base branch of the profile `Merge` section, as the forge adapter says.
+6. The mergeability is `mergeable`.
+7. An epic child is not behind its base. Compare the SHA of the prompt with the base, as the forge adapter says. When the behind count is above 0, take "Update" from item 4. The app sends no behind event for a base with no strict rule, so this item replaces it. A sync of the epic branch with a merge of its base puts each open child behind, and the forge adapter's update merges the epic branch into the child.
 
 An epic child skips items 3 and 4.
 
-Item 4 reads the approval by time. A forge can keep a review decision `APPROVED` after new commits arrive, so item 3 alone is not enough. A commit counts as later when it reached the branch after the earliest current approval. The forge adapter sorts each later commit:
+Item 4 reads the approval by time. A forge can keep the review `approved` after new commits arrive, so item 3 alone is not enough. A commit counts as later when it reached the branch after the earliest current approval. The forge adapter sorts each later commit:
 
 - A merge from the base is a sync, with or without a conflict resolution. The approval covers it.
 - Any other commit is new content, such as a review fix or a test fix. Stop with `STAGE RESULT: not ready <url>: commits after approval`.
@@ -75,7 +75,7 @@ When the adapter cannot read the approval, stop with `STAGE RESULT: blocked: app
 Then:
 
 1. Merge with the forge adapter and the SHA of the prompt. The method comes from the profile `Merge` section, or from its `Epics` section for an epic child.
-2. Read the state again. When it is not `MERGED`, stop with `STAGE RESULT: blocked: merge refused <url>: <message>`, and record the block as "Record a block" in `../loupe-stage-implementation/references/commands.md` says.
+2. Read the state again. When it is not `merged`, stop with `STAGE RESULT: blocked: merge refused <url>: <message>`, and record the block as "Record a block" in `../loupe-stage-implementation/references/commands.md` says.
 3. Stop with `STAGE RESULT: merged <url>`.
 
 The app opens the epic pull request after the first child merge. The app also asks for epic preview work after each child merge.

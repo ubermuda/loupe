@@ -13,7 +13,7 @@ gh repo view --json nameWithOwner
 gh api graphql -F url=<url> -f query='query($url:URI!){resource(url:$url){... on PullRequest{number state headRefName headRefOid isCrossRepository baseRepository{nameWithOwner}}}}'
 ```
 
-`state` is `OPEN`, `CLOSED` or `MERGED`. The head branch is `headRefName`, and the head commit is `headRefOid`. When `baseRepository.nameWithOwner` differs from the checkout, or `isCrossRepository` is `true`, the pull request is outside this repository.
+`state` is `OPEN`, `CLOSED` or `MERGED`. Report state: `open`, `closed` or `merged`. The head branch is `headRefName`, and the head commit is `headRefOid`. When `baseRepository.nameWithOwner` differs from the checkout, or `isCrossRepository` is `true`, the pull request is outside this repository.
 
 ## List the feedback items
 
@@ -67,7 +67,7 @@ gh pr view <url> --json headRefOid -q .headRefOid
 gh pr checks <url> --required --json name,bucket,link
 ```
 
-`bucket` is `pass`, `fail`, `pending`, `skipping` or `cancel`. The reading describes the head only when `headRefOid` equals the commit you care about. A rollup can still describe an earlier head, as `working-with-prs` "Merging" item 8 says. The repository profile says where the list of required checks comes from.
+`bucket` is `pass`, `fail`, `pending`, `skipping` or `cancel`. The reading describes the head only when `headRefOid` equals the commit you care about. A rollup can still describe an earlier head, when a check has not yet started on the new head. The repository profile says where the list of required checks comes from.
 
 A stacked pull request has no required checks when no ruleset covers its base. For it, drop `--required`, and count every check. `--required` fails there with "No required checks reported".
 
@@ -127,6 +127,8 @@ gh api repos/<nameWithOwner>/compare/<base>...<head sha> --jq .behind_by
 
 `behind_by` counts the commits of the base that the head does not hold. A value above 0 means the branch is behind. When no strict rule covers the base, GitHub reports `CLEAN` for a behind pull request. Read the compare in that case.
 
+Report behind count: `behind_by`.
+
 ## Check mergeability
 
 ```bash
@@ -134,6 +136,8 @@ gh pr view <url> --json mergeable,mergeStateStatus
 ```
 
 `mergeable` is `MERGEABLE`, `CONFLICTING` or `UNKNOWN`. `UNKNOWN` means GitHub still computes it, so read it again after a short wait.
+
+Report mergeability, as the next section says.
 
 ## Read the merge state
 
@@ -144,14 +148,31 @@ gh pr checks <url> --required --json bucket -q 'group_by(.bucket)|map("\(.[0].bu
 
 `reviewDecision` is `APPROVED`, `CHANGES_REQUESTED`, `REVIEW_REQUIRED` or empty. `mergeStateStatus` is `CLEAN`, `HAS_HOOKS`, `UNSTABLE`, `BEHIND`, `BLOCKED`, `DIRTY` or `UNKNOWN`. Green means `pass=<required count>` and no other bucket.
 
+Report state: `OPEN` is `open`, `MERGED` is `merged`, and `CLOSED` is `closed`.
+
+Report draft: `isDraft` `true` is `yes`, and `false` is `no`.
+
+Report review: `APPROVED` is `approved`, `CHANGES_REQUESTED` is `changes-requested`, `REVIEW_REQUIRED` is `required`, and empty is `none`.
+
+Report checks: `passed` when green. `failed` when the `fail` or `cancel` bucket holds a check. Otherwise `pending`.
+
+Report mergeability, in this order:
+
+1. `conflicting` when `mergeable` is `CONFLICTING` or `mergeStateStatus` is `DIRTY`.
+2. `behind` when `mergeStateStatus` is `BEHIND`.
+3. `blocked` when `mergeStateStatus` is `BLOCKED`.
+4. `unknown` when `mergeable` is `UNKNOWN`.
+5. `mergeable` when `mergeStateStatus` is `CLEAN`, `HAS_HOOKS` or `UNSTABLE`.
+6. `unknown` otherwise.
+
 For an epic child, replace the second command with the by-name read of "Read the checks". Green means that every name passes, and that no name fails, waits or has no check.
 
 ## Check the approval covers the head
 
-GitHub keeps `reviewDecision` at `APPROVED` after a push when the branch rules do not dismiss a stale review. A review's `commit_id` does not show what the reviewer saw either, because GitHub moves it onto the head that a later merge creates. So read the approval by time with the script of the merge skill. `<merge skill dir>` is the directory of the `loupe-stage-merge` `SKILL.md`:
+GitHub keeps `reviewDecision` at `APPROVED` after a push when the branch rules do not dismiss a stale review. A review's `commit_id` does not show what the reviewer saw either, because GitHub moves it onto the head that a later merge creates. So read the approval by time with the script that sits next to this file. `<forge dir>` is the directory of this file:
 
 ```bash
-APPROVER=<login> <merge skill dir>/scripts/github-approval-covers.sh <url> <sha>
+APPROVER=<login> <forge dir>/github-approval-covers.sh <url> <sha>
 ```
 
 Set `APPROVER` when the profile `Merge` section names an approver. Then only that reviewer's approval counts. Otherwise omit it, and every reviewer counts.
@@ -164,6 +185,8 @@ The script takes each reviewer's last approving or blocking review. The earliest
 | `HOLD commits after approval: ...` | 1 | A later commit adds new content. |
 | `HOLD head moved`, `HOLD no approval`, `HOLD no push ...`, `HOLD 250 commits or more ...` | 1 | The item fails for that reason. |
 | `UNREAD: ...` | 2 | A read failed. |
+
+Report approval: the script line is the report, as it is.
 
 A rebase or a force push rewrites commits, so they hold as commits after approval.
 
@@ -181,4 +204,4 @@ This merges the base into the head branch on the forge. Never pass `--rebase`. W
 gh pr merge <url> --<method> --match-head-commit <sha>
 ```
 
-`<method>` comes from the profile `Merge` section. `--match-head-commit` refuses the merge when the head moved. Never pass `--admin` or `--auto`. On a branch with a merge queue, `gh pr merge` turns on auto-merge by itself, so the state stays `OPEN`. After the merge, read `state` again, and accept only `MERGED`.
+`<method>` comes from the profile `Merge` section. `--match-head-commit` refuses the merge when the head moved. Never pass `--admin` or `--auto`. On a branch with a merge queue, `gh pr merge` turns on auto-merge by itself, so the state stays `OPEN`. After the merge, read `state` again, and accept only `MERGED`, which is the state `merged`.
