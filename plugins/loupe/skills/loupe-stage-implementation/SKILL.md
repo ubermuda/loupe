@@ -36,6 +36,7 @@ Build the approved tech design of one card into a ready, linked pull request. An
    - Any other card with no approved tech design stops with `STAGE RESULT: no approved tech design`.
    - Read the answers of the tech design, as `../loupe-stage-product-design/references/stage-contract.md` "Read the answers of a design" says. An answered decision is decided, whatever the text says. In the build modes of step 5, a work item or the entry of a Breakdown child that an unanswered decision blocks stops the run with `STAGE RESULT: blocked: decision <id> needs an answer`. The first sentence after it is "Answer decision <id> on the review page, then resume this run." The breakdown mode leaves a decision blocker to the run of each child, as `references/breakdown.md` says.
 5. Choose the mode, in this order, per `references/breakdown.md`:
+   - A card with no code to build finishes without code. This covers a card that links no pull request and that the other modes below would not send to the breakdown. A Breakdown child judges only its entry, and an epic-design child only its card body. Follow `references/commands.md` "Finish without code", and stop with the form it names.
    - A Breakdown child builds only the entry that its body names, from step 6 on.
    - A standalone child builds its own tech design as any other card, from step 6 on.
    - An epic-design child builds its card body against the design of its parent, from step 6 on.

@@ -115,6 +115,28 @@ Then write the changelog entry that the profile `Changelog` section names, run i
 
 The stage ends at the push. The app reads the pull request again after each push, so no stage waits for CI. A failed check or a conflict reaches a fix round as a fix request. Green checks move the card, and an approved pull request with green checks reaches the merge stage. Report `waiting`, and name the pull request URL.
 
+## Finish without code
+
+A card can end its implementation with no pull request. The worker reports the finish, and a workflow rule moves the card to the terminal column. The worker never moves the card itself. Two cases exist, and each has its own form:
+
+1. Nothing to build. An answered decision of the tech design removes all the work of the card, or of the Breakdown entry of a child. An example is a note such as "no detector" on the only decision of the card.
+2. Delivered without code. The card asks only for a document, such as a measurement or a report, and no code change.
+
+Use this section only when the case is clear from the design, its answers and the card body. When some work remains, build it from step 6. When you are not sure, record the block and stop with `STAGE RESULT: blocked: unsure whether the card has code to build`.
+
+For a card with nothing to build:
+
+1. Read the card with `card_get`. Send its whole `body` back with `card_update`, plus one final line: `Nothing to build: <decision id> (<answer>) removed the work.`
+2. Stop with `STAGE RESULT: nothing to build [reason: nothing-to-build]`, and the structured status `finished`.
+
+For a card delivered without code:
+
+1. Write the document as `loupe-documents` says, and link it to the card (contract rule 5).
+2. Read the card with `card_get`. Send its whole `body` back with `card_update`, plus one final line: `Delivered without code: <document title>.`
+3. Stop with `STAGE RESULT: delivered without code <document review url> [reason: delivered-without-code]`, and the structured status `finished`.
+
+Both forms create no branch, no commit and no pull request. A card that links a pull request never takes this section, because the rules that move the card wait for a card with no pull request.
+
 ## Record a block
 
 Read the card with `card_get`. Send its whole `body` back with `card_update`, plus one final paragraph that starts `Blocked:`. The paragraph names the reason, the branch, and the pull request URL when one exists.
