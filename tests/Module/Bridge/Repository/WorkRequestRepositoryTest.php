@@ -308,6 +308,22 @@ final class WorkRequestRepositoryTest extends KernelTestCase
         self::assertNull($this->repository()->findLatestSettledForCard(Uuid::v7()));
     }
 
+    public function test_the_latest_request_of_a_card_is_the_one_created_last_in_any_state(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'latest-request@example.com'), 'Latest Request');
+        $cardId = Uuid::v7();
+        $done = $this->seedWorkRequest($em, $project, cardId: $cardId, state: WorkRequestState::Done, createdAt: new \DateTimeImmutable('2026-10-01 12:00:00'));
+        $done->settledAt = new \DateTimeImmutable('2026-10-01 14:00:00');
+        $em->flush();
+        $cancelled = $this->seedWorkRequest($em, $project, cardId: $cardId, kind: 'fix', state: WorkRequestState::Cancelled, createdAt: new \DateTimeImmutable('2026-10-01 13:00:00'));
+        $this->seedWorkRequest($em, $project, state: WorkRequestState::Open, createdAt: new \DateTimeImmutable('2026-10-01 15:00:00'));
+
+        self::assertSame($cancelled, $this->repository()->findLatestForCard($cardId));
+        self::assertNull($this->repository()->findLatestForCard(Uuid::v7()));
+    }
+
     public function test_the_open_requests_of_other_subjects_past_the_deadline_read_oldest_first(): void
     {
         self::bootKernel();

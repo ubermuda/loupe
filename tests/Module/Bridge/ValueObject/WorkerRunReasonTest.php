@@ -13,7 +13,7 @@ final class WorkerRunReasonTest extends TestCase
     public function test_every_reason_has_its_backing_value(): void
     {
         self::assertSame(
-            ['done', 'card-left', 'waiting-checks', 'not-approved', 'approval-stale', 'stacked', 'conflicting', 'not-behind', 'no-design', 'open-pull-request', 'no-pull-request', 'tool-unavailable', 'worktree-failed', 'merge-refused', 'needs-person', 'work-remains', 'other'],
+            ['done', 'card-left', 'waiting-checks', 'not-approved', 'approval-stale', 'stacked', 'conflicting', 'not-behind', 'no-design', 'open-pull-request', 'no-pull-request', 'tool-unavailable', 'worktree-failed', 'merge-refused', 'needs-person', 'work-remains', 'nothing-to-build', 'delivered-without-code', 'other'],
             array_map(static fn (WorkerRunReason $reason): string => $reason->value, WorkerRunReason::cases()),
         );
     }
@@ -26,6 +26,8 @@ final class WorkerRunReasonTest extends TestCase
         yield 'a blank code' => ['  ', null];
         yield 'a known code' => ['stacked', WorkerRunReason::Stacked];
         yield 'a known code with spaces around it' => [' approval-stale ', WorkerRunReason::ApprovalStale];
+        yield 'the nothing to build code' => ['nothing-to-build', WorkerRunReason::NothingToBuild];
+        yield 'the delivered without code code' => ['delivered-without-code', WorkerRunReason::DeliveredWithoutCode];
         yield 'the other code' => ['other', WorkerRunReason::Other];
         yield 'an unknown code' => ['rate-limited', WorkerRunReason::Other];
     }

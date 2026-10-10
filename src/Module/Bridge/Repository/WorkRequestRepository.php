@@ -342,6 +342,17 @@ class WorkRequestRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /** The request of the card that opened last, in any state. */
+    public function findLatestForCard(Uuid $cardId): ?WorkRequest
+    {
+        return $this->ofSubject(WorkSubject::card($cardId))
+            ->orderBy('w.createdAt', 'DESC')
+            ->addOrderBy('w.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /** The request of the card that settled done or refused last. */
     public function findLatestSettledForCard(Uuid $cardId): ?WorkRequest
     {

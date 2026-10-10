@@ -10,6 +10,8 @@ use App\Module\Board\Workflow\ChildrenFacts;
 use App\Module\Board\Workflow\DocumentsFacts;
 use App\Module\Board\Workflow\ParentDocumentsFacts;
 use App\Module\Board\Workflow\ParentFacts;
+use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Bridge\Workflow\LatestWorkFacts;
 use App\Module\Bridge\Workflow\ParentWorkFacts;
 use App\Module\Bridge\Workflow\RefusalFacts;
 use App\Module\Bridge\Workflow\WorkerRunFacts;
@@ -93,6 +95,7 @@ final class FactFingerprintTest extends TestCase
         yield 'refusal' => [RefusalFacts::class, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents()), pullRequest: self::primary(), pullRequests: self::all(), run: FactsMother::run(['implement', 'review'], 'no-bridge', self::WORKER_KINDS, self::PARENT_KINDS))];
         yield 'worker runs' => [WorkerRunFacts::class, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents()), pullRequest: self::primary(), pullRequests: self::all(), run: FactsMother::run(['implement', 'review'], 'no-capacity', ['implement'], self::PARENT_KINDS))];
         yield 'parent slot' => [EngineFact::ParentSlot, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents(), parentSlot: 'implementation'), pullRequest: self::primary(), pullRequests: self::all(), run: self::workRun())];
+        yield 'latest work' => [LatestWorkFacts::class, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents()), pullRequest: self::primary(), pullRequests: self::all(), run: FactsMother::run(['implement', 'review'], 'no-capacity', self::WORKER_KINDS, self::PARENT_KINDS, WorkRequestState::Done, 'implement', 'nothing-to-build'))];
         yield 'parent work' => [ParentWorkFacts::class, FactsMother::facts(card: FactsMother::card(slot: 'implementation', documents: self::documents()), pullRequest: self::primary(), pullRequests: self::all(), run: FactsMother::run(['implement', 'review'], 'no-capacity', self::WORKER_KINDS, ['plan']))];
     }
 
@@ -223,6 +226,7 @@ final class FactFingerprintTest extends TestCase
             RefusalFacts::class,
             WorkerRunFacts::class,
             ParentWorkFacts::class,
+            LatestWorkFacts::class,
         ];
     }
 

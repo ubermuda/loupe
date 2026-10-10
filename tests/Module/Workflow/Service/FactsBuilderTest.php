@@ -23,6 +23,7 @@ use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Bridge\ValueObject\WorkSubject;
+use App\Module\Bridge\Workflow\LatestWorkFacts;
 use App\Module\Bridge\Workflow\ParentWorkFacts;
 use App\Module\Bridge\Workflow\RefusalFacts;
 use App\Module\Bridge\Workflow\WorkerRunFacts;
@@ -249,6 +250,7 @@ final class FactsBuilderTest extends KernelTestCase
         self::assertSame([], $facts->pullRequests());
         self::assertSame([], $facts->get(WorkRequestFacts::class)->activeKinds);
         self::assertNull($facts->get(RefusalFacts::class)->code);
+        self::assertEquals(new LatestWorkFacts(null, null, null), $facts->get(LatestWorkFacts::class));
         self::assertSame([], $facts->get(WorkerRunFacts::class)->activeKinds);
         self::assertSame([], $facts->get(ParentWorkFacts::class)->activeKinds);
     }
@@ -331,6 +333,18 @@ final class FactsBuilderTest extends KernelTestCase
 
         $this->workRequest($card, 'design', WorkRequestState::Done, settledAt: '2026-10-02 11:30:00');
         self::assertNull($this->facts($card)->get(RefusalFacts::class)->code);
+    }
+
+    public function test_the_latest_work_is_the_request_of_the_card_created_last_in_any_state(): void
+    {
+        self::bootKernel();
+        $card = $this->card($this->workflowProject('facts-latest-work'), 'in-progress');
+        $this->workRequest($card, 'implement', WorkRequestState::Done, 'nothing-to-build', '2026-10-02 11:00:00', createdAt: '2026-10-02 10:00:00');
+
+        self::assertEquals(new LatestWorkFacts(WorkRequestState::Done, 'implement', 'nothing-to-build'), $this->facts($card)->get(LatestWorkFacts::class));
+
+        $this->workRequest($card, 'implement', WorkRequestState::Cancelled, createdAt: '2026-10-02 10:30:00');
+        self::assertEquals(new LatestWorkFacts(WorkRequestState::Cancelled, 'implement', null), $this->facts($card)->get(LatestWorkFacts::class));
     }
 
     public function test_the_run_facts_give_the_kinds_of_the_open_worker_runs_of_the_card_and_of_its_parent(): void
@@ -860,9 +874,9 @@ final class FactsBuilderTest extends KernelTestCase
         return ($document->id ?? throw new \LogicException('A flushed document has an id.'))->toRfc4122();
     }
 
-    private function workRequest(Card $card, string $kind, WorkRequestState $state, ?string $reason = null, ?string $settledAt = null): void
+    private function workRequest(Card $card, string $kind, WorkRequestState $state, ?string $reason = null, ?string $settledAt = null, string $createdAt = '2026-10-02 09:00:00'): void
     {
-        $request = new WorkRequest($card->project, WorkSubject::CARD, $card->id ?? throw new \LogicException('A flushed card has an id.'), $card->number, $kind, null, 'rule', new \DateTimeImmutable('2026-10-02 09:00:00'));
+        $request = new WorkRequest($card->project, WorkSubject::CARD, $card->id ?? throw new \LogicException('A flushed card has an id.'), $card->number, $kind, null, 'rule', new \DateTimeImmutable($createdAt));
         $request->state = $state;
         $request->reason = $reason;
         $request->settledAt = null === $settledAt ? null : new \DateTimeImmutable($settledAt);

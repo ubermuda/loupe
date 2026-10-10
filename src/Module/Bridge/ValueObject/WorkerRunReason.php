@@ -23,6 +23,8 @@ enum WorkerRunReason: string
     case MergeRefused = 'merge-refused';
     case NeedsPerson = 'needs-person';
     case WorkRemains = 'work-remains';
+    case NothingToBuild = 'nothing-to-build';
+    case DeliveredWithoutCode = 'delivered-without-code';
     case Other = 'other';
 
     /** A newer bridge can send a code this server does not know, and the run keeps it as Other. */

@@ -6550,6 +6550,14 @@
                 <source>bridge.worker_runs.result_reason.work-remains</source>
                 <target>Work remains</target>
             </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_reason.nothing-to-build">
+                <source>bridge.worker_runs.result_reason.nothing-to-build</source>
+                <target>Nothing to build</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_reason.delivered-without-code">
+                <source>bridge.worker_runs.result_reason.delivered-without-code</source>
+                <target>Delivered without code</target>
+            </trans-unit>
             <trans-unit id="bridge.worker_runs.result_reason.other">
                 <source>bridge.worker_runs.result_reason.other</source>
                 <target>Unknown reason</target>
@@ -7834,6 +7842,8 @@
             <trans-unit id="workflow.waiting.not.parent_work_active"><source>workflow.waiting.not.parent_work_active</source><target>Waiting: a matching worker run or work request of the parent card is still open.</target></trans-unit>
             <trans-unit id="workflow.waiting.run_last_refusal"><source>workflow.waiting.run_last_refusal</source><target>Waiting: the last run did not refuse with the code %code%.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.run_last_refusal"><source>workflow.waiting.not.run_last_refusal</source><target>Waiting: the last run refused with the code %code%.</target></trans-unit>
+            <trans-unit id="workflow.waiting.run_finished_with"><source>workflow.waiting.run_finished_with</source><target>Waiting: the last %kind% run did not finish with the reason %reason%.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.run_finished_with"><source>workflow.waiting.not.run_finished_with</source><target>Waiting: the last %kind% run finished with the reason %reason%.</target></trans-unit>
             <trans-unit id="workflow.source.board"><source>workflow.source.board</source><target>Board</target></trans-unit>
             <trans-unit id="workflow.source.forge"><source>workflow.source.forge</source><target>Forge</target></trans-unit>
             <trans-unit id="workflow.source.bridge"><source>workflow.source.bridge</source><target>Bridge</target></trans-unit>

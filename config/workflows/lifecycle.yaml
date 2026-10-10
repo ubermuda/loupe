@@ -114,6 +114,27 @@ rules:
                   - A draft pull request that a separate agent reviews after the push
                   - The agent pushes as its own GitHub account
 
+    # After implement, so a card that comes back opens its new request before these read the latest request.
+    - id: nothing-to-build
+      slot: implementation
+      when:
+          all:
+              - not: { card.type: { type: epic } }
+              - not: { card.pr.linked: {} }
+              - not: { card.run.work_active: {} }
+              - card.run.finished_with: { kind: implement, reason: nothing-to-build }
+      then: { move: { to: '@terminal' } }
+
+    - id: delivered-without-code
+      slot: implementation
+      when:
+          all:
+              - not: { card.type: { type: epic } }
+              - not: { card.pr.linked: {} }
+              - not: { card.run.work_active: {} }
+              - card.run.finished_with: { kind: implement, reason: delivered-without-code }
+      then: { move: { to: '@terminal' } }
+
     - id: breakdown
       slot: implementation
       when: { card.type: { type: epic } }
