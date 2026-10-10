@@ -108,6 +108,22 @@ func TestRetryingCapsRetryAfterAtTheBudget(t *testing.T) {
 	}
 }
 
+func TestRetryingWaitsTheBackoffStepWhenRetryAfterIsZeroOrPast(t *testing.T) {
+	for _, value := range []string{"0", "Mon, 02 Jan 2006 15:04:05 GMT"} {
+		base := &script{statuses: []int{503}, headers: map[string]string{"Retry-After": value}}
+		c := &clock{}
+		r := &Retrying{Base: base, Backoff: []time.Duration{time.Second}, Budget: 3 * time.Second, After: c.after}
+
+		resp, err := r.RoundTrip(newPost(t))
+		if err != nil || resp.StatusCode != 503 {
+			t.Fatalf("Retry-After %q: got %v %v, want the last 503", value, resp, err)
+		}
+		if len(c.waits) != 3 {
+			t.Fatalf("Retry-After %q: waits: got %v, want three steps of 1s", value, c.waits)
+		}
+	}
+}
+
 func TestRetryingSendsAgainOnlyForTheStatusesThatRanNoTool(t *testing.T) {
 	for status, wantCalls := range map[int]int{429: 2, 502: 2, 503: 2, 500: 1, 504: 1, 404: 1, 200: 1} {
 		base := &script{statuses: []int{status, 200}}

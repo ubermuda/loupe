@@ -13,20 +13,21 @@ import (
 // the next call different.
 var ErrCredentialsRefused = errors.New("Loupe refused the credentials")
 
-// defaultBackoff doubles from one second to a cap of thirty, and its sum is the
-// longest a call waits before the agent gets an error for it.
+// defaultBackoff doubles from one second to a cap of thirty. retryBudget, not
+// this list, limits how long a call waits.
 var defaultBackoff = []time.Duration{
 	1 * time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second,
 	16 * time.Second, 30 * time.Second, 30 * time.Second, 30 * time.Second,
 }
 
 // retryBudget is the total wait before Retrying gives the last answer back. It
-// is the sum of defaultBackoff, rounded up to two minutes.
+// cuts the last step of defaultBackoff, whose sum is 121 seconds, by one second.
 const retryBudget = 2 * time.Minute
 
 // Retrying sends a request again when Loupe answers 429, 502 or 503, or when no
-// connection to Loupe opens. It waits for Retry-After, or for the next backoff
-// step when the answer has none.
+// connection to Loupe opens. It waits for the next backoff step, or for
+// Retry-After when that is longer, so a Retry-After of zero still uses up the
+// budget.
 //
 // Those are the answers that arrive before a tool ran: the rate limiter and
 // the load balancer both refuse a request before the application sees it. A
@@ -88,7 +89,7 @@ func (r *Retrying) RoundTrip(req *http.Request) (*http.Response, error) {
 		wait := steps[min(attempt, len(steps)-1)]
 		if resp != nil {
 			if asked, ok := retryAfter(resp); ok {
-				wait = asked
+				wait = max(wait, asked)
 			}
 			resp.Body.Close()
 		}
