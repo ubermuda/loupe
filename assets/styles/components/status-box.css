@@ -1,0 +1,82 @@
+/* The status box: the state of a card with its reason. `templates/components/Ds/StatusBox.html.twig` renders it. */
+@layer components {
+    .lp-status-box {
+        @apply flex flex-col rounded-xl border p-4 text-sm text-ink;
+    }
+    .lp-status-box__head {
+        @apply flex items-center justify-between gap-4;
+    }
+    .lp-status-box__title {
+        @apply font-display text-lg font-extrabold tracking-tight text-ink m-0;
+    }
+    .lp-status-box__chip {
+        @apply ml-0;
+    }
+    .lp-status-box__icon {
+        @apply size-3.5 shrink-0;
+    }
+    .lp-status-box__lead {
+        @apply mt-2 mb-3 font-semibold text-ink;
+    }
+    /* The facts of the state, in the field grid of the card overview. */
+    .lp-status-box__fields {
+        @apply grid grid-cols-2 gap-x-6 gap-y-4 m-0 rounded-xl bg-surface-2 p-4;
+    }
+    .lp-status-box__field {
+        @apply flex flex-col gap-1 min-w-0;
+    }
+    .lp-status-box__field dt {
+        @apply text-xs font-semibold text-fg-mute;
+    }
+    .lp-status-box__field dd {
+        @apply m-0 text-sm font-semibold text-ink;
+    }
+    .lp-status-box__field--wide {
+        @apply col-span-2;
+    }
+    .lp-status-box__field--wide dd {
+        @apply font-normal;
+    }
+    .lp-status-box__since {
+        @apply text-xs text-fg-dim;
+    }
+    .lp-status-box__dot {
+        @apply inline-block rounded-full shrink-0 w-2 h-2 mt-1.5;
+    }
+    .lp-status-box__others {
+        @apply mt-3 flex flex-col gap-2 border-t border-line pt-3;
+    }
+    .lp-status-box__others-title {
+        @apply m-0 text-xs font-semibold text-fg-mute;
+    }
+    .lp-status-box__list {
+        @apply flex flex-col gap-2 m-0 p-0 list-none;
+    }
+    .lp-status-box__other {
+        @apply flex items-start gap-2;
+    }
+    .lp-status-box--stuck {
+        @apply bg-status-danger-bg border-status-danger-border;
+    }
+    .lp-status-box--needs-you {
+        @apply bg-status-pending-bg border-status-pending-border;
+    }
+    .lp-status-box--working {
+        @apply bg-status-active-bg border-status-active;
+    }
+    .lp-status-box--waiting {
+        @apply bg-tint border-line;
+    }
+    .lp-status-box__other--stuck .lp-status-box__dot {
+        @apply bg-status-danger;
+    }
+    .lp-status-box__other--needs-you .lp-status-box__dot {
+        @apply bg-status-pending;
+    }
+    .lp-status-box__other--working .lp-status-box__dot {
+        @apply bg-status-active;
+    }
+    .lp-status-box__other--waiting .lp-status-box__dot {
+        @apply bg-fg-faint;
+    }
+}

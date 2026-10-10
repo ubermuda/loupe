@@ -11,7 +11,9 @@ use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardPullRequestStates;
+use App\Module\Board\Service\CardStates;
 use App\Module\Board\Service\SyncLine;
+use App\Module\Bridge\Service\CardRunWarnings;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Workflow\Contract\CardTypeCatalog;
 use Psr\Clock\ClockInterface;
@@ -28,6 +30,8 @@ final readonly class ShowCardHandler
         private ForgePullRequestRepository $forgePullRequests,
         private ClockInterface $clock,
         private CardTypeCatalog $catalog,
+        private CardStates $cardStates,
+        private CardRunWarnings $runWarnings,
     ) {
     }
 
@@ -43,6 +47,11 @@ final readonly class ShowCardHandler
             );
         }
 
+        $pullRequestStates = $this->pullRequestStates->forCards([$command->card], $this->syncLine($command->card));
+        $id = $command->card->id ?? throw new \LogicException('A stored card has an id.');
+        $cardId = (string) $id;
+        $warning = $this->runWarnings->forCard($command->card->project, $id);
+
         return new CardView(
             $command->card,
             $this->cardSiteReviewComments->findForCard($command->card),
@@ -50,10 +59,11 @@ final readonly class ShowCardHandler
                 static fn (CardLink $link): RelatedCard => new RelatedCard($link->otherThan($command->card), $link->kindFor($command->card)),
                 $this->cardLinks->findForCard($command->card),
             ),
-            $this->pullRequestStates->forCards([$command->card], $this->syncLine($command->card)),
+            $pullRequestStates,
             ($this->history)(new ShowCardHistoryCommand($command->card)),
             $children,
             $progress,
+            $this->cardStates->forCards($command->card->project, [$command->card], $pullRequestStates, null === $warning ? [] : [$cardId => $warning])[$cardId] ?? null,
         );
     }
 

@@ -59,6 +59,7 @@ final class EditBoardAutomationSettingsController extends AppController
                     epicBranchPattern: $data->epicBranchPattern,
                     agentReview: $data->agentReview,
                     agentReviewFailingSeverities: $data->agentReviewFailingSeverities,
+                    stuckDelayMinutes: $data->stuckDelayMinutes ?? throw new \LogicException('stuck delay required after validation'),
                 ));
                 $this->addFlash('success', $this->translator->trans('board.automation.flash.saved'));
 

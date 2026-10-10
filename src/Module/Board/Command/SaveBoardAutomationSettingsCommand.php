@@ -26,6 +26,7 @@ final readonly class SaveBoardAutomationSettingsCommand
         public bool $agentReview = false,
         /** @var list<mixed> checked by the handler, because an MCP caller can send any JSON value */
         public array $agentReviewFailingSeverities = BoardAutomationSettings::DEFAULT_AGENT_REVIEW_FAILING_SEVERITIES,
+        public int $stuckDelayMinutes = BoardAutomationSettings::DEFAULT_STUCK_DELAY_MINUTES,
     ) {
     }
 }

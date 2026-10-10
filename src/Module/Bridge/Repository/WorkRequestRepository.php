@@ -302,6 +302,31 @@ class WorkRequestRepository extends ServiceEntityRepository
             ->getResult());
     }
 
+    /**
+     * The open and claimed requests of the cards, in one query, oldest first.
+     *
+     * @param list<string> $cardIds RFC 4122 ids
+     *
+     * @return list<array{card_id: string, kind: string, created_at: string}>
+     */
+    public function findLiveRowsForCards(array $cardIds): array
+    {
+        if ([] === $cardIds) {
+            return [];
+        }
+
+        /** @var list<array{card_id: string, kind: string, created_at: string}> $rows */
+        $rows = $this->getEntityManager()->getConnection()->executeQuery(
+            "SELECT subject_id AS card_id, kind, created_at FROM work_requests
+             WHERE subject_type = :subject AND subject_id IN (:cards) AND state IN ('open', 'claimed')
+             ORDER BY created_at, id",
+            ['subject' => WorkSubject::CARD, 'cards' => $cardIds],
+            ['cards' => ArrayParameterType::STRING],
+        )->fetchAllAssociative();
+
+        return $rows;
+    }
+
     /** The newest request of the card that the rule opened for the kind, in any state. */
     public function findLatestOfCardKindRule(Uuid $cardId, string $kind, string $ruleId): ?WorkRequest
     {

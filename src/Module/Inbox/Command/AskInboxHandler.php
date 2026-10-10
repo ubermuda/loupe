@@ -14,6 +14,7 @@ use App\Module\Inbox\Entity\InboxReview;
 use App\Module\Inbox\InboxLimits;
 use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Inbox\Service\CardWaitTrigger;
+use App\Module\Inbox\Service\InboxCardTileRefresher;
 use App\Module\Inbox\Service\InboxLinkResolver;
 use App\Module\Inbox\Service\InboxOpenCountPublisher;
 use App\Module\Inbox\Service\InboxRefusal;
@@ -60,6 +61,7 @@ final readonly class AskInboxHandler
         private Auditor $auditor,
         private InboxOpenCountPublisher $openCount,
         private CardWaitTrigger $cardWaits,
+        private InboxCardTileRefresher $cardTiles,
     ) {
     }
 
@@ -148,6 +150,7 @@ final readonly class AskInboxHandler
             throw new DomainErrors([$view->field => $view->key]);
         }
         $this->openCount->countChanged($command->project);
+        $this->cardTiles->refresh(...$view->items);
         $reviewed = [];
         foreach ($drafts as $draft) {
             if ($draft->reviewTarget instanceof Document) {

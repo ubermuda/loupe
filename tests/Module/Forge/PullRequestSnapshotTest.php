@@ -341,7 +341,7 @@ final class PullRequestSnapshotTest extends TestCase
         $pullRequest = $this->pullRequest();
         $pullRequest->apply($this->approved('review1', 'approved1', head: 'pushed1'));
 
-        $pullRequest->settleReadyToMerge(true);
+        $pullRequest->settleReadyToMerge(true, new \DateTimeImmutable('2026-10-01 10:00'));
 
         self::assertTrue($pullRequest->approvalIsStale());
         self::assertFalse($pullRequest->readyToMerge);
@@ -352,11 +352,11 @@ final class PullRequestSnapshotTest extends TestCase
         $pullRequest = $this->pullRequest();
         $pullRequest->apply($this->approved('review1', 'approved1', head: 'approved1'));
 
-        $pullRequest->settleReadyToMerge(true);
+        $pullRequest->settleReadyToMerge(true, new \DateTimeImmutable('2026-10-01 10:00'));
         self::assertFalse($pullRequest->approvalIsStale());
         self::assertTrue($pullRequest->readyToMerge);
 
-        $pullRequest->settleReadyToMerge(false);
+        $pullRequest->settleReadyToMerge(false, new \DateTimeImmutable('2026-10-01 10:00'));
         self::assertFalse($pullRequest->readyToMerge);
     }
 
@@ -365,10 +365,167 @@ final class PullRequestSnapshotTest extends TestCase
         $pullRequest = $this->pullRequest();
         $pullRequest->apply(new PullRequestSnapshot(headSha: 'pushed1'));
 
-        $pullRequest->settleReadyToMerge(true);
+        $pullRequest->settleReadyToMerge(true, new \DateTimeImmutable('2026-10-01 10:00'));
 
         self::assertFalse($pullRequest->approvalIsStale());
         self::assertTrue($pullRequest->readyToMerge);
+    }
+
+    public function test_the_first_ready_read_stamps_the_ready_since_time(): void
+    {
+        $pullRequest = $this->pullRequest();
+        $pullRequest->apply(new PullRequestSnapshot(headSha: 'pushed1', readyToMerge: true));
+        $now = new \DateTimeImmutable('2026-10-01 10:00');
+
+        $pullRequest->settleReadyToMerge(true, $now);
+
+        self::assertEquals($now, $pullRequest->readySince);
+    }
+
+    public function test_a_second_ready_read_keeps_the_first_ready_since_time(): void
+    {
+        $pullRequest = $this->pullRequest();
+        $first = new \DateTimeImmutable('2026-10-01 10:00');
+        $pullRequest->apply(new PullRequestSnapshot(headSha: 'pushed1', readyToMerge: true));
+        $pullRequest->settleReadyToMerge(true, $first);
+
+        $pullRequest->apply(new PullRequestSnapshot(headSha: 'pushed1', readyToMerge: true));
+        $pullRequest->settleReadyToMerge(true, new \DateTimeImmutable('2026-10-01 11:00'));
+
+        self::assertEquals($first, $pullRequest->readySince);
+    }
+
+    public function test_a_read_that_is_not_ready_clears_the_ready_since_time(): void
+    {
+        $pullRequest = $this->pullRequest();
+        $pullRequest->apply(new PullRequestSnapshot(headSha: 'pushed1', readyToMerge: true));
+        $pullRequest->settleReadyToMerge(true, new \DateTimeImmutable('2026-10-01 10:00'));
+
+        $pullRequest->apply(new PullRequestSnapshot(headSha: 'pushed1'));
+        $pullRequest->settleReadyToMerge(false, new \DateTimeImmutable('2026-10-01 11:00'));
+
+        self::assertNull($pullRequest->readySince);
+    }
+
+    public function test_the_first_failed_checks_read_stamps_the_time_and_a_second_keeps_it(): void
+    {
+        $pullRequest = $this->pullRequest();
+        $first = new \DateTimeImmutable('2026-10-01 10:00');
+        $pullRequest->apply(new PullRequestSnapshot(checks: PullRequestChecks::Failed));
+        $pullRequest->settleStartTimes($first);
+
+        $pullRequest->apply(new PullRequestSnapshot(checks: PullRequestChecks::Failed));
+        $pullRequest->settleStartTimes(new \DateTimeImmutable('2026-10-01 11:00'));
+
+        self::assertEquals($first, $pullRequest->checksFailedSince);
+    }
+
+    public function test_passing_checks_clear_the_failed_checks_time(): void
+    {
+        $pullRequest = $this->pullRequest();
+        $pullRequest->apply(new PullRequestSnapshot(checks: PullRequestChecks::Failed));
+        $pullRequest->settleStartTimes(new \DateTimeImmutable('2026-10-01 10:00'));
+
+        $pullRequest->apply(new PullRequestSnapshot(checks: PullRequestChecks::Passed));
+        $pullRequest->settleStartTimes(new \DateTimeImmutable('2026-10-01 11:00'));
+
+        self::assertNull($pullRequest->checksFailedSince);
+    }
+
+    public function test_a_conflict_stamps_the_time_and_a_clean_read_clears_it(): void
+    {
+        $pullRequest = $this->pullRequest();
+        $at = new \DateTimeImmutable('2026-10-01 10:00');
+        $pullRequest->apply(new PullRequestSnapshot(mergeability: PullRequestMergeability::Conflicting));
+        $pullRequest->settleStartTimes($at);
+        self::assertEquals($at, $pullRequest->conflictingSince);
+
+        $pullRequest->apply(new PullRequestSnapshot(mergeability: PullRequestMergeability::Mergeable));
+        $pullRequest->settleStartTimes(new \DateTimeImmutable('2026-10-01 11:00'));
+
+        self::assertNull($pullRequest->conflictingSince);
+    }
+
+    public function test_a_closed_pull_request_keeps_no_problem_time(): void
+    {
+        $pullRequest = $this->pullRequest();
+        $pullRequest->apply(new PullRequestSnapshot(checks: PullRequestChecks::Failed, mergeability: PullRequestMergeability::Conflicting));
+        $pullRequest->settleStartTimes(new \DateTimeImmutable('2026-10-01 10:00'));
+
+        $pullRequest->apply(new PullRequestSnapshot(state: PullRequestState::Merged, checks: PullRequestChecks::Failed, mergeability: PullRequestMergeability::Conflicting));
+        $pullRequest->settleStartTimes(new \DateTimeImmutable('2026-10-01 11:00'));
+
+        self::assertNull($pullRequest->checksFailedSince);
+        self::assertNull($pullRequest->conflictingSince);
+    }
+
+    public function test_a_green_pull_request_on_the_default_branch_with_no_approval_stamps_the_waits_for_approval_time(): void
+    {
+        $pullRequest = $this->pullRequest();
+        $at = new \DateTimeImmutable('2026-10-01 10:00');
+        $pullRequest->apply(new PullRequestSnapshot(headSha: 'head1', baseBranch: 'main', checks: PullRequestChecks::Passed, defaultBranch: 'main'));
+
+        $pullRequest->settleStartTimes($at);
+        $pullRequest->settleStartTimes(new \DateTimeImmutable('2026-10-01 11:00'));
+
+        self::assertEquals($at, $pullRequest->waitsForApprovalSince);
+    }
+
+    public function test_an_approval_that_covers_the_head_clears_the_waits_for_approval_time(): void
+    {
+        $pullRequest = $this->pullRequest();
+        $pullRequest->apply(new PullRequestSnapshot(headSha: 'head1', baseBranch: 'main', checks: PullRequestChecks::Passed, defaultBranch: 'main'));
+        $pullRequest->settleStartTimes(new \DateTimeImmutable('2026-10-01 10:00'));
+
+        $pullRequest->apply(new PullRequestSnapshot(headSha: 'head1', baseBranch: 'main', checks: PullRequestChecks::Passed, review: PullRequestReview::Approved, approvalSha: 'head1', defaultBranch: 'main', approvalId: 'review1'));
+        $pullRequest->settleStartTimes(new \DateTimeImmutable('2026-10-01 11:00'));
+
+        self::assertNull($pullRequest->waitsForApprovalSince);
+    }
+
+    public function test_a_stale_approval_still_waits_for_approval(): void
+    {
+        $pullRequest = $this->pullRequest();
+        $pullRequest->apply(new PullRequestSnapshot(headSha: 'pushed1', baseBranch: 'main', checks: PullRequestChecks::Passed, review: PullRequestReview::Approved, approvalSha: 'approved1', defaultBranch: 'main', approvalId: 'review1'));
+        $at = new \DateTimeImmutable('2026-10-01 10:00');
+
+        $pullRequest->settleStartTimes($at);
+
+        self::assertEquals($at, $pullRequest->waitsForApprovalSince);
+    }
+
+    /** @return iterable<string, array{PullRequestSnapshot}> */
+    public static function snapshotsThatDoNotWaitForApproval(): iterable
+    {
+        $green = ['headSha' => 'head1', 'baseBranch' => 'main', 'defaultBranch' => 'main', 'checks' => PullRequestChecks::Passed];
+
+        yield 'a draft' => [new PullRequestSnapshot(...[...$green, 'draft' => true])];
+        yield 'pending checks' => [new PullRequestSnapshot(...[...$green, 'checks' => PullRequestChecks::Pending])];
+        yield 'a base that is not the default branch' => [new PullRequestSnapshot(...[...$green, 'baseBranch' => 'epic/1'])];
+        yield 'an unknown default branch' => [new PullRequestSnapshot(...[...$green, 'defaultBranch' => null])];
+        yield 'a merged pull request' => [new PullRequestSnapshot(...[...$green, 'state' => PullRequestState::Merged])];
+    }
+
+    #[DataProvider('snapshotsThatDoNotWaitForApproval')]
+    public function test_other_pull_requests_do_not_wait_for_approval(PullRequestSnapshot $snapshot): void
+    {
+        $pullRequest = $this->pullRequest();
+        $pullRequest->apply($snapshot);
+
+        $pullRequest->settleStartTimes(new \DateTimeImmutable('2026-10-01 10:00'));
+
+        self::assertNull($pullRequest->waitsForApprovalSince);
+    }
+
+    public function test_a_stale_approval_leaves_the_ready_since_time_empty_when_the_forge_says_ready(): void
+    {
+        $pullRequest = $this->pullRequest();
+        $pullRequest->apply($this->approved('review1', 'approved1', head: 'pushed1'));
+
+        $pullRequest->settleReadyToMerge(true, new \DateTimeImmutable('2026-10-01 10:00'));
+
+        self::assertFalse($pullRequest->readyToMerge);
+        self::assertNull($pullRequest->readySince);
     }
 
     public function test_a_read_of_the_same_open_head_keeps_the_merge_marker(): void
@@ -486,6 +643,7 @@ final class PullRequestSnapshotTest extends TestCase
         yield 'ready' => [['readyToMerge' => false]];
         yield 'changes requested sha' => [['changesRequestedSha' => 'fed9876']];
         yield 'numeric-looking changes requested sha' => [['changesRequestedSha' => '1e3']];
+        yield 'default branch' => [['defaultBranch' => 'trunk']];
     }
 
     #[DataProvider('checkReads')]

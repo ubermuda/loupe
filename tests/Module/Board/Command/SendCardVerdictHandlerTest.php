@@ -181,6 +181,34 @@ final class SendCardVerdictHandlerTest extends KernelTestCase
         $this->assertNothingStored();
     }
 
+    #[DataProvider('emptyMessages')]
+    public function test_an_addressed_note_alone_does_not_stand_in_for_the_message(CardVerdictKind $kind, string $message): void
+    {
+        $card = $this->card($this->project);
+        $this->note($card, 'Already fixed.', SiteReviewCommentStatus::Addressed);
+        $this->em->flush();
+
+        $this->assertRefused('message', SendCardVerdictHandler::MESSAGE_REQUIRED, $card, $kind, [], $message);
+        $this->assertNothingStored();
+    }
+
+    #[DataProvider('emptyMessages')]
+    public function test_a_pending_note_stands_in_for_the_message(CardVerdictKind $kind, string $message): void
+    {
+        $card = $this->card($this->project);
+        $note = $this->note($card, 'The footer overlaps the launcher.');
+        $this->em->flush();
+
+        $verdict = $this->send($card, $kind, [], $message);
+
+        $this->em->clear();
+        $stored = $this->em->find(CardVerdict::class, $verdict->id);
+        self::assertInstanceOf(CardVerdict::class, $stored);
+        self::assertSame($kind, $stored->kind);
+        self::assertSame('', $stored->message);
+        self::assertSame([(string) $note->id], array_column($stored->notes, 'id'));
+    }
+
     public function test_it_refuses_a_pull_request_that_is_not_an_open_pull_request_of_the_card(): void
     {
         $card = $this->card($this->project);

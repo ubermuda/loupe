@@ -37,6 +37,7 @@ final readonly class InboxItemCloser
         private InboxItemRepository $inboxItems,
         private InboxAskCloser $askCloser,
         private InboxOpenCountPublisher $openCount,
+        private InboxCardTileRefresher $cardTiles,
     ) {
     }
 
@@ -100,6 +101,7 @@ final readonly class InboxItemCloser
         }
         if ($outcome) {
             $this->openCount->countChanged($item->project);
+            $this->cardTiles->refresh($item);
         }
     }
 

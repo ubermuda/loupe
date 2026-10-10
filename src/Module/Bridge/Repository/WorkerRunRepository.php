@@ -431,6 +431,37 @@ class WorkerRunRepository extends ServiceEntityRepository
     }
 
     /**
+     * The open runs of the cards, of either kind, in one query, oldest first. A run that has not started counts from the time the server received it.
+     *
+     * @param list<string> $cardIds RFC 4122 ids
+     *
+     * @return list<array{card_id: string, work_kind: ?string, since: string}>
+     */
+    public function findOpenRowsForCards(Project $project, array $cardIds): array
+    {
+        if ([] === $cardIds) {
+            return [];
+        }
+
+        /** @var list<array{card_id: string, work_kind: ?string, since: string}> $rows */
+        $rows = $this->getEntityManager()->getConnection()->executeQuery(
+            'SELECT r.subject_id AS card_id, r.work_kind, COALESCE(r.started_at, r.received_at) AS since
+             FROM bridge_worker_runs r
+             WHERE r.project_id = :project AND r.subject_type = :subject AND r.subject_id IN (:cards) AND r.state IN (:open)
+             ORDER BY COALESCE(r.started_at, r.received_at), r.id',
+            [
+                'project' => (string) ($project->id ?? throw new \LogicException('Project has no id.')),
+                'subject' => WorkSubject::CARD,
+                'cards' => $cardIds,
+                'open' => array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::openStates()),
+            ],
+            ['cards' => ArrayParameterType::STRING, 'open' => ArrayParameterType::STRING],
+        )->fetchAllAssociative();
+
+        return $rows;
+    }
+
+    /**
      * The cards among $cardIds that have an open run, of either kind.
      *
      * @param list<Uuid> $cardIds
@@ -991,7 +1022,7 @@ class WorkerRunRepository extends ServiceEntityRepository
      * replaced or skipped run never ran, and hides nothing. In the same second,
      * the insertion order of the state changes decides.
      *
-     * @return list<array{id: string, card_id: string, state: string, output: string}>
+     * @return list<array{id: string, card_id: string, state: string, output: string, closed_at: string}>
      */
     public function findWarningRowsOfProject(Project $project): array
     {
@@ -1001,7 +1032,7 @@ class WorkerRunRepository extends ServiceEntityRepository
     /**
      * The warning of one card, by the rule of {@see findWarningRowsOfProject()}.
      *
-     * @return array{id: string, card_id: string, state: string, output: string}|null
+     * @return array{id: string, card_id: string, state: string, output: string, closed_at: string}|null
      */
     public function findWarningRowOfCard(Project $project, Uuid $cardId): ?array
     {
@@ -1046,7 +1077,7 @@ class WorkerRunRepository extends ServiceEntityRepository
         return $rows;
     }
 
-    /** @return list<array{id: string, card_id: string, state: string, output: string}> */
+    /** @return list<array{id: string, card_id: string, state: string, output: string, closed_at: string}> */
     private function findWarningRows(Project $project, ?Uuid $cardId): array
     {
         $outcomes = array_values(array_map(
@@ -1070,10 +1101,10 @@ class WorkerRunRepository extends ServiceEntityRepository
 
         // A late report can record an outcome the run does not hold, so the
         // close is the latest change to the run's own state.
-        /** @var list<array{id: string, card_id: string, state: string, output: string}> $rows */
+        /** @var list<array{id: string, card_id: string, state: string, output: string, closed_at: string}> $rows */
         $rows = $this->getEntityManager()->getConnection()->executeQuery(
             <<<SQL
-                SELECT latest.id, latest.card_id, latest.state, latest.output
+                SELECT latest.id, latest.card_id, latest.state, latest.output, latest.closed_at
                 FROM (
                     SELECT DISTINCT ON (r.subject_id) r.id, r.subject_id AS card_id, r.state, r.output,
                         COALESCE(closed.received_at, r.received_at) AS closed_at, closed.sequence AS closed_sequence

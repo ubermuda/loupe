@@ -22,11 +22,11 @@
             {% if placement.laneHead %}
                 {% include '@Board/_board_lane_head.html.twig' with {epic: card, progress: placement.progress, deck: placement.deck} only %}
             {% else %}
-                {% include '@Board/_card.html.twig' with {card: card, pendingComments: placement.pendingComments, documentCount: placement.documentCount, progress: placement.progress, inLane: placement.lane not in [null, 'other'], runWarning: runWarning, badges: placement.badges} only %}
+                {% include '@Board/_card.html.twig' with {card: card, pendingComments: placement.pendingComments, documentCount: placement.documentCount, progress: placement.progress, inLane: placement.lane not in [null, 'other'], runWarning: runWarning, badges: placement.badges, state: placement.state} only %}
             {% endif %}
             {# The list view draws no Backlog row, so a lane epic there sends none. #}
             {% if not placement.column.backlog %}
-                {% include '@Board/_card_row.html.twig' with {card: card, column: placement.column, feedbackCount: placement.pendingComments, documentCount: placement.documentCount, progress: placement.progress, runWarning: runWarning, badges: placement.badges} only %}
+                {% include '@Board/_card_row.html.twig' with {card: card, column: placement.column, feedbackCount: placement.pendingComments, documentCount: placement.documentCount, progress: placement.progress, runWarning: runWarning, badges: placement.badges, state: placement.state} only %}
             {% endif %}
         {% endif %}
     </template>

@@ -67,6 +67,7 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         self::assertSame(['important'], $this->checkedSeverities($form));
         self::assertCount(3, $form->filter('input[name="'.self::FORM.'[agentReviewFailingSeverities][]"]'));
         self::assertSame('epic/{number}', $form->filter('input[name="'.self::FORM.'[epicBranchPattern]"]')->attr('value'));
+        self::assertSame('15', $form->filter('input[name="'.self::FORM.'[stuckDelayMinutes]"]')->attr('value'));
         self::assertSelectorTextContains('[data-board-automation-settings]', 'Contents: read and write');
         self::assertSelectorNotExists('[data-fix-run-comment-failure]');
         self::assertNull($this->stored($project));
@@ -104,6 +105,7 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         $agentReview->tick();
         $this->severityField($submit, 1)->tick();
         $submit[self::FORM.'[epicBranchPattern]'] = 'feature/epic-{number}';
+        $submit[self::FORM.'[stuckDelayMinutes]'] = '25';
         $this->client->submit($submit);
 
         $url = '/projects/'.$project->id.'/settings/automation';
@@ -127,6 +129,7 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         self::assertFalse($settings->closeEpicPullRequests);
         self::assertTrue($settings->openEpicPullRequests);
         self::assertSame('feature/epic-{number}', $settings->epicBranchPattern);
+        self::assertSame(25, $settings->stuckDelayMinutes);
 
         $form = $this->page($project)->filter('form[name="'.self::FORM.'"]');
         self::assertCount(0, $form->filter('input[name="'.self::FORM.'[enabled]"]:checked'));
@@ -166,6 +169,27 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(422);
         self::assertSelectorTextContains('[data-field-errors="agentReviewFailingSeverities"]', 'at least one severity');
+        self::assertNull($this->stored($project));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function invalidStuckDelays(): iterable
+    {
+        yield 'empty' => [''];
+        yield 'zero' => ['0'];
+        yield 'over a day' => ['1441'];
+    }
+
+    #[DataProvider('invalidStuckDelays')]
+    public function test_a_stuck_delay_out_of_range_is_refused_with_a_field_error(string $delay): void
+    {
+        $project = $this->ownedProject('automation-bad-delay-'.md5($delay).'@example.com');
+        $submit = $this->page($project)->filter('form[name="'.self::FORM.'"]')->form();
+        $submit[self::FORM.'[stuckDelayMinutes]'] = $delay;
+        $this->client->submit($submit);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorExists('[data-field-errors="stuckDelayMinutes"]');
         self::assertNull($this->stored($project));
     }
 

@@ -3284,8 +3284,10 @@
         verdictActions(data, kind).some(
             (action) => action.code === VERDICT_CONNECT_WRITE,
         );
-    const verdictCanSend = ({ kind, message, ticked, sending }) =>
-        !sending && ticked > 0 && (kind === 'approve' || message.trim() !== '');
+    const verdictCanSend = ({ kind, noteCount, message, ticked, sending }) =>
+        !sending &&
+        ticked > 0 &&
+        (kind === 'approve' || noteCount > 0 || message.trim() !== '');
     const notesOpenText = (kind, count) => {
         const one = count === 1;
         if (kind === 'approve') {
@@ -3422,7 +3424,11 @@
                     'The verdict was not sent. Try again.';
             }
             sync();
-            if (error.code === 'pull_request_not_on_card') loadVerdict();
+            if (
+                error.code === 'pull_request_not_on_card' ||
+                error.code === 'message_required'
+            )
+                loadVerdict();
             return;
         }
         if (verdict.cardId !== cardId) return;
@@ -3528,7 +3534,9 @@
           ${own ? '<div class="lp-verdict-warn">You opened this pull request, so GitHub accepts no verdict from you. The review goes as a comment.</div>' : ''}
           ${notes}
           <textarea class="lp-textarea" id="lp-verdict-message" aria-label="Message" placeholder="${
-              kind === 'approve' ? 'Message (optional)' : 'Message'
+              kind === 'approve' || data.notes.length > 0
+                  ? 'Message (optional)'
+                  : 'Message'
           }"></textarea>
           ${does}
           ${verdict.error ? `<div class="lp-verdict-error" role="alert">${escapeHtml(verdict.error)}</div>` : ''}

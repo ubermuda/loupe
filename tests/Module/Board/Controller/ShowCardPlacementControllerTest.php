@@ -235,7 +235,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         self::assertCount(1, $crawler->filter('#board-history-'.$this->column($project, 'done')->id));
     }
 
-    public function test_the_placed_card_keeps_the_warning_of_a_run_that_gave_up(): void
+    public function test_the_placed_card_shows_a_stuck_mark_for_a_run_that_gave_up(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -245,7 +245,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $this->addTriageColumn($project);
         $em->flush();
         $card = $this->card($em, $project, 'Stuck', 'next');
-        $run = $this->gaveUp($em, $card);
+        $this->gaveUp($em, $card);
         $url = $this->placementUrl((string) $project->id, (string) $card->id);
         $em->clear();
 
@@ -253,7 +253,9 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, $url);
 
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString('data-card-run-warning="'.$run->id.'"', (string) $client->getResponse()->getContent());
+        $content = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('lp-state-mark--stuck', $content);
+        self::assertStringNotContainsString('data-card-run-warning', $content);
     }
 
     public function test_an_outsider_is_refused(): void
@@ -478,7 +480,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $em->flush();
         $this->childOf($em, $epic, $this->card($em, $project, 'Open child'));
         $this->childOf($em, $epic, $this->card($em, $project, 'Done child', 'done'));
-        $run = $this->gaveUp($em, $epic);
+        $this->gaveUp($em, $epic);
         $em->clear();
 
         $client->loginUser($owner);
@@ -486,7 +488,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         $content = (string) $client->getResponse()->getContent();
         self::assertMatchesRegularExpression('#data-card-progress>\s*1/2 done\s*<#', $content);
-        self::assertStringContainsString('data-card-run-warning="'.$run->id.'"', $content);
+        self::assertStringContainsString('lp-state-mark--stuck', $content);
         self::assertSame($this->pageDigest($client, $epic), $stream);
     }
 

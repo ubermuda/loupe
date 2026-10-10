@@ -34,7 +34,7 @@
                  data-rankable="{{ view.column.terminal ? '0' : '1' }}">
                 {% if withCards ?? true %}
                 {% for card in cards %}
-                    {% include '@Board/_card.html.twig' with {card: card, pendingComments: board.pendingComments[card.id ~ '']|default(0), documentCount: board.documentCounts[card.id ~ '']|default(0), progress: board.progress[card.id ~ '']|default(null), inLane: epic is not null, runWarning: runWarnings[card.id ~ '']|default(null), badges: board.badges[card.id ~ '']|default([])} only %}
+                    {% include '@Board/_card.html.twig' with {card: card, pendingComments: board.pendingComments[card.id ~ '']|default(0), documentCount: board.documentCounts[card.id ~ '']|default(0), progress: board.progress[card.id ~ '']|default(null), inLane: epic is not null, runWarning: runWarnings[card.id ~ '']|default(null), badges: board.badges[card.id ~ '']|default([]), state: board.states[card.id ~ '']|default(null)} only %}
                 {% endfor %}
                 {% endif %}
             </div>
