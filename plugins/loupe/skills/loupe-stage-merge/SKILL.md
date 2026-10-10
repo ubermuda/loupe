@@ -41,7 +41,7 @@ An epic child merges with no approval, because the epic pull request carries the
 
 ### Update
 
-This step serves a project with the board automation setting "Sync an approved pull request that is behind" off. With it on, Loupe updates the branch itself, and the workflow asks for no sync work.
+This step serves a project that has no GitHub App writer. With one, the sync rule updates the branch itself, and the workflow asks for no sync work.
 
 An epic pull request updates as any other pull request. The update merges the base into the epic branch.
 

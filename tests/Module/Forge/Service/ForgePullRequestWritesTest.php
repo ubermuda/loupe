@@ -10,10 +10,13 @@ use App\Module\Forge\PullRequestSnapshot;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Forge\Service\ForgePullRequestWrites;
 use App\Module\Forge\Service\PullRequestBaseChangers;
+use App\Module\Forge\Service\PullRequestBranchUpdaters;
 use App\Module\Forge\Service\PullRequestMergers;
+use App\Module\Forge\Service\PullRequestSyncFailed;
 use App\Module\Forge\Service\PullRequestWriteFailed;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Forge\FakePullRequestBaseChanger;
+use App\Tests\Module\Forge\FakePullRequestBranchUpdater;
 use App\Tests\Module\Forge\FakePullRequestMerger;
 use App\Tests\Module\Forge\FakePullRequestStateReader;
 use Doctrine\ORM\EntityManagerInterface;
@@ -27,6 +30,7 @@ final class ForgePullRequestWritesTest extends KernelTestCase
     private EntityManagerInterface $em;
     private FakePullRequestMerger $merger;
     private FakePullRequestBaseChanger $changer;
+    private FakePullRequestBranchUpdater $updater;
     private ForgePullRequestWrites $writes;
 
     protected function setUp(): void
@@ -42,9 +46,11 @@ final class ForgePullRequestWritesTest extends KernelTestCase
 
         $this->merger = new FakePullRequestMerger();
         $this->changer = new FakePullRequestBaseChanger();
+        $this->updater = new FakePullRequestBranchUpdater();
         $this->writes = new ForgePullRequestWrites(
             new PullRequestMergers([$this->merger]),
             new PullRequestBaseChangers([$this->changer]),
+            new PullRequestBranchUpdaters([$this->updater]),
             $forgePullRequests,
             $em,
             new MockClock(self::NOW),
@@ -322,6 +328,144 @@ final class ForgePullRequestWritesTest extends KernelTestCase
         self::assertSame([null, null], $this->storedBase($row));
     }
 
+    public function test_a_branch_update_marks_the_head_then_asks_the_forge_outside_the_transaction(): void
+    {
+        $row = $this->row();
+        $level = $this->em->getConnection()->getTransactionNestingLevel();
+        $seen = null;
+        $this->updater->duringUpdate = function () use ($row, &$seen): void {
+            $seen = [$this->em->getConnection()->getTransactionNestingLevel(), $this->storedSync($row)];
+        };
+
+        $this->writes->updateBranch($row);
+
+        self::assertCount(1, $this->updater->updates);
+        self::assertSame('head1', $this->updater->updates[0][1]);
+        self::assertSame([$level, ['head1', self::NOW]], $seen);
+        self::assertSame(['head1', self::NOW], $this->storedSync($row));
+    }
+
+    public function test_a_branch_update_while_another_is_in_flight_fails_and_keeps_its_marker(): void
+    {
+        $row = $this->row();
+        $this->writes->updateBranch($row);
+        $this->updater->failure = new PullRequestSyncFailed('permission', permanent: true);
+
+        $failure = $this->failure(fn () => $this->writes->updateBranch($row));
+
+        self::assertSame('in_flight', $failure->cause);
+        self::assertFalse($failure->permanent);
+        self::assertCount(1, $this->updater->updates);
+        self::assertSame(['head1', self::NOW], $this->storedSync($row));
+    }
+
+    public function test_a_sync_marker_past_its_lifetime_is_replaced_and_the_update_runs(): void
+    {
+        $row = $this->row();
+        $row->syncFromSha = 'head0';
+        $row->syncRequestedAt = new \DateTimeImmutable(self::NOW)->modify(\sprintf('-%d seconds', ForgePullRequestWrites::MARKER_LIFETIME_SECONDS + 1));
+        $this->em->flush();
+
+        $this->writes->updateBranch($row);
+
+        self::assertCount(1, $this->updater->updates);
+        self::assertSame(['head1', self::NOW], $this->storedSync($row));
+    }
+
+    public function test_a_permanent_branch_update_failure_clears_its_marker_and_rethrows(): void
+    {
+        $row = $this->row();
+        $failure = new PullRequestSyncFailed('merge_conflict', permanent: true);
+        $this->updater->failure = $failure;
+
+        self::assertSame($failure, $this->syncFailure(fn () => $this->writes->updateBranch($row)));
+        self::assertSame([null, null], $this->storedSync($row));
+    }
+
+    public function test_a_transient_branch_update_failure_keeps_the_marker_and_rethrows(): void
+    {
+        $row = $this->row();
+        $failure = new PullRequestSyncFailed('api_failed_http_status_502', permanent: false);
+        $this->updater->failure = $failure;
+
+        self::assertSame($failure, $this->syncFailure(fn () => $this->writes->updateBranch($row)));
+        self::assertSame(['head1', self::NOW], $this->storedSync($row));
+    }
+
+    public function test_a_failed_branch_update_keeps_a_marker_that_another_request_set(): void
+    {
+        $row = $this->row();
+        $this->updater->failure = new PullRequestSyncFailed('head_moved', permanent: true);
+        $this->updater->duringUpdate = function () use ($row): void {
+            $this->em->wrapInTransaction(function () use ($row): void {
+                $this->locked($row)->syncFromSha = 'head2';
+            });
+        };
+
+        $this->syncFailure(fn () => $this->writes->updateBranch($row));
+
+        self::assertSame('head2', $this->storedSync($row)[0]);
+    }
+
+    public function test_a_branch_update_with_no_updater_for_the_forge_fails_and_marks_nothing(): void
+    {
+        $row = $this->row(forge: 'gitlab');
+
+        $failure = $this->failure(fn () => $this->writes->updateBranch($row));
+
+        self::assertSame('no_writer', $failure->cause);
+        self::assertTrue($failure->permanent);
+        self::assertSame([null, null], $this->storedSync($row));
+    }
+
+    public function test_a_branch_update_with_no_known_head_fails_and_asks_nothing(): void
+    {
+        $row = $this->row(head: null);
+
+        $failure = $this->failure(fn () => $this->writes->updateBranch($row));
+
+        self::assertSame('no_head', $failure->cause);
+        self::assertSame([], $this->updater->updates);
+        self::assertSame([null, null], $this->storedSync($row));
+    }
+
+    public function test_a_branch_update_of_a_row_that_is_gone_fails_and_asks_nothing(): void
+    {
+        $row = $this->row();
+        $this->deleteBehind($row);
+
+        $failure = $this->failure(fn () => $this->writes->updateBranch($row));
+
+        self::assertSame('not_found', $failure->cause);
+        self::assertSame([], $this->updater->updates);
+    }
+
+    public function test_the_merge_commit_of_a_branch_update_keeps_the_approval_coverage(): void
+    {
+        $row = $this->row();
+        $row->apply(new PullRequestSnapshot(headSha: 'head1', baseBranch: 'epic/1', approvalSha: 'head1', approvalId: 'review1'));
+        $this->em->flush();
+        self::assertSame('head1', $row->coveredSha);
+
+        $this->writes->updateBranch($row);
+        $row->apply(new PullRequestSnapshot(headSha: 'merge1', baseBranch: 'epic/1', approvalSha: 'head1', headParents: ['head1', 'base1'], approvalId: 'review1'));
+
+        self::assertSame('merge1', $row->coveredSha);
+        self::assertSame('merge1', $row->syncedSha);
+        self::assertNull($row->syncFromSha);
+    }
+
+    private function syncFailure(\Closure $call): PullRequestSyncFailed
+    {
+        try {
+            $call();
+        } catch (PullRequestSyncFailed $e) {
+            return $e;
+        }
+
+        self::fail('Expected PullRequestSyncFailed.');
+    }
+
     private function failure(\Closure $call): PullRequestWriteFailed
     {
         try {
@@ -391,5 +535,14 @@ final class ForgePullRequestWritesTest extends KernelTestCase
         self::assertIsArray($stored);
 
         return [$stored['base_change_requested_to'], $stored['base_change_requested_at']];
+    }
+
+    /** @return array{?string, ?string} the sync marker and its time, as the database holds them */
+    private function storedSync(ForgePullRequest $row): array
+    {
+        $stored = $this->em->getConnection()->fetchAssociative('SELECT sync_from_sha, sync_requested_at FROM forge_pull_requests WHERE id = ?', [$row->id?->toRfc4122()]);
+        self::assertIsArray($stored);
+
+        return [$stored['sync_from_sha'], $stored['sync_requested_at']];
     }
 }

@@ -141,11 +141,11 @@ it. An agent ends a pause with the `card_pause_release` MCP tool.
 ## Writes to GitHub
 
 A rule can write to a pull request: merge it, update its branch, change its
-base, open an epic pull request, switch it between draft and ready, or close
-it. Each
-write is off until the owner turns it on, on the **Automation** tab. With a
-write off, the rule asks a bridge for the same work instead. See
-[Automation](board.md#automation).
+base, open an epic pull request, switch it between draft and ready, close it,
+or post a comment on it. The rule
+alone decides each write, and the write happens when the rule fires. When the
+project has no GitHub App installation, the rule asks a bridge for the same work
+instead. See [Automation](board.md#automation).
 
 Two more writes come from the [rules the app adds](#rules-the-app-adds). They
 act on a site-review verdict, and they never ask a bridge for work:
@@ -157,12 +157,6 @@ act on a site-review verdict, and they never ask a bridge for work:
 
 A review that the reviewer sends on their own pull request becomes a comment,
 because GitHub refuses a review from the author of a pull request.
-
-With its opt-in off, a write still settles its rows. A verdict is then stored,
-marked as not sent, and a later verdict starts a new write. The review write
-marks the delivery as skipped. The check write records what it would have
-posted. Turning an opt-in on later posts nothing for a verdict that was settled
-before.
 
 ## The Lifecycle template
 
@@ -226,6 +220,14 @@ Some rules act from any slot:
    worktree on the bridge.
 8. A child that reaches a terminal column with a pull request merged into its
    epic branch asks for an epic preview refresh.
+9. A fix run that a bridge queues gets one comment on its pull request. The
+   rule is `comment-fix-run`, with the condition `card.fix_run.uncommented`
+   and the write `comment` with `comment: fix-run`. The comment shows the round
+   out of the `limit` of the fix rule. See [Automation](board.md#automation).
+10. A pull request whose approval does not cover its newest commit gets one
+    comment for each such commit. The rule is `comment-stale-approval`, with
+    the condition `card.pr.approval_stale` and the write `comment` with
+    `comment: stale-approval`.
 
 An epic follows its children. An epic whose children all finished moves to In
 review when it has a pull request, and to the terminal column when it has none.
@@ -359,9 +361,9 @@ A rule that asks for work names its kind. A bridge runs a kind only when its
 | `implement` | The implementation and its pull request |
 | `breakdown` | The child cards of an epic |
 | `fix` | A fix of a failed check, a conflict or a request for changes |
-| `rebase-stacked` | A new base for a stacked pull request, with the change base write off |
-| `sync` | An update of a branch that is behind, with the sync write off |
-| `merge` | A merge, with the merge write off |
+| `rebase-stacked` | A new base for a stacked pull request, when the project has no GitHub App installation |
+| `sync` | An update of a branch that is behind, when the project has no GitHub App installation |
+| `merge` | A merge, when the project has no GitHub App installation |
 | `teardown` | The removal of the card's worktree |
 | `epic-preview` | A refresh of the epic preview after a child merges into the epic branch |
 | `repair` | A repair of the cause after the work of a rule failed and its retries ran out |

@@ -142,13 +142,6 @@ final class AnnounceStuckPullRequestsHandlerTest extends KernelTestCase
         $save(new SaveBoardAutomationSettingsCommand(
             project: $project,
             enabled: true,
-            commentOnFixQueued: false,
-            commentOnStaleApproval: false,
-            syncBehind: false,
-            mergePullRequests: false,
-            changeBase: false,
-            postWidgetReviews: false,
-            siteReviewCheck: false,
             stuckDelayMinutes: 60,
         ));
 

@@ -22,13 +22,9 @@ final readonly class BoardAutomation
     ) {
     }
 
-    /** Answers null while the setting is off, or when a later comment posted. */
+    /** Answers null when a later comment posted. */
     public function newestFailedComment(Project $project): ?PullRequestComment
     {
-        if (!$this->settingsOf($project)->commentOnFixQueued) {
-            return null;
-        }
-
         $comment = $this->pullRequestComments->findNewestSettled($project);
 
         return PullRequestCommentState::Failed === $comment?->state ? $comment : null;

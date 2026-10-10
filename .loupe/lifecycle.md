@@ -69,11 +69,11 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 
 ## Epics
 
-1. The epic branch of epic card `<n>` is `epic/<n>`. The breakdown pushes it from `origin/main`. The board automation setting "Epic branch pattern" must be `epic/{number}`. Otherwise the app does not know the epic branch, and no child merges into it.
+1. The epic branch of epic card `<n>` is `epic/<n>`. The breakdown pushes it from `origin/main`. The `epicBranch` value of the workflow template of the project must be `epic/{number}`. Otherwise the app does not know the epic branch, and no child merges into it.
 2. A child of an epic whose `epic/<n>` branch exists cuts its worktree from `origin/epic/<n>`, and its pull request targets `epic/<n>`. An epic with no such branch keeps the flow of `main` for its children.
 3. A child merges into `epic/<n>` with `squash` and no approval, once its required checks pass.
 4. No ruleset covers `refs/heads/epic/*`. The merge stage checks a child by name against the required checks of `main`. The epic pull request syncs by a merge of `main`, through `gh pr update-branch` or the app sync. A fix round pushes to `epic/<n>` directly. Nothing force-pushes `epic/<n>`.
-5. The epic pull request goes from `epic/<n>` to `main`, and merges as the `Merge` section says. The app opens it as a draft after the first child merge, when the board automation setting "Open the epic pull request" is on. After each child merge, an `epic-preview` work request asks the merge stage to refresh the epic preview.
+5. The epic pull request goes from `epic/<n>` to `main`, and merges as the `Merge` section says. The app opens it as a draft after the first child merge, through the `epic-open-pull-request` rule of the workflow. After each child merge, an `epic-preview` work request asks the merge stage to refresh the epic preview.
 6. The epic preview is the worktree `.worktrees/epic-<n>`, detached at `origin/epic/<n>`. It serves `https://epic-<n>.loupe.dev.localhost`. Run its commands from the main checkout, and wrap a command that needs the preview as its working directory in a subshell: `( cd .worktrees/epic-<n> && <command> )`. Never commit in it. The `teardown` rule removes it when the epic card reaches `done`.
 7. `<epicId>` is the `parent.cardId` of the merged child in `card_get`. Never derive it from a branch name, a worktree name or a card number.
 8. Create the epic preview when `git worktree list --porcelain` has no line `worktree <main checkout>/.worktrees/epic-<n>`. Run `git fetch origin`, then `git worktree add --detach .worktrees/epic-<n> origin/epic/<n>`, then `just worktree-up epic-<n> card:<epicId>`. When the worktree add fails because the worktree exists, refresh it as the next item says.

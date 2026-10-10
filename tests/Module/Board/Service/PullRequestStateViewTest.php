@@ -24,7 +24,7 @@ final class PullRequestStateViewTest extends TestCase
         $row->checksFailedSince = new \DateTimeImmutable('2026-10-02 08:00:00');
         $row->readySince = new \DateTimeImmutable('2026-10-02 07:00:00');
 
-        $view = PullRequestStateView::of($row, null, new \DateTimeImmutable(self::NOW));
+        $view = PullRequestStateView::of($row, new \DateTimeImmutable(self::NOW));
 
         self::assertEquals(new \DateTimeImmutable('2026-10-02 08:00:00'), $view->checksFailedSince);
         self::assertEquals(new \DateTimeImmutable('2026-10-02 07:00:00'), $view->readySince);
@@ -54,7 +54,7 @@ final class PullRequestStateViewTest extends TestCase
         $row->baseChangeRequestedTo = 'main';
         $row->baseChangeRequestedAt = new \DateTimeImmutable('2026-10-02 11:52:00');
 
-        $view = PullRequestStateView::of($row, null, new \DateTimeImmutable(self::NOW));
+        $view = PullRequestStateView::of($row, new \DateTimeImmutable(self::NOW));
 
         self::assertEquals(new \DateTimeImmutable('2026-10-02 11:52:00'), $view->forgeRequestedAt);
         self::assertTrue($view->mergeInFlight);
@@ -68,13 +68,13 @@ final class PullRequestStateViewTest extends TestCase
         $row->baseChangeRequestedTo = 'main';
         $row->baseChangeRequestedAt = new \DateTimeImmutable('2026-10-02 11:30:00');
 
-        $view = PullRequestStateView::of($row, null, new \DateTimeImmutable(self::NOW));
+        $view = PullRequestStateView::of($row, new \DateTimeImmutable(self::NOW));
 
         self::assertNull($view->forgeRequestedAt);
         self::assertFalse($view->mergeInFlight);
     }
 
-    public function test_a_sync_in_flight_counts_until_it_fails_or_times_out(): void
+    public function test_a_sync_in_flight_counts_until_it_times_out(): void
     {
         $now = new \DateTimeImmutable(self::NOW);
         $fresh = $this->row(new PullRequestSnapshot());
@@ -83,14 +83,9 @@ final class PullRequestStateViewTest extends TestCase
         $timedOut = $this->row(new PullRequestSnapshot());
         $timedOut->syncFromSha = 'head1';
         $timedOut->syncRequestedAt = new \DateTimeImmutable('2026-10-02 11:00:00');
-        $failed = $this->row(new PullRequestSnapshot());
-        $failed->syncFromSha = 'head1';
-        $failed->syncRequestedAt = new \DateTimeImmutable('2026-10-02 11:55:00');
-        $failed->syncFailedReason = 'conflict';
 
-        self::assertEquals(new \DateTimeImmutable('2026-10-02 11:55:00'), PullRequestStateView::of($fresh, null, $now)->forgeRequestedAt);
-        self::assertNull(PullRequestStateView::of($timedOut, null, $now)->forgeRequestedAt);
-        self::assertNull(PullRequestStateView::of($failed, null, $now)->forgeRequestedAt);
+        self::assertEquals(new \DateTimeImmutable('2026-10-02 11:55:00'), PullRequestStateView::of($fresh, $now)->forgeRequestedAt);
+        self::assertNull(PullRequestStateView::of($timedOut, $now)->forgeRequestedAt);
     }
 
     public function test_a_closed_pull_request_has_no_request_in_flight(): void
@@ -99,7 +94,7 @@ final class PullRequestStateViewTest extends TestCase
         $row->mergeRequestedSha = 'head1';
         $row->mergeRequestedAt = new \DateTimeImmutable('2026-10-02 11:50:00');
 
-        $view = PullRequestStateView::of($row, null, new \DateTimeImmutable(self::NOW));
+        $view = PullRequestStateView::of($row, new \DateTimeImmutable(self::NOW));
 
         self::assertNull($view->forgeRequestedAt);
         self::assertFalse($view->mergeInFlight);

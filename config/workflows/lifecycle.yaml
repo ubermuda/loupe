@@ -1,6 +1,7 @@
 key: lifecycle
 version: 1
 defaultType: feature
+epicBranch: 'epic/{number}'
 types:
     - { key: feature, label: board.card.type.feature, tone: lime }
     - { key: bug, label: board.card.type.bug, tone: amber }
@@ -179,6 +180,14 @@ rules:
                       - pr.checks_passed: {}
                       - not: { pr.conflicting: {} }
                       - not: { pr.changes_requested: {} }
+
+    - id: comment-fix-run
+      when: { card.fix_run.uncommented: {} }
+      then: { forge-write: { write: comment, comment: fix-run } }
+
+    - id: comment-stale-approval
+      when: { card.pr.approval_stale: {} }
+      then: { forge-write: { write: comment, comment: stale-approval } }
 
     - id: back-to-draft
       slot: in-review

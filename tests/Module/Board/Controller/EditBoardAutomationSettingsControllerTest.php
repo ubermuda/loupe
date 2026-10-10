@@ -35,7 +35,7 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         $this->em = $em;
     }
 
-    public function test_the_owner_sees_the_defaults_saves_and_reads_them_back(): void
+    public function test_the_owner_sees_the_master_switch_only_saves_and_reads_it_back(): void
     {
         $project = $this->ownedProject('automation-save@example.com');
         $crawler = $this->page($project);
@@ -43,27 +43,8 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         self::assertSelectorExists('.lp-settings-nav__item--active[href$="/settings/automation"]');
         $form = $crawler->filter('form[name="'.self::FORM.'"]');
         self::assertCount(1, $form->filter('input[name="'.self::FORM.'[enabled]"]:checked'));
-        self::assertCount(0, $form->filter('[name="'.self::FORM.'[mergeStrategy]"], [name="'.self::FORM.'[fixStrategy]"], [name="'.self::FORM.'[loopLimit]"]'));
-        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[commentOnFixQueued]"]'));
-        self::assertCount(0, $form->filter('input[name="'.self::FORM.'[commentOnFixQueued]"]:checked'));
-        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[commentOnStaleApproval]"]'));
-        self::assertCount(0, $form->filter('input[name="'.self::FORM.'[commentOnStaleApproval]"]:checked'));
-        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[syncBehind]"]'));
-        self::assertCount(0, $form->filter('input[name="'.self::FORM.'[syncBehind]"]:checked'));
-        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[mergePullRequests]"]'));
-        self::assertCount(0, $form->filter('input[name="'.self::FORM.'[mergePullRequests]"]:checked'));
-        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[changeBase]"]'));
-        self::assertCount(0, $form->filter('input[name="'.self::FORM.'[changeBase]"]:checked'));
-        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[epicDraftSwitch]"]'));
-        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[closeEpicPullRequests]"]'));
-        self::assertCount(0, $form->filter('input[name="'.self::FORM.'[openEpicPullRequests]"]:checked'));
-        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[postWidgetReviews]"]'));
-        self::assertCount(0, $form->filter('input[name="'.self::FORM.'[postWidgetReviews]"]:checked'));
-        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[siteReviewCheck]"]'));
-        self::assertCount(0, $form->filter('input[name="'.self::FORM.'[siteReviewCheck]"]:checked'));
-        self::assertSame('epic/{number}', $form->filter('input[name="'.self::FORM.'[epicBranchPattern]"]')->attr('value'));
+        self::assertCount(1, $form->filter('input[type="checkbox"]'));
         self::assertSame('15', $form->filter('input[name="'.self::FORM.'[stuckDelayMinutes]"]')->attr('value'));
-        self::assertSelectorTextContains('[data-board-automation-settings]', 'Contents: read and write');
         self::assertSelectorNotExists('[data-fix-run-comment-failure]');
         self::assertNull($this->stored($project));
 
@@ -71,80 +52,19 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         $enabled = $submit[self::FORM.'[enabled]'];
         self::assertInstanceOf(ChoiceFormField::class, $enabled);
         $enabled->untick();
-        $commentOnFixQueued = $submit[self::FORM.'[commentOnFixQueued]'];
-        self::assertInstanceOf(ChoiceFormField::class, $commentOnFixQueued);
-        $commentOnFixQueued->tick();
-        $commentOnStaleApproval = $submit[self::FORM.'[commentOnStaleApproval]'];
-        self::assertInstanceOf(ChoiceFormField::class, $commentOnStaleApproval);
-        $commentOnStaleApproval->tick();
-        $syncBehind = $submit[self::FORM.'[syncBehind]'];
-        self::assertInstanceOf(ChoiceFormField::class, $syncBehind);
-        $syncBehind->tick();
-        $mergePullRequests = $submit[self::FORM.'[mergePullRequests]'];
-        self::assertInstanceOf(ChoiceFormField::class, $mergePullRequests);
-        $mergePullRequests->tick();
-        $epicDraftSwitch = $submit[self::FORM.'[epicDraftSwitch]'];
-        self::assertInstanceOf(ChoiceFormField::class, $epicDraftSwitch);
-        $epicDraftSwitch->tick();
-        $openEpicPullRequests = $submit[self::FORM.'[openEpicPullRequests]'];
-        self::assertInstanceOf(ChoiceFormField::class, $openEpicPullRequests);
-        $openEpicPullRequests->tick();
-        $postWidgetReviews = $submit[self::FORM.'[postWidgetReviews]'];
-        self::assertInstanceOf(ChoiceFormField::class, $postWidgetReviews);
-        $postWidgetReviews->tick();
-        $siteReviewCheck = $submit[self::FORM.'[siteReviewCheck]'];
-        self::assertInstanceOf(ChoiceFormField::class, $siteReviewCheck);
-        $siteReviewCheck->tick();
-        $submit[self::FORM.'[epicBranchPattern]'] = 'feature/epic-{number}';
         $submit[self::FORM.'[stuckDelayMinutes]'] = '25';
         $this->client->submit($submit);
 
-        $url = '/projects/'.$project->id.'/settings/automation';
-        self::assertResponseRedirects($url);
+        self::assertResponseRedirects('/projects/'.$project->id.'/settings/automation');
         $this->client->followRedirect();
         self::assertSelectorTextContains('body', 'Automation settings saved.');
 
         $settings = $this->stored($project);
         self::assertNotNull($settings);
-        self::assertTrue($settings->postWidgetReviews);
-        self::assertTrue($settings->siteReviewCheck);
         self::assertFalse($settings->enabled);
-        self::assertTrue($settings->commentOnFixQueued);
-        self::assertTrue($settings->commentOnStaleApproval);
-        self::assertTrue($settings->syncBehind);
-        self::assertTrue($settings->mergePullRequests);
-        self::assertFalse($settings->changeBase);
-        self::assertTrue($settings->epicDraftSwitch);
-        self::assertFalse($settings->closeEpicPullRequests);
-        self::assertTrue($settings->openEpicPullRequests);
-        self::assertSame('feature/epic-{number}', $settings->epicBranchPattern);
         self::assertSame(25, $settings->stuckDelayMinutes);
-
-        $form = $this->page($project)->filter('form[name="'.self::FORM.'"]');
-        self::assertCount(0, $form->filter('input[name="'.self::FORM.'[enabled]"]:checked'));
-        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[commentOnFixQueued]"]:checked'));
-        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[commentOnStaleApproval]"]:checked'));
-        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[syncBehind]"]:checked'));
-        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[mergePullRequests]"]:checked'));
-        self::assertCount(0, $form->filter('input[name="'.self::FORM.'[changeBase]"]:checked'));
-        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[epicDraftSwitch]"]:checked'));
-        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[openEpicPullRequests]"]:checked'));
-        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[postWidgetReviews]"]:checked'));
-        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[siteReviewCheck]"]:checked'));
-        self::assertSame('feature/epic-{number}', $form->filter('input[name="'.self::FORM.'[epicBranchPattern]"]')->attr('value'));
-    }
-
-    public function test_an_empty_epic_branch_pattern_is_stored_as_null(): void
-    {
-        $project = $this->ownedProject('automation-empty-pattern@example.com');
-        $submit = $this->page($project)->filter('form[name="'.self::FORM.'"]')->form();
-        $submit[self::FORM.'[epicBranchPattern]'] = '  ';
-        $this->client->submit($submit);
-
-        self::assertResponseRedirects('/projects/'.$project->id.'/settings/automation');
-        $settings = $this->stored($project);
-        self::assertNotNull($settings);
-        self::assertNull($settings->epicBranchPattern);
+        self::assertCount(0, $this->page($project)->filter('input[name="'.self::FORM.'[enabled]"]:checked'));
+        self::assertSame('25', $this->page($project)->filter('input[name="'.self::FORM.'[stuckDelayMinutes]"]')->attr('value'));
     }
 
     /** @return iterable<string, array{string}> */
@@ -168,35 +88,9 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         self::assertNull($this->stored($project));
     }
 
-    /** @return iterable<string, array{string}> */
-    public static function invalidPatterns(): iterable
-    {
-        yield 'no placeholder' => ['epic/main'];
-        yield 'the placeholder twice' => ['epic/{number}/{number}'];
-        yield 'a trailing slash' => ['epic/{number}/'];
-        yield 'two dots' => ['epic/{number}..old'];
-        yield 'a space' => ['epic {number}'];
-        yield 'a lock suffix' => ['epic/{number}.lock'];
-        yield 'a leading dash' => ['-epic-{number}'];
-    }
-
-    #[DataProvider('invalidPatterns')]
-    public function test_an_epic_branch_pattern_that_is_no_branch_name_with_one_number_is_refused(string $pattern): void
-    {
-        $project = $this->ownedProject('automation-bad-pattern@example.com');
-        $submit = $this->page($project)->filter('form[name="'.self::FORM.'"]')->form();
-        $submit[self::FORM.'[epicBranchPattern]'] = $pattern;
-        $this->client->submit($submit);
-
-        self::assertResponseStatusCodeSame(422);
-        self::assertSelectorTextContains('[data-field-errors="epicBranchPattern"]', 'branch name');
-        self::assertNull($this->stored($project));
-    }
-
     public function test_the_newest_failed_comment_shows_its_pull_request_and_its_cause(): void
     {
         $project = $this->ownedProject('automation-comment-failed@example.com');
-        $this->commentOnFixQueued($project, true);
         $this->settledComment($project, PullRequestCommentState::Posted, 'Acme/Posted', 6, null, new \DateTimeImmutable('-3 hours'));
         $this->settledComment($project, PullRequestCommentState::Failed, 'Acme/Old', 4, 'api_failed_http_status_502', new \DateTimeImmutable('-2 hours'));
         $this->settledComment($project, PullRequestCommentState::Failed, 'Acme/Widgets', 5, 'permission', new \DateTimeImmutable('-5 minutes'));
@@ -214,30 +108,16 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
     public function test_a_comment_that_posts_after_the_failure_hides_it(): void
     {
         $project = $this->ownedProject('automation-comment-recovered@example.com');
-        $this->commentOnFixQueued($project, true);
         $this->settledComment($project, PullRequestCommentState::Failed, 'Acme/Widgets', 5, 'permission', new \DateTimeImmutable('-2 hours'));
         $this->settledComment($project, PullRequestCommentState::Posted, 'Acme/Widgets', 6, null, new \DateTimeImmutable('-5 minutes'));
         $this->em->flush();
 
-        self::assertCount(1, $this->page($project)->filter('input[name="'.self::FORM.'[commentOnFixQueued]"]:checked'));
-        self::assertSelectorNotExists('[data-fix-run-comment-failure]');
-    }
-
-    public function test_the_failure_hides_while_the_setting_is_off(): void
-    {
-        $project = $this->ownedProject('automation-comment-off@example.com');
-        $this->commentOnFixQueued($project, false);
-        $this->settledComment($project, PullRequestCommentState::Failed, 'Acme/Widgets', 5, 'permission', new \DateTimeImmutable('-5 minutes'));
-        $this->em->flush();
-
-        self::assertCount(1, $this->page($project)->filter('input[name="'.self::FORM.'[commentOnFixQueued]"]'));
-        self::assertSelectorNotExists('[data-fix-run-comment-failure]');
+        self::assertCount(0, $this->page($project)->filter('[data-fix-run-comment-failure]'));
     }
 
     public function test_a_suspended_installation_names_the_suspension(): void
     {
         $project = $this->ownedProject('automation-comment-suspended@example.com');
-        $this->commentOnFixQueued($project, true);
         $this->settledComment($project, PullRequestCommentState::Failed, 'Acme/Widgets', 5, 'installation_suspended', new \DateTimeImmutable('-5 minutes'));
         $this->em->flush();
 
@@ -249,7 +129,6 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
     public function test_an_incomplete_lookup_says_the_comment_was_not_posted_again(): void
     {
         $project = $this->ownedProject('automation-comment-lookup@example.com');
-        $this->commentOnFixQueued($project, true);
         $this->settledComment($project, PullRequestCommentState::Failed, 'Acme/Widgets', 5, 'lookup_incomplete', new \DateTimeImmutable('-5 minutes'));
         $this->em->flush();
 
@@ -261,20 +140,12 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
     public function test_an_unknown_cause_shows_the_raw_cause(): void
     {
         $project = $this->ownedProject('automation-comment-unknown@example.com');
-        $this->commentOnFixQueued($project, true);
         $this->settledComment($project, PullRequestCommentState::Failed, 'Acme/Widgets', 5, 'api_failed_http_status_422', new \DateTimeImmutable('-5 minutes'));
         $this->em->flush();
 
         $note = $this->page($project)->filter('[data-fix-run-comment-failure]');
 
         self::assertStringContainsString('Loupe could not post the comment (api_failed_http_status_422).', $note->text());
-    }
-
-    private function commentOnFixQueued(Project $project, bool $on): void
-    {
-        $settings = new BoardAutomationSettings($project);
-        $settings->commentOnFixQueued = $on;
-        $this->em->persist($settings);
     }
 
     private function settledComment(Project $project, PullRequestCommentState $state, string $repository, int $number, ?string $cause, \DateTimeImmutable $at): void
@@ -302,7 +173,7 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(403);
 
         $this->client->request(Request::METHOD_POST, '/projects/'.$project->id.'/settings/automation', [
-            self::FORM => ['enabled' => '1', 'syncBehind' => '1'],
+            self::FORM => ['enabled' => '1'],
         ]);
         self::assertResponseStatusCodeSame(403);
         self::assertNull($this->stored($project));

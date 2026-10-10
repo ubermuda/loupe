@@ -145,9 +145,6 @@ class ForgePullRequest
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $syncRequestedAt = null;
 
-    #[ORM\Column(length: 50, nullable: true)]
-    public ?string $syncFailedReason = null;
-
     /** The last head that a sync by Loupe produced. */
     #[ORM\Column(length: 64, nullable: true)]
     public ?string $syncedSha = null;
@@ -208,7 +205,6 @@ class ForgePullRequest
         if ($approvalChanged) {
             $this->coveredSha = $snapshot->approvalSha;
             $this->uncoveredSha = null;
-            $this->syncFailedReason = null;
         }
         // After the approval reset, so an approval of the head Loupe asked to update still follows the sync in one read.
         // The update merges the base into the head Loupe asked for, so the new head has exactly two parents and that head comes first.
@@ -224,7 +220,6 @@ class ForgePullRequest
         if ($headMoved) {
             $this->syncFromSha = null;
             $this->syncRequestedAt = null;
-            $this->syncFailedReason = null;
         }
         $open = PullRequestState::Open === $snapshot->state;
         if ($headMoved || !$open) {

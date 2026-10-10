@@ -11,7 +11,6 @@ use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPullRequestRepository;
-use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardPullRequests;
 use App\Module\Board\Workflow\BlockerFacts;
 use App\Module\Board\Workflow\CardTypeFacts;
@@ -39,6 +38,7 @@ use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
+use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
 use App\Module\Workflow\Contract\CardDirectory;
 use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Contract\DocumentFacts;
@@ -743,7 +743,10 @@ final class FactsBuilderTest extends KernelTestCase
 
     private function epicBranchPattern(Project $project, ?string $pattern): void
     {
-        $this->service(BoardAutomation::class)->settingsForUpdate($project)->epicBranchPattern = $pattern;
+        $binding = $this->bindHandler()(new BindWorkflowTemplateCommand($project, 'simple', []));
+        $definition = $binding->definition;
+        unset($definition['epicBranch']);
+        $binding->definition = null === $pattern ? $definition : [...$definition, 'epicBranch' => $pattern];
         $this->em()->flush();
     }
 

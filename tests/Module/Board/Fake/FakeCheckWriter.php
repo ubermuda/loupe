@@ -21,6 +21,9 @@ final class FakeCheckWriter implements PullRequestCheckWriter
     /** Whether a failing check fails for good, or a retry can fix it. */
     public bool $failsForGood = true;
 
+    /** The cause a failing check reports, in place of the default for its kind. */
+    public ?string $failureCause = null;
+
     private int $runs = 0;
 
     #[\Override]
@@ -34,7 +37,7 @@ final class FakeCheckWriter implements PullRequestCheckWriter
     {
         $this->published[] = ['number' => $pullRequest->number, 'name' => $name, 'sha' => $sha, 'conclusion' => $conclusion, 'title' => $title, 'summary' => $summary, 'runId' => $runId];
         if (\in_array($pullRequest->number, $this->failingNumbers, true)) {
-            throw new PullRequestCheckFailed($this->failsForGood ? 'permission' : 'server_error', $this->failsForGood);
+            throw new PullRequestCheckFailed($this->failureCause ?? ($this->failsForGood ? 'permission' : 'server_error'), $this->failsForGood);
         }
 
         return $runId ?? 100 + ++$this->runs;

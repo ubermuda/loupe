@@ -22,6 +22,7 @@ use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Contract\Facts;
 use App\Module\Workflow\Contract\PauseKind;
 use App\Module\Workflow\Contract\PauseView;
+use App\Module\Workflow\Contract\RefiresOnFactChange;
 use App\Module\Workflow\Contract\RuleAsks;
 use App\Module\Workflow\Contract\Unreadable;
 use App\Module\Workflow\Contract\UnreadableKind;
@@ -606,6 +607,11 @@ final readonly class Engine
         if (!$fire && ReleasePause::KEY === $rule->then->key) {
             $fire = null !== $run->holdingPause && $run->holdingPause->reason === ActionOutcome::code(ActionParams::string($rule, 'reason'));
         }
+        // A true rule whose action asks for it fires again when its facts change, so no new item waits for a false pass.
+        if (!$fire && !isset($run->repairing[$rule->id]) && $this->refiresOnFactChange($rule)
+            && !$this->fingerprint->sameAs($state->fingerprint, $bound->facts, $rule->when->reads())) {
+            $fire = true;
+        }
         $state->truth = true;
         $this->markBlockerHold($run, $rule, $state, $bound);
         $state->fingerprint = $fingerprint;
@@ -848,5 +854,12 @@ final readonly class Engine
         if (null !== $pause) {
             $run->pauses[] = $pause;
         }
+    }
+
+    private function refiresOnFactChange(Rule $rule): bool
+    {
+        $action = $this->actions->get($rule->then->key);
+
+        return $action instanceof RefiresOnFactChange && $action::refiresOnFactChange($rule->then->params);
     }
 }

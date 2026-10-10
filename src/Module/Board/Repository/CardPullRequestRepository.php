@@ -188,32 +188,6 @@ class CardPullRequestRepository extends ServiceEntityRepository
     }
 
     /**
-     * The cards of the project outside a terminal column that link a GitHub pull request whose last read found it open.
-     *
-     * @return list<string>
-     */
-    public function findActiveCardIdsWithOpenGitHubPullRequest(Project $project): array
-    {
-        /** @var list<mixed> $ids */
-        $ids = $this->getEntityManager()->getConnection()->fetchFirstColumn(
-            'SELECT DISTINCT c.id
-            FROM board_card_pull_requests link
-            JOIN board_cards c ON c.id = link.card_id
-            JOIN board_columns k ON k.id = c.column_id
-            JOIN forge_pull_requests pr ON pr.project_id = c.project_id AND pr.forge = :forge
-                AND pr.repository = LOWER(link.repository) AND pr.number = link.number
-            WHERE c.project_id = :project AND link.forge = :forge AND pr.state = :open AND k.terminal = false',
-            [
-                'project' => ($project->id ?? throw new \LogicException('Project has no id.'))->toRfc4122(),
-                'forge' => Forge::GitHub->value,
-                'open' => PullRequestState::Open->value,
-            ],
-        );
-
-        return array_map(self::cardId(...), $ids);
-    }
-
-    /**
      * The GitHub pull requests the card links whose last forge read found them open, oldest link first.
      *
      * @return list<ForgePullRequest>
