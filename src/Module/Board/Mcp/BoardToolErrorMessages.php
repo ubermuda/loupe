@@ -9,6 +9,7 @@ use App\Module\Board\Command\ConfigureBoardColumnHandler;
 use App\Module\Board\Command\DeleteBoardColumnHandler;
 use App\Module\Board\Command\ReorderBoardColumnsHandler;
 use App\Module\Board\Command\SaveBoardAutomationSettingsHandler;
+use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
@@ -77,6 +78,7 @@ final readonly class BoardToolErrorMessages
             DeleteBoardColumnHandler::TARGET_REQUIRED => 'This column holds cards. Pass targetColumn, the slug of the column they move to.',
             DeleteBoardColumnHandler::TARGET_INVALID => 'targetColumn must name another column of this board. Call board_columns and pass another slug.',
             SaveBoardAutomationSettingsHandler::EPIC_BRANCH_PATTERN_INVALID => 'The pattern must be a branch name that holds {number} exactly once, such as epic/{number}, or be empty to turn epic branches off.',
+            SaveBoardAutomationSettingsHandler::STUCK_DELAY_INVALID => \sprintf('stuckDelayMinutes must be a whole number of minutes from %d to %d.', BoardAutomationSettings::MIN_STUCK_DELAY_MINUTES, BoardAutomationSettings::MAX_STUCK_DELAY_MINUTES),
             default => self::UNMAPPED,
         };
     }

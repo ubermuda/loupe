@@ -10,6 +10,9 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Service\CardBadge;
 use App\Module\Board\Service\CardDigest;
+use App\Module\Board\Service\CardState;
+use App\Module\Board\Service\CardStateCode;
+use App\Module\Board\Service\CardStateReason;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\View\CardRunWarning;
 use App\Module\Project\Entity\Project;
@@ -97,6 +100,27 @@ final class CardDigestTest extends TestCase
         $otherRun = $digest->forCard($card, 0, 0, 0, null, new CardRunWarning('run-2', WorkerRunState::GaveUp, 'Tests fail.'), []);
 
         self::assertCount(4, array_unique([$none, $gaveUp, $blocked, $otherRun]));
+    }
+
+    public function test_the_digest_changes_with_the_state_of_the_card(): void
+    {
+        $card = $this->makeCard();
+        $digest = new CardDigest();
+        $paused = CardState::of([new CardStateReason(CardStateCode::Paused, [], new \DateTimeImmutable('2026-10-02 09:00:00'))]);
+        $working = CardState::of([new CardStateReason(CardStateCode::WorkRequested)]);
+        $both = CardState::of([new CardStateReason(CardStateCode::Paused, [], new \DateTimeImmutable('2026-10-02 09:00:00')), new CardStateReason(CardStateCode::WorkRequested)]);
+        $later = CardState::of([new CardStateReason(CardStateCode::Paused, [], new \DateTimeImmutable('2026-10-02 10:00:00'))]);
+
+        $digests = [
+            $digest->forCard($card, 0, 0, 0, null, null, []),
+            $digest->forCard($card, 0, 0, 0, null, null, [], $paused),
+            $digest->forCard($card, 0, 0, 0, null, null, [], $working),
+            $digest->forCard($card, 0, 0, 0, null, null, [], $both),
+            $digest->forCard($card, 0, 0, 0, null, null, [], $later),
+        ];
+
+        self::assertCount(5, array_unique($digests));
+        self::assertSame($digests[1], $digest->forCard($card, 0, 0, 0, null, null, [], $paused));
     }
 
     public function test_the_digest_changes_with_each_badge(): void

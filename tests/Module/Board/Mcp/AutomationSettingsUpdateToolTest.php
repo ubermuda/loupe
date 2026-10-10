@@ -59,6 +59,7 @@ final class AutomationSettingsUpdateToolTest extends KernelTestCase
             'postWidgetReviews' => false,
             'siteReviewCheck' => false,
             'epicBranchPattern' => 'epic/{number}',
+            'stuckDelayMinutes' => 15,
         ];
         self::assertSame($expected, $result);
 
@@ -71,6 +72,27 @@ final class AutomationSettingsUpdateToolTest extends KernelTestCase
         self::assertTrue($stored->commentOnFixQueued);
         self::assertTrue($stored->mergePullRequests);
         self::assertTrue($stored->changeBase);
+    }
+
+    public function test_it_changes_the_stuck_delay(): void
+    {
+        $project = $this->makeProject('automation-update-stuck');
+        $this->actAsMcpTokenBoundTo($project);
+
+        $result = ($this->tool)(stuckDelayMinutes: 45);
+
+        self::assertSame(45, $result['stuckDelayMinutes']);
+    }
+
+    public function test_it_names_the_range_of_a_stuck_delay_it_refuses(): void
+    {
+        $project = $this->makeProject('automation-update-stuck-range');
+        $this->actAsMcpTokenBoundTo($project);
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('stuckDelayMinutes: stuckDelayMinutes must be a whole number of minutes from 1 to 1440.');
+
+        ($this->tool)(stuckDelayMinutes: 0);
     }
 
     public function test_an_update_keeps_the_epic_settings_it_omits(): void

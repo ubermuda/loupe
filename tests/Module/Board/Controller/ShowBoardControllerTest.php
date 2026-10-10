@@ -305,7 +305,7 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertSame(0, $lazyLinkReads);
     }
 
-    public function test_the_board_reads_document_counts_in_one_query_whatever_the_card_count(): void
+    public function test_the_board_reads_documents_in_a_fixed_number_of_queries_whatever_the_card_count(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -352,8 +352,9 @@ final class ShowBoardControllerTest extends WebTestCase
             $reads[$name] = ['selects' => $selects, 'documents' => $documentReads];
         }
 
-        self::assertSame(1, $reads['three-cards']['documents']);
-        self::assertSame(1, $reads['twelve-cards']['documents']);
+        // The count of linked documents, and the stage documents in review that make a card need you.
+        self::assertSame(2, $reads['three-cards']['documents']);
+        self::assertSame(2, $reads['twelve-cards']['documents']);
         self::assertSame($reads['three-cards']['selects'], $reads['twelve-cards']['selects']);
     }
 
@@ -441,7 +442,8 @@ final class ShowBoardControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('#board-card-'.$epic->id.' [data-card-progress]'));
-        self::assertCount(1, $crawler->filter('#board-card-'.$epic->id.' [data-card-run-warning]'));
+        self::assertCount(0, $crawler->filter('#board-card-'.$epic->id.' [data-card-run-warning]'));
+        self::assertCount(1, $crawler->filter('#board-card-'.$epic->id.' .lp-state-mark--stuck'));
         $boardDigest = $crawler->filter('#board-card-'.$epic->id)->attr('data-card-digest');
         self::assertSame($boardDigest, $this->listOf($client, $project)->filter('#board-row-'.$epic->id)->attr('data-card-digest'));
 
@@ -452,7 +454,7 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertSame($boardDigest, $placement->filter('#board-row-'.$epic->id)->attr('data-card-digest'));
     }
 
-    public function test_a_card_shows_the_badges_of_its_read_pull_request_on_its_face_row_and_placement(): void
+    public function test_a_card_shows_the_badges_of_its_read_pull_request_on_its_row_and_one_mark_on_its_face(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -468,9 +470,9 @@ final class ShowBoardControllerTest extends WebTestCase
         $client->loginUser($owner);
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
         self::assertResponseIsSuccessful();
-        $face = $crawler->filter('#board-card-'.$failing->id.' [data-card-badges]');
-        self::assertSame('checks-failed conflict', $face->attr('data-card-badges'));
-        self::assertSame(['Checks failed', 'Conflict'], $face->filter('.lp-status-chip--failed')->each(static fn (Crawler $chip): string => trim($chip->text())));
+        self::assertCount(0, $crawler->filter('#board-card-'.$failing->id.' [data-card-badges]'));
+        self::assertCount(0, $crawler->filter('#board-card-'.$failing->id.' .lp-status-chip'));
+        self::assertCount(1, $crawler->filter('#board-card-'.$failing->id.' .lp-state-mark--stuck'));
         $list = $this->listOf($client, $project);
         self::assertSame('checks-failed conflict', $list->filter('#board-row-'.$failing->id.' [data-card-badges]')->attr('data-card-badges'));
         self::assertCount(0, $crawler->filter('#board-card-'.$unread->id.' [data-card-badges]'));
@@ -480,12 +482,13 @@ final class ShowBoardControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$failing->id.'/placement');
         self::assertResponseIsSuccessful();
         $placement = new Crawler((string) $client->getResponse()->getContent());
-        self::assertSame('checks-failed conflict', $placement->filter('#board-card-'.$failing->id.' [data-card-badges]')->attr('data-card-badges'));
+        self::assertCount(0, $placement->filter('#board-card-'.$failing->id.' [data-card-badges]'));
+        self::assertCount(1, $placement->filter('#board-card-'.$failing->id.' .lp-state-mark--stuck'));
         self::assertSame($boardDigest, $placement->filter('#board-card-'.$failing->id)->attr('data-card-digest'));
         self::assertSame($boardDigest, $placement->filter('#board-row-'.$failing->id)->attr('data-card-digest'));
     }
 
-    public function test_a_card_shows_a_paused_and_an_unmanaged_marker_on_its_face_row_and_placement(): void
+    public function test_a_card_shows_an_unmanaged_chip_on_its_face_and_a_paused_mark_in_place_of_a_chip(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -502,14 +505,15 @@ final class ShowBoardControllerTest extends WebTestCase
         $client->loginUser($owner);
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
         self::assertResponseIsSuccessful();
-        self::assertSame('paused', $crawler->filter('#board-card-'.$paused->id.' [data-card-badges]')->attr('data-card-badges'));
-        self::assertSame('Paused', trim($crawler->filter('#board-card-'.$paused->id.' .lp-status-chip--pending')->text()));
+        self::assertCount(0, $crawler->filter('#board-card-'.$paused->id.' [data-card-badges]'));
+        self::assertCount(1, $crawler->filter('#board-card-'.$paused->id.' .lp-state-mark--stuck'));
+        self::assertSame('paused', $this->listOf($client, $project)->filter('#board-row-'.$paused->id.' [data-card-badges]')->attr('data-card-badges'));
         self::assertSame('unmanaged', $crawler->filter('#board-card-'.$held->id.' [data-card-badges]')->attr('data-card-badges'));
         self::assertSame('Unmanaged', trim($crawler->filter('#board-card-'.$held->id.' .lp-status-chip--neutral')->text()));
         self::assertSame('unmanaged', $this->listOf($client, $project)->filter('#board-row-'.$held->id.' [data-card-badges]')->attr('data-card-badges'));
         self::assertCount(0, $crawler->filter('#board-card-'.$plain->id.' [data-card-badges]'));
 
-        foreach ([$paused, $held] as $card) {
+        foreach ([$held] as $card) {
             $boardDigest = $crawler->filter('#board-card-'.$card->id)->attr('data-card-digest');
             $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$card->id.'/placement');
             self::assertResponseIsSuccessful();
@@ -572,7 +576,7 @@ final class ShowBoardControllerTest extends WebTestCase
             $client->enableProfiler();
             $crawler = $client->request(Request::METHOD_GET, $url);
             self::assertResponseIsSuccessful();
-            self::assertCount(intdiv(\count($crawler->filter('.lp-board-card')) + 2, 3), $crawler->filter('.lp-board-card [data-card-badges="paused"]'));
+            self::assertCount(intdiv(\count($crawler->filter('.lp-board-card')) + 2, 3), $crawler->filter('.lp-board-card .lp-state-mark--stuck'));
 
             $profile = $client->getProfile();
             self::assertInstanceOf(Profile::class, $profile);
@@ -600,8 +604,8 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertSame(['selects' => $reads['three-cards']['selects'], 'pauses' => 1, 'holds' => 1], $reads['twelve-cards']);
     }
 
-    /** The warning holds wherever the card goes, until a newer run of the card hides it. */
-    public function test_a_card_shows_the_run_that_gave_up_in_any_column(): void
+    /** The mark holds wherever the card goes, until a newer run of the card clears it. The tile draws no run warning. */
+    public function test_a_card_shows_a_stuck_mark_for_the_run_that_gave_up_in_any_column(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -612,9 +616,9 @@ final class ShowBoardControllerTest extends WebTestCase
         $moved = $this->card($em, $project, 'Moved', 'next');
         $unnamed = $this->card($em, $project, 'Unnamed', 'next');
         $quiet = $this->card($em, $project, 'Quiet', 'next');
-        $gaveUp = $this->workerRun($em, $project, $stays, WorkerRunState::GaveUp, 'Tests <em>still</em> fail.');
+        $this->workerRun($em, $project, $stays, WorkerRunState::GaveUp, 'Tests <em>still</em> fail.');
         $this->workerRun($em, $project, $moved, WorkerRunState::GaveUp, 'Moved away.');
-        $blocked = $this->workerRun($em, $project, $unnamed, WorkerRunState::Blocked, 'Needs a token.');
+        $this->workerRun($em, $project, $unnamed, WorkerRunState::Blocked, 'Needs a token.');
         $this->workerRun($em, $project, $quiet, WorkerRunState::Succeeded, 'Done.');
         $em->clear();
 
@@ -622,19 +626,14 @@ final class ShowBoardControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
 
         self::assertResponseIsSuccessful();
-        $warning = $crawler->filter('[data-card-id="'.$stays->id.'"] [data-card-run-warning]');
-        self::assertCount(1, $warning);
-        self::assertSame((string) $gaveUp->id, $warning->attr('data-card-run-warning'));
-        self::assertStringContainsString('search='.$gaveUp->id, (string) $warning->attr('href'));
-        self::assertStringContainsString('Gave up', $warning->text());
-        $summary = $warning->filter('.lp-board-card__warning-summary');
-        self::assertCount(1, $summary);
-        self::assertStringContainsString('Tests <em>still</em> fail.', $summary->text());
-        self::assertStringContainsString('Tests &lt;em&gt;still&lt;/em&gt; fail.', (string) $client->getResponse()->getContent());
-
-        self::assertSame((string) $blocked->id, $crawler->filter('[data-card-id="'.$unnamed->id.'"] [data-card-run-warning]')->attr('data-card-run-warning'));
-        self::assertCount(1, $crawler->filter('[data-card-id="'.$moved->id.'"] [data-card-run-warning]'));
-        self::assertCount(0, $crawler->filter('[data-card-id="'.$quiet->id.'"] [data-card-run-warning]'));
+        self::assertCount(0, $crawler->filter('[data-card-run-warning], .lp-board-card__warning'));
+        $mark = $crawler->filter('[data-card-id="'.$stays->id.'"] .lp-state-mark--stuck');
+        self::assertCount(1, $mark);
+        self::assertSame('Stuck', $mark->filter('[role="img"]')->attr('aria-label'));
+        self::assertStringContainsString('The last worker run did not finish its work.', $mark->filter('.lp-tooltip')->text());
+        self::assertCount(1, $crawler->filter('[data-card-id="'.$unnamed->id.'"] .lp-state-mark--stuck'));
+        self::assertCount(1, $crawler->filter('[data-card-id="'.$moved->id.'"] .lp-state-mark--stuck'));
+        self::assertCount(0, $crawler->filter('[data-card-id="'.$quiet->id.'"] .lp-state-mark'));
 
         $list = $this->listOf($client, $project);
         foreach ([$stays, $moved, $unnamed, $quiet] as $card) {
@@ -645,8 +644,8 @@ final class ShowBoardControllerTest extends WebTestCase
         }
     }
 
-    /** A card inside an epic lane shows its warning too, and lanes render through their own templates. */
-    public function test_a_card_in_an_epic_lane_shows_the_run_that_gave_up(): void
+    /** A card inside an epic lane shows its mark too, and lanes render through their own templates. */
+    public function test_a_card_in_an_epic_lane_shows_a_stuck_mark_for_the_run_that_gave_up(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -656,8 +655,8 @@ final class ShowBoardControllerTest extends WebTestCase
         $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'next'), 'epic');
         $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'in-progress'));
         $loose = $this->card($em, $project, 'Loose', 'in-progress');
-        $childRun = $this->workerRun($em, $project, $child, WorkerRunState::GaveUp, 'Child gave up.');
-        $looseRun = $this->workerRun($em, $project, $loose, WorkerRunState::Blocked, 'Loose is blocked.');
+        $this->workerRun($em, $project, $child, WorkerRunState::GaveUp, 'Child gave up.');
+        $this->workerRun($em, $project, $loose, WorkerRunState::Blocked, 'Loose is blocked.');
         $em->clear();
 
         $client->loginUser($owner);
@@ -665,8 +664,8 @@ final class ShowBoardControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('.lp-board-lane[data-lane="'.$epic->id.'"] [data-card-id="'.$child->id.'"]'));
-        self::assertSame((string) $childRun->id, $crawler->filter('[data-card-id="'.$child->id.'"] [data-card-run-warning]')->attr('data-card-run-warning'));
-        self::assertSame((string) $looseRun->id, $crawler->filter('.lp-board-lane[data-lane="other"] [data-card-id="'.$loose->id.'"] [data-card-run-warning]')->attr('data-card-run-warning'));
+        self::assertCount(1, $crawler->filter('[data-card-id="'.$child->id.'"] .lp-state-mark--stuck'));
+        self::assertCount(1, $crawler->filter('.lp-board-lane[data-lane="other"] [data-card-id="'.$loose->id.'"] .lp-state-mark--stuck'));
     }
 
     /** A run that changes state reloads the board, so the page listens on the worker-run topic too. */
@@ -692,9 +691,9 @@ final class ShowBoardControllerTest extends WebTestCase
 
     /**
      * A resume is received after an event that waits behind it, and ends before that event runs. The run that
-     * ended last decides the warning, so its later success clears it.
+     * ended last decides the mark, so its later success clears it.
      */
-    public function test_the_run_that_ended_last_decides_the_warning(): void
+    public function test_the_run_that_ended_last_decides_the_mark(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -713,12 +712,12 @@ final class ShowBoardControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('[data-card-id="'.$warned->id.'"] [data-card-run-warning]'));
-        self::assertCount(0, $crawler->filter('[data-card-id="'.$cleared->id.'"] [data-card-run-warning]'));
+        self::assertCount(1, $crawler->filter('[data-card-id="'.$warned->id.'"] .lp-state-mark--stuck'));
+        self::assertCount(0, $crawler->filter('[data-card-id="'.$cleared->id.'"] .lp-state-mark'));
     }
 
     /** Two bridges with different clocks: the server order of the outcome reports decides, not the bridge end times. */
-    public function test_the_run_the_server_closed_last_decides_the_warning_across_bridge_clocks(): void
+    public function test_the_run_the_server_closed_last_decides_the_mark_across_bridge_clocks(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -737,8 +736,8 @@ final class ShowBoardControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('[data-card-id="'.$warned->id.'"] [data-card-run-warning]'));
-        self::assertCount(0, $crawler->filter('[data-card-id="'.$cleared->id.'"] [data-card-run-warning]'));
+        self::assertCount(1, $crawler->filter('[data-card-id="'.$warned->id.'"] .lp-state-mark--stuck'));
+        self::assertCount(0, $crawler->filter('[data-card-id="'.$cleared->id.'"] .lp-state-mark'));
     }
 
     private function workerRun(EntityManagerInterface $em, Project $project, Card $card, WorkerRunState $state, string $output, string $receivedAt = 'now', string $endedAt = 'now', string $closedAt = 'now'): WorkerRun

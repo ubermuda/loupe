@@ -10,12 +10,12 @@ use App\Module\Workflow\Contract\Actor;
 
 /**
  * Dispatched inside the transaction of a card write, after its flush, when
- * the cards lost a blocks link with no move: a link removed or turned around,
- * or a blocker deleted.
+ * the cards gained or lost a blocks link with no move: a link added, removed
+ * or turned around, or a blocker deleted.
  */
-final readonly class CardBlockersRemoved
+final readonly class CardBlockersChanged
 {
-    /** @param non-empty-list<Card> $cards the cards that lost a blocker */
+    /** @param non-empty-list<Card> $cards the cards that gained or lost a blocker */
     public function __construct(
         public Project $project,
         public array $cards,

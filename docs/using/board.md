@@ -184,19 +184,30 @@ A card whose latest worker run gave up, is blocked, failed or has no result also
 shows a warning. A newer run of the card clears it. See
 [A warning on the card](worker-runs.md#a-warning-on-the-card).
 
-A card also shows a badge for each problem on its open pull requests.
-**Checks failed** means that the checks of a linked pull request fail.
-**Conflict** means that a linked pull request has a merge conflict.
-**Automation blocked** means that the automation stopped asking for fixes on
-the card. A card in a terminal column shows no such badge. A card and its row
-in the **List** view show the same badges. The badges change when Loupe reads a
-new state, with no reload. They come only from a state that Loupe read, so a
-pull request that shows **Not reported** adds no badge.
+A card in an open column shows one state mark at the end of its top row, when it
+is in a state. The mark says what the card needs now:
 
-A card also shows a marker for its workflow state. **Paused** means that the
-workflow paused the card. **Unmanaged** means that a person or an agent made the
-card unmanaged. The markers also change with no reload. See
-[Managed and unmanaged cards](#managed-and-unmanaged-cards).
+| State | Means |
+|---|---|
+| **Stuck** | The card is paused, its last worker run gave up, was blocked, failed or had no result, a pull request has failed checks or a conflict and no fix is under way, or a pull request has been ready to merge for longer than the stuck delay and no merge rule matches it |
+| **Needs you** | A document of the card waits for your review, a pull request waits for your approval, or an inbox question names the card |
+| **Working** | Work waits for a bridge to take it, a worker runs on the card, or Loupe asked the forge to change a pull request and the forge has not answered |
+| **Waiting** | A card that blocks this card is still open |
+
+When several states apply, the tile shows the first in the order **Stuck**,
+**Needs you**, **Working**, **Waiting**. Hover the mark, or focus it, to read
+why the card has the state, since when, and a link to the card. The tooltip stays
+open while the pointer moves into it. The **Working** mark spins, and stays still
+when your system asks for less motion. A card in a terminal column shows no mark.
+A pull request that waits for your approval shows **Needs you** and never
+**Stuck**. A pull request that Loupe never read adds no state.
+
+The tile also shows **Unmanaged** when a person or an agent made the card
+unmanaged. See [Managed and unmanaged cards](#managed-and-unmanaged-cards). The
+mark changes with no reload. The **List** view and the Backlog page keep the
+badges **Checks failed**, **Conflict**, **Automation blocked** and **Paused**,
+and the warning of the last worker run. See
+[A warning on the card](worker-runs.md#a-warning-on-the-card).
 
 Each card type and each column has a colour, and every page that names one uses
 the same colour. The workflow template sets the colour of a card type, and it
@@ -313,6 +324,13 @@ others while you edit, see [The card page](#the-card-page).
 
 A card has its own page at **`/projects/<project>/board/cards/<card id>`**. The
 card id is the UUID, not the number.
+
+At the top of the **Overview** tab, a **Status** box names the state of the card
+and how long it has held, such as **Stuck for 2 h**. It says why the card has
+the state, since when, and what clears it. It lists the other states that apply
+under **Also applies**. A card in no state, and a card in a terminal column, show no
+box. A reason has a start time when Loupe stores one. Otherwise the box leaves
+the time out.
 
 The page carries the full Markdown body, every pull request link, and the times
 the card was created, last changed and completed. Its **Feedback** tab shows the
@@ -801,6 +819,7 @@ as its template says.
 | **Open the epic pull request** | off | When on, Loupe opens a draft pull request from the epic branch to the default branch after the first child merges into the epic branch, and links it to the epic. The GitHub App needs "Pull requests: read and write" |
 | **Post a widget verdict as a review on GitHub** | off | When on, a verdict that a reviewer sends from the site-review widget becomes a review on the pull requests of the card, under the reviewer's own GitHub account. Loupe stores the verdict and its notes with this setting off or on |
 | **Keep a "Loupe site review" check on pull requests** | off | When on, Loupe posts a check named "Loupe site review" on each open pull request of a managed card. The check fails while open site-review notes remain on any card of the project that links the pull request. The GitHub App needs "Checks: read and write" |
+| **Stuck delay in minutes** | 15 | The minutes a pull request may stay ready to merge before its card shows **Stuck**, from 1 to 1440 |
 | **Epic branch pattern** | `epic/{number}` | The branch that the breakdown pushes for an epic. `{number}` stands for the epic card number. A child pull request into this branch merges into the epic. Leave it empty when the project uses no epic branches |
 
 The draft and ready switch and the close write were on for each board whose automation was on before the
@@ -959,6 +978,19 @@ shows a pull request that Loupe never read as **Not reported**. `card_update`,
 `none`. `approval-outdated` means that the approval does not cover the newest
 commit. While a pull request has an approval, `readyToMerge` stays false until
 an approval covers the newest commit.
+
+Every card row carries `state`. It is null for a card in no state and for a card
+in a terminal column. Otherwise it holds `kind` (`stuck`, `needs-you`, `working`
+or `waiting`), `code`, and `since`. `code` names the reason, such as `paused`,
+`run-stopped`, `checks-failed`, `conflicting`, `ready-not-merged`,
+`document-in-review`, `waits-for-approval`, `open-question`, `run-open`,
+`work-requested`, `forge-request-pending` or `held-by-blocker`. `since` is the
+time that reason began, or null when Loupe stores none. `card_get`,
+`card_list` with `full`, `card_create`, `card_update` and `card_run_open` also
+return `reason`, one sentence in English, and `others`, the other reasons that
+apply, each with `kind`, `code`, `reason` and `since`. The summary row of
+`card_list` and `card_search` carries `kind`, `code` and `since` alone. Filter
+the rows of one `card_list` page on `state.kind` to find the stuck cards.
 
 `card_get` also returns `relatedCards`, the cards linked to this one. Each entry
 carries `cardId`, `number`, `title`, `status` and `kind`, where `kind` is how

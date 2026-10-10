@@ -54,6 +54,7 @@ final readonly class PullRequestSnapshot
     /**
      * Strict, because a loose `==` holds two numeric-looking commit hashes equal.
      * The times and the approval, branch and author facts are left out, so a fact read first on a stored row announces no change.
+     * A default branch that both reads know and that differs counts, because it decides whether the pull request waits for an approval.
      */
     public function equals(self $other): bool
     {
@@ -67,6 +68,7 @@ final readonly class PullRequestSnapshot
             && $this->mergeability === $other->mergeability
             && $this->review === $other->review
             && $this->readyToMerge === $other->readyToMerge
-            && $this->changesRequestedSha === $other->changesRequestedSha;
+            && $this->changesRequestedSha === $other->changesRequestedSha
+            && (null === $this->defaultBranch || null === $other->defaultBranch || $this->defaultBranch === $other->defaultBranch);
     }
 }

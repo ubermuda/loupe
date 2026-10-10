@@ -24,6 +24,9 @@ final class Evaluation
     /** True when the pass recorded a baseline instead of running the rules. */
     public bool $baselined = false;
 
+    /** True when the pass started or ended a blocker hold, which the tile of the card shows. */
+    public bool $holdChanged = false;
+
     /** True once the pass asked for a pause, which ends it. */
     public bool $ended = false;
 

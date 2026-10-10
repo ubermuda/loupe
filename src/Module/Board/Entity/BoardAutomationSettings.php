@@ -23,6 +23,12 @@ class BoardAutomationSettings
 
     public const int MAX_TERMINAL_WINDOW_DAYS = 30;
 
+    public const int MIN_STUCK_DELAY_MINUTES = 1;
+
+    public const int MAX_STUCK_DELAY_MINUTES = 1440;
+
+    public const int DEFAULT_STUCK_DELAY_MINUTES = 15;
+
     public const string EPIC_BRANCH_NUMBER = '{number}';
 
     public const string DEFAULT_EPIC_BRANCH_PATTERN = 'epic/'.self::EPIC_BRANCH_NUMBER;
@@ -103,6 +109,10 @@ class BoardAutomationSettings
         /** How many days back a terminal column of the board reads. The history page shows the rest. */
         #[ORM\Column(options: ['default' => 3])]
         public int $terminalWindowDays = 3,
+
+        /** How long a ready pull request may wait for a merge before its card shows Stuck. */
+        #[ORM\Column(options: ['default' => self::DEFAULT_STUCK_DELAY_MINUTES])]
+        public int $stuckDelayMinutes = self::DEFAULT_STUCK_DELAY_MINUTES,
     ) {
     }
 

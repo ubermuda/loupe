@@ -102,6 +102,22 @@ class ForgePullRequest
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $approvedAt = null;
 
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $readySince = null;
+
+    /** The `readySince` for which the board last refreshed its cards after the stuck delay ended. */
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $stuckAnnouncedFor = null;
+
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $checksFailedSince = null;
+
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $conflictingSince = null;
+
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $waitsForApprovalSince = null;
+
     #[ORM\Column(length: 64, nullable: true)]
     public ?string $approvalSha = null;
 
@@ -258,9 +274,35 @@ class ForgePullRequest
     }
 
     /** A forge counts an approval of an older head, so a stale approval holds the merge. */
-    public function settleReadyToMerge(bool $forgeReady): void
+    public function settleReadyToMerge(bool $forgeReady, \DateTimeImmutable $now): void
     {
         $this->readyToMerge = $forgeReady && !$this->approvalIsStale();
+        if (!$this->readyToMerge) {
+            $this->readySince = null;
+        } elseif (null === $this->readySince) {
+            $this->readySince = $now;
+        }
+    }
+
+    /** Stamps each problem on the read that first finds it, and clears it on the read that does not. Call it after the coverage is judged. */
+    public function settleStartTimes(\DateTimeImmutable $now): void
+    {
+        $open = PullRequestState::Open === $this->state;
+        $waitsForApproval = $open
+            && !$this->draft
+            && PullRequestChecks::Passed === $this->checks
+            && null !== $this->defaultBranch
+            && $this->baseBranch === $this->defaultBranch
+            && (PullRequestReview::Approved !== $this->review || null === $this->approvalId || $this->approvalIsStale());
+
+        $this->checksFailedSince = self::edge($open && PullRequestChecks::Failed === $this->checks, $this->checksFailedSince, $now);
+        $this->conflictingSince = self::edge($open && PullRequestMergeability::Conflicting === $this->mergeability, $this->conflictingSince, $now);
+        $this->waitsForApprovalSince = self::edge($waitsForApproval, $this->waitsForApprovalSince, $now);
+    }
+
+    private static function edge(bool $holds, ?\DateTimeImmutable $since, \DateTimeImmutable $now): ?\DateTimeImmutable
+    {
+        return $holds ? ($since ?? $now) : null;
     }
 
     public function snapshot(): PullRequestSnapshot

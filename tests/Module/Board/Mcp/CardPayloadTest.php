@@ -16,9 +16,11 @@ use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardPullRequestStates;
+use App\Module\Board\Service\CardStates;
 use App\Module\Board\Service\PullRequestReviewView;
 use App\Module\Board\Service\PullRequestStates;
 use App\Module\Board\Service\PullRequestStateView;
+use App\Module\Bridge\Service\CardRunWarnings;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\Entity\PullRequestState;
@@ -26,12 +28,13 @@ use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Contract\Actor;
 use App\Module\Workflow\Contract\PauseKind;
 use App\Tests\Support\ShippedCardTypes;
-use PHPUnit\Framework\TestCase;
+use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
-final class CardPayloadTest extends TestCase
+final class CardPayloadTest extends KernelTestCase
 {
-    public function test_the_list_shape_carries_the_eight_summary_keys(): void
+    public function test_the_list_shape_carries_the_eight_summary_keys_and_the_state(): void
     {
         $comments = $this->createMock(CardSiteReviewCommentRepository::class);
         $comments->expects($this->never())->method('findForCards');
@@ -40,15 +43,16 @@ final class CardPayloadTest extends TestCase
         $cards = $this->createMock(CardRepository::class);
         $cards->expects($this->never())->method('findChildrenOfCards');
         $states = $this->createMock(CardPullRequestStates::class);
-        $states->expects($this->never())->method('forCards');
+        // The state of a row reads the pull requests once, and nothing else of the full shape.
+        $states->expects($this->once())->method('forCards')->willReturn(new PullRequestStates());
         $pauses = $this->createMock(CardPauseRepository::class);
         $pauses->expects($this->never())->method('findActiveForCardIds');
 
-        $rows = new CardPayload($comments, $links, $cards, $states, $pauses, new ShippedCardTypes())->forCardList([$this->card()]);
+        $rows = new CardPayload($comments, $links, $cards, $states, $pauses, new ShippedCardTypes(), $this->cardStates(), $this->runWarnings(), $this->translator())->forCardList([$this->card()]);
 
         self::assertCount(1, $rows);
         self::assertSame(
-            ['cardId', 'number', 'title', 'type', 'status', 'reporter', 'parentCardId', 'updatedAt'],
+            ['cardId', 'number', 'title', 'type', 'status', 'reporter', 'parentCardId', 'updatedAt', 'state'],
             array_keys($rows[0]),
         );
         self::assertSame('Drag ordering', $rows[0]['title']);
@@ -71,7 +75,7 @@ final class CardPayloadTest extends TestCase
         $pauses = $this->createMock(CardPauseRepository::class);
         $pauses->expects($this->once())->method('findActiveForCardIds')->willReturn([]);
 
-        $rows = new CardPayload($comments, $links, $cards, $this->states(), $pauses, new ShippedCardTypes())->forCards([$feature, $epic, $otherEpic]);
+        $rows = new CardPayload($comments, $links, $cards, $this->states(), $pauses, new ShippedCardTypes(), $this->cardStates(), $this->runWarnings(), $this->translator())->forCards([$feature, $epic, $otherEpic]);
 
         self::assertArrayHasKey('body', $rows[0]);
         self::assertSame([], $rows[0]['siteReviewComments']);
@@ -85,7 +89,7 @@ final class CardPayloadTest extends TestCase
         $cards = $this->createMock(CardRepository::class);
         $cards->expects($this->never())->method('findChildrenOfCards');
 
-        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $cards, $this->states(), $this->createStub(CardPauseRepository::class), new ShippedCardTypes())->forCards([$this->card()]);
+        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $cards, $this->states(), $this->createStub(CardPauseRepository::class), new ShippedCardTypes(), $this->cardStates(), $this->runWarnings(), $this->translator())->forCards([$this->card()]);
 
         self::assertSame([], $rows[0]['children']);
     }
@@ -115,7 +119,7 @@ final class CardPayloadTest extends TestCase
             )],
         ));
 
-        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $states, $this->createStub(CardPauseRepository::class), new ShippedCardTypes())->forCards([$card]);
+        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $states, $this->createStub(CardPauseRepository::class), new ShippedCardTypes(), $this->cardStates(), $this->runWarnings(), $this->translator())->forCards([$card]);
 
         self::assertSame([
             'state' => 'open',
@@ -149,7 +153,7 @@ final class CardPayloadTest extends TestCase
             null,
         )]));
 
-        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $states, $this->createStub(CardPauseRepository::class), new ShippedCardTypes())->forCards([$card]);
+        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $states, $this->createStub(CardPauseRepository::class), new ShippedCardTypes(), $this->cardStates(), $this->runWarnings(), $this->translator())->forCards([$card]);
 
         self::assertNull($rows[0]['pullRequests'][0]['state']);
     }
@@ -166,7 +170,7 @@ final class CardPayloadTest extends TestCase
         // One read for the whole page, never one per card.
         $pauses->expects($this->once())->method('findActiveForCardIds')->with([$paused->id, $free->id])->willReturn([(string) $paused->id => $pause]);
 
-        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $this->states(), $pauses, new ShippedCardTypes())->forCards([$paused, $free]);
+        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $this->states(), $pauses, new ShippedCardTypes(), $this->cardStates(), $this->runWarnings(), $this->translator())->forCards([$paused, $free]);
 
         self::assertSame([
             'pauseId' => (string) $pause->id,
@@ -177,6 +181,30 @@ final class CardPayloadTest extends TestCase
         ], $rows[0]['pause']);
         self::assertArrayHasKey('pause', $rows[1]);
         self::assertNull($rows[1]['pause']);
+    }
+
+    private function cardStates(): CardStates
+    {
+        $states = self::getContainer()->get(CardStates::class);
+        self::assertInstanceOf(CardStates::class, $states);
+
+        return $states;
+    }
+
+    private function runWarnings(): CardRunWarnings
+    {
+        $warnings = self::getContainer()->get(CardRunWarnings::class);
+        self::assertInstanceOf(CardRunWarnings::class, $warnings);
+
+        return $warnings;
+    }
+
+    private function translator(): TranslatorInterface
+    {
+        $translator = self::getContainer()->get('translator');
+        self::assertInstanceOf(TranslatorInterface::class, $translator);
+
+        return $translator;
     }
 
     private function states(): CardPullRequestStates
@@ -199,7 +227,7 @@ final class CardPayloadTest extends TestCase
         $project = new Project($owner, 'board');
         $this->setId($project, Uuid::v7());
 
-        return new Card(
+        $card = new Card(
             project: $project,
             column: new BoardColumn(project: $project, label: 'board.card.status.backlog', slug: 'backlog', position: 0, backlog: true),
             title: 'Drag ordering',
@@ -208,5 +236,8 @@ final class CardPayloadTest extends TestCase
             type: $type,
             origin: Actor::Agent,
         );
+        $this->setId($card, Uuid::v7());
+
+        return $card;
     }
 }

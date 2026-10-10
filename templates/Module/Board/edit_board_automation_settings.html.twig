@@ -69,6 +69,12 @@
                     <twig:Ds:Hint :id="form.epicBranchPattern.vars.id ~ '_help'">{{ form.epicBranchPattern.vars.help|trans }}</twig:Ds:Hint>
                     <twig:Ds:FieldErrors :fieldView="form.epicBranchPattern" data-field-errors="epicBranchPattern" />
                 </twig:Ds:FormField>
+                <twig:Ds:FormField>
+                    {{ form_label(form.stuckDelayMinutes, null, {label_attr: {class: ds_label_class()}}) }}
+                    {{ form_widget(form.stuckDelayMinutes, {attr: {class: ds_input_class()}}) }}
+                    <twig:Ds:Hint :id="form.stuckDelayMinutes.vars.id ~ '_help'">{{ form.stuckDelayMinutes.vars.help|trans }}</twig:Ds:Hint>
+                    <twig:Ds:FieldErrors :fieldView="form.stuckDelayMinutes" data-field-errors="stuckDelayMinutes" />
+                </twig:Ds:FormField>
                 <div class="lp-settings-form-actions">
                     <twig:Ds:Button variant="primary" type="submit">{{ 'board.automation.submit'|trans }}</twig:Ds:Button>
                 </div>

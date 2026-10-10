@@ -230,7 +230,7 @@ final class WritePullRequestFactEventsHandlerTest extends KernelTestCase
         $this->linkedCardAlso($second, 'https://github.com/acme/widgets/pull/5');
         $changes = $this->cardChanges();
 
-        $this->handle(new PullRequestSnapshot(baseBranch: 'main'), new PullRequestSnapshot(baseBranch: 'develop'));
+        $this->handle(new PullRequestSnapshot(headBranch: 'feature-a'), new PullRequestSnapshot(headBranch: 'feature-b'));
         self::assertSame([], $changes->getArrayCopy());
 
         $this->handle(new PullRequestSnapshot(), $this->failed(self::SHA));
@@ -275,6 +275,20 @@ final class WritePullRequestFactEventsHandlerTest extends KernelTestCase
         );
 
         self::assertSame([], $this->outbox());
+        self::assertSame([[(string) $card->id, CardChanged::UPDATED, false]], $changes->getArrayCopy());
+    }
+
+    /** A pull request into the default branch waits for an approval, so a new base can change the mark of the card. */
+    public function test_a_new_base_tells_the_card(): void
+    {
+        $card = $this->linkedCard();
+        $changes = $this->cardChanges();
+
+        $this->handle(
+            new PullRequestSnapshot(headSha: 'aaa1111', baseBranch: 'epic/7', checks: PullRequestChecks::Passed, checksSha: 'aaa1111', defaultBranch: 'main'),
+            new PullRequestSnapshot(headSha: 'aaa1111', baseBranch: 'main', checks: PullRequestChecks::Passed, checksSha: 'aaa1111', defaultBranch: 'main'),
+        );
+
         self::assertSame([[(string) $card->id, CardChanged::UPDATED, false]], $changes->getArrayCopy());
     }
 

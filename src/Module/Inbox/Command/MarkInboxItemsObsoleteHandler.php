@@ -9,6 +9,7 @@ use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Inbox\Service\CardWaitTrigger;
 use App\Module\Inbox\Service\InboxAvailability;
+use App\Module\Inbox\Service\InboxCardTileRefresher;
 use App\Module\Inbox\Service\InboxItemCloser;
 use App\Module\Inbox\Service\InboxOpenCountPublisher;
 
@@ -29,6 +30,7 @@ final readonly class MarkInboxItemsObsoleteHandler
         private InboxAvailability $inbox,
         private InboxOpenCountPublisher $openCount,
         private CardWaitTrigger $cardWaits,
+        private InboxCardTileRefresher $cardTiles,
     ) {
     }
 
@@ -49,6 +51,7 @@ final readonly class MarkInboxItemsObsoleteHandler
             // rollback the pill only reloads the count as it stands.
             $this->openCount->countChanged($item->project);
         }
+        $this->cardTiles->refresh(...$closed);
         $this->cardWaits->forReviewItems($closed);
 
         return $closed;

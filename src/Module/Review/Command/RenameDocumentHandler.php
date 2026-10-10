@@ -6,8 +6,10 @@ namespace App\Module\Review\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Event\DocumentRenamed;
 use App\Module\Review\Service\DocumentSearchIndexer;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -18,6 +20,7 @@ final readonly class RenameDocumentHandler
         private EntityManagerInterface $em,
         private Auditor $auditor,
         private DocumentSearchIndexer $searchIndexer,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -53,6 +56,11 @@ final readonly class RenameDocumentHandler
             ],
             new AuditSubject('document', (string) $document->id),
         );
+
+        $this->events->dispatch(new DocumentRenamed(
+            $document->project->id ?? throw new \LogicException('Project has no id.'),
+            $document->id ?? throw new \LogicException('Document has no id.'),
+        ));
 
         return $document;
     }
