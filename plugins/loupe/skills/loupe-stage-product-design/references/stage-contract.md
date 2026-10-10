@@ -51,6 +51,15 @@ The owner can answer a decision after a worker writes the text of a design. `doc
 7. When your work needs a decision that rules 2 to 6 leave with no usable answer, stop with `STAGE RESULT: blocked: decision <id> needs an answer`. The first sentence after it is "Answer decision <id> on the review page, then resume this run." Then quote the note, when there is one.
 8. Never revise an approved document to record an answer. A revision sets the document back to In review.
 
+## Read a linked prototype
+
+A design links a prototype as a claude.ai artifact, a Claude Design canvas, a Loupe document or a repository file. The product design skill also stores a readable copy of each artifact prototype in the repository, under `docs/prototypes/`.
+
+1. Read the readable copy first. The harness adapter says which tool reads each kind of link.
+2. When the stage needs the prototype and no tool reads any link, stop with `STAGE RESULT: blocked: prototype unreadable: <tool> missing`. Name the missing tool, such as `Artifact`.
+3. The first sentence after it is "Store a readable copy of the prototype, then resume this run."
+4. Never name sharing as the cause, unless a tool for that link answered that access is denied.
+
 ## Final reply
 
 Your final message starts with `STAGE RESULT:` as its very first characters. Write no sentence before it. After it, write at most three short sentences. A `breakdown` result then lists its matches, as `../../loupe-stage-implementation/references/breakdown.md` says.
@@ -86,7 +95,7 @@ Set the reason code from the `STAGE RESULT:` form. A form takes the code of the 
 | `tool-unavailable` | `loupe MCP unavailable`, `blocked: no forge adapter`, `blocked: no <section> in .loupe/lifecycle.md` |
 | `worktree-failed` | `blocked: worktree binding failed`, `blocked: worktree is not on the PR branch`, `blocked: local branch diverged from origin` |
 | `merge-refused` | `blocked: merge refused` |
-| `needs-person` | Every other `blocked:` form, and every other `not ready` item, such as a draft |
+| `needs-person` | `blocked: prototype unreadable`, every other `blocked:` form, and every other `not ready` item, such as a draft |
 | `work-remains` | No form yet, because work still runs or remains |
 
 The app stores `other` for a code that it does not know. Never write `other` yourself.
