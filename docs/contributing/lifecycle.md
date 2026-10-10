@@ -369,6 +369,13 @@ that change from one setup to the next.
 3. A forge adapter maps the pull request operations to the commands of one
    forge. The adapter for GitHub is
    `.agents/skills/loupe-stage-implementation/references/forges/github.md`.
+   Each read section of an adapter ends with a Report line, which translates
+   the values of that forge into words that every forge shares, so a stage
+   skill reads no value of one forge. A forge-only script, such as the GitHub
+   approval check, sits next to its adapter. The worker picks the adapter from
+   the optional `Forge` section of the profile first, then from the forge of
+   the card's pull request link when it is not `other`, then from the host of
+   the git remote.
 
 When the profile, one of its sections, or a forge adapter is missing, the
 worker stops with a `STAGE RESULT: blocked:` line that names it. A harness with

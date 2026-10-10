@@ -8,16 +8,33 @@
 2. Read the repository profile at `.loupe/lifecycle.md` in the repository root. When the file, or a section a step needs, is missing, stop with `STAGE RESULT: blocked: no <section> in .loupe/lifecycle.md`.
 3. Pick the forge adapter as the next section says.
 
-The profile has these sections: `Instruction files`, `Environment`, `Gate`, `Code review`, `Changelog`, `Pull request`, `Board`, `Merge` and `Repair`. The harness adapter covers these steps: connect to the Loupe tools, load an instruction, run a long command, dispatch a sub-agent, write a plan, and run the plan task by task.
+The profile has these sections: `Instruction files`, `Environment`, `Gate`, `Code review`, `Changelog`, `Pull request`, `Board`, `Merge` and `Repair`. The profile can also hold an optional `Forge` section with one value, the forge name, such as `github`. A missing `Forge` section blocks nothing. The harness adapter covers these steps: connect to the Loupe tools, load an instruction, run a long command, dispatch a sub-agent, write a plan, and run the plan task by task.
 
 ## Pick the forge adapter
 
 The stage skills name forge operations. An adapter file maps them to commands for one forge. The operations are these: find and validate a pull request, list feedback items, reply to a thread, post a top-level comment, and post a refusal comment. Also read checks and failed logs, create a pull request, and check mergeability. The merge stage adds five more: read the merge state, check the approval covers the head, compare with the base, update the branch, and merge.
 
-1. Read the forge from `pullRequests[].forge` in `card_get`: `github`, `gitlab`, `bitbucket` or `other`.
-2. Before a pull request exists, read the host of `git remote get-url origin`. `github.com` is `github`, a `gitlab` host is `gitlab`, `bitbucket.org` is `bitbucket`, and any other host is `other`.
-3. Read `forges/<forge>.md` in this directory.
-4. When no such file exists, stop with `STAGE RESULT: blocked: no forge adapter for <forge>`.
+1. When the profile has a `Forge` section, its value is the forge. Take no other source.
+2. Otherwise read the forge from `pullRequests[].forge` in `card_get`: `github`, `gitlab`, `bitbucket` or `other`. The app stores `other` for every link it cannot parse, so `other` names no forge. Go on to item 3.
+3. Otherwise read the host of `git remote get-url origin`. `github.com` is `github`, a `gitlab` host is `gitlab`, `bitbucket.org` is `bitbucket`, and any other host is `other`.
+4. Read `forges/<forge>.md` in this directory.
+5. When no such file exists, stop with `STAGE RESULT: blocked: no forge adapter for <forge>`. A repository on a self-hosted forge names it in the profile `Forge` section.
+
+### Report words
+
+Each read section of a forge file ends with a Report line. It translates the values of that forge into the words below. A stage skill reads these words only, and never a value that belongs to one forge.
+
+| Word | Values |
+|---|---|
+| state | `open`, `merged`, `closed` |
+| draft | `yes`, `no` |
+| review | `approved`, `changes-requested`, `required`, `none` |
+| checks | `passed`, `failed`, `pending` |
+| mergeability | `mergeable`, `conflicting`, `behind`, `blocked`, `unknown` |
+| behind count | a number, from "Compare with the base" |
+| approval | `COVERED`, `HOLD <reason>`, `UNREAD: <reason>` |
+
+Every approval script of a forge prints the same three result lines: `COVERED`, `HOLD` and `UNREAD`.
 
 ## Column check
 
