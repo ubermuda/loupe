@@ -46,6 +46,7 @@ final class EditBoardAutomationSettingsController extends AppController
                 ($this->saveSettings)(new SaveBoardAutomationSettingsCommand(
                     project: $project,
                     enabled: $data->enabled,
+                    stuckDelayMinutes: $data->stuckDelayMinutes ?? throw new \LogicException('stuck delay required after validation'),
                 ));
                 $this->addFlash('success', $this->translator->trans('board.automation.flash.saved'));
 

@@ -95,6 +95,29 @@ final class CardGetToolTest extends KernelTestCase
         self::assertNull(($this->tool)($created['cardId'])['pause']);
     }
 
+    public function test_a_card_reads_its_state_with_the_reason_and_the_others(): void
+    {
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-get-card-state'));
+        $created = ($this->createTool)('Ship it', 'Body', 'feature');
+        self::assertNull(($this->tool)($created['cardId'])['state']);
+        $card = $this->em->find(Card::class, $created['cardId']);
+        self::assertInstanceOf(Card::class, $card);
+        $handler = self::getContainer()->get(PauseCardHandler::class);
+        self::assertInstanceOf(PauseCardHandler::class, $handler);
+        $pause = $handler(new PauseCardCommand($card, 'review-failed', 'fix-on-review', PauseKind::Retries));
+        self::assertNotNull($pause);
+
+        $state = ($this->tool)($created['cardId'])['state'];
+
+        self::assertSame([
+            'kind' => 'stuck',
+            'code' => 'paused',
+            'since' => $pause->createdAt->format(\DATE_ATOM),
+            'reason' => 'Paused: review-failed.',
+            'others' => [],
+        ], $state);
+    }
+
     public function test_a_card_reads_the_stored_pull_request_state(): void
     {
         $project = $this->makeProject('card-get-state');

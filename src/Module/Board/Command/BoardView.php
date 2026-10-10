@@ -6,6 +6,7 @@ namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Service\CardBadge;
+use App\Module\Board\Service\CardState;
 use App\Module\Bridge\View\CardRunWarning;
 use App\Module\Project\Entity\Project;
 
@@ -60,6 +61,8 @@ final readonly class BoardView
         public array $decks = [],
         /** @var array<string, non-empty-list<CardBadge>> card id => its badges; a card with none has no key */
         public array $badges = [],
+        /** @var array<string, CardState> card id => its state; a card in a terminal column, or with no state, has no key */
+        public array $states = [],
     ) {
     }
 }

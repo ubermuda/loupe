@@ -12,7 +12,7 @@
         </div>
         {% for view in board.columns %}
             {% for card in view.cards %}
-                {% include '@Board/_card_row.html.twig' with {card: card, column: view.column, feedbackCount: board.pendingComments[card.id ~ '']|default(0), documentCount: board.documentCounts[card.id ~ '']|default(0), progress: board.progress[card.id ~ '']|default(null), runWarning: runWarnings[card.id ~ '']|default(null), badges: board.badges[card.id ~ '']|default([])} only %}
+                {% include '@Board/_card_row.html.twig' with {card: card, column: view.column, feedbackCount: board.pendingComments[card.id ~ '']|default(0), documentCount: board.documentCounts[card.id ~ '']|default(0), progress: board.progress[card.id ~ '']|default(null), runWarning: runWarnings[card.id ~ '']|default(null), badges: board.badges[card.id ~ '']|default([]), state: board.states[card.id ~ '']|default(null)} only %}
             {% endfor %}
         {% endfor %}
     </div>

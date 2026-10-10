@@ -9,7 +9,7 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Event\BoardColumnsChanged;
-use App\Module\Board\Event\CardBlockersRemoved;
+use App\Module\Board\Event\CardBlockersChanged;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardDocumentsChanged;
 use App\Module\Board\Event\CardMoved;
@@ -241,7 +241,7 @@ final readonly class UpdateCardHandler
                 $trackedBefore = $this->pullRequestTracking->referencesOf($card);
                 $card->replacePullRequests(...$this->pullRequests->linksFor($card, array_values($command->pullRequestUrls)));
             }
-            $unblocked = null === $relatedCards ? [] : $this->cardLinkSync->sync($card, $relatedCards);
+            $blockersChanged = null === $relatedCards ? [] : $this->cardLinkSync->sync($card, $relatedCards);
 
             $card->updatedAt = new \DateTimeImmutable();
             $this->em->flush();
@@ -280,8 +280,8 @@ final readonly class UpdateCardHandler
             if ($parentChanged) {
                 $this->events->dispatch(new CardParentChanged($card, $oldParent, $card->parent, $command->actor));
             }
-            if ([] !== $unblocked) {
-                $this->events->dispatch(new CardBlockersRemoved($card->project, $unblocked, $command->actor));
+            if ([] !== $blockersChanged) {
+                $this->events->dispatch(new CardBlockersChanged($card->project, $blockersChanged, $command->actor));
             }
 
             return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged, $parentChanged, $laneChanged, $lanesBefore !== $lanesAfter, $contentChanged, $openedRun, $held);
@@ -338,6 +338,17 @@ final readonly class UpdateCardHandler
                 CardChanged::UPDATED,
                 $outcome->contentChanged,
             ));
+        }
+        // An open blocker lends its title to the Waiting reason of each card it blocks.
+        if ($outcome->titleChanged && !$card->column->terminal) {
+            foreach ($this->cards->findBlockedBy($card) as $blocked) {
+                $this->events->dispatch(new CardChanged(
+                    $card->project->id ?? throw new \LogicException('Project has no id.'),
+                    $blocked->id ?? throw new \LogicException('Card has no id.'),
+                    CardChanged::UPDATED,
+                    false,
+                ));
+            }
         }
         // A lane adds or removes a board row, which no placement of one card shows.
         if ($outcome->laneShownChanged) {

@@ -7,6 +7,7 @@ namespace App\Module\Board\Command;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Service\CardBadge;
+use App\Module\Board\Service\CardState;
 
 /** Where one card sits on the board page, and the count of every column. */
 final readonly class CardPlacementView
@@ -40,6 +41,7 @@ final readonly class CardPlacementView
         public array $badges = [],
         /** For a Backlog card the board does not show, the lane epic whose Up next deck shows it. */
         public ?string $deckEpic = null,
+        public ?CardState $state = null,
     ) {
     }
 }

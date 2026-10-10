@@ -10,6 +10,7 @@ use App\Module\Board\Entity\PullRequestCommentState;
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
@@ -43,6 +44,7 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         $form = $crawler->filter('form[name="'.self::FORM.'"]');
         self::assertCount(1, $form->filter('input[name="'.self::FORM.'[enabled]"]:checked'));
         self::assertCount(1, $form->filter('input[type="checkbox"]'));
+        self::assertSame('15', $form->filter('input[name="'.self::FORM.'[stuckDelayMinutes]"]')->attr('value'));
         self::assertSelectorNotExists('[data-fix-run-comment-failure]');
         self::assertNull($this->stored($project));
 
@@ -50,6 +52,7 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         $enabled = $submit[self::FORM.'[enabled]'];
         self::assertInstanceOf(ChoiceFormField::class, $enabled);
         $enabled->untick();
+        $submit[self::FORM.'[stuckDelayMinutes]'] = '25';
         $this->client->submit($submit);
 
         self::assertResponseRedirects('/projects/'.$project->id.'/settings/automation');
@@ -59,7 +62,30 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         $settings = $this->stored($project);
         self::assertNotNull($settings);
         self::assertFalse($settings->enabled);
+        self::assertSame(25, $settings->stuckDelayMinutes);
         self::assertCount(0, $this->page($project)->filter('input[name="'.self::FORM.'[enabled]"]:checked'));
+        self::assertSame('25', $this->page($project)->filter('input[name="'.self::FORM.'[stuckDelayMinutes]"]')->attr('value'));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function invalidStuckDelays(): iterable
+    {
+        yield 'empty' => [''];
+        yield 'zero' => ['0'];
+        yield 'over a day' => ['1441'];
+    }
+
+    #[DataProvider('invalidStuckDelays')]
+    public function test_a_stuck_delay_out_of_range_is_refused_with_a_field_error(string $delay): void
+    {
+        $project = $this->ownedProject('automation-bad-delay-'.md5($delay).'@example.com');
+        $submit = $this->page($project)->filter('form[name="'.self::FORM.'"]')->form();
+        $submit[self::FORM.'[stuckDelayMinutes]'] = $delay;
+        $this->client->submit($submit);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorExists('[data-field-errors="stuckDelayMinutes"]');
+        self::assertNull($this->stored($project));
     }
 
     public function test_the_newest_failed_comment_shows_its_pull_request_and_its_cause(): void

@@ -544,7 +544,19 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
 
         self::assertSame(0, $this->coverage->reads);
         self::assertTrue($this->reload($row)->readyToMerge);
+        self::assertEquals(new \DateTimeImmutable(self::NOW), $this->reload($row)->readySince);
         self::assertTrue($this->changes[0]->current->readyToMerge);
+    }
+
+    public function test_a_read_stamps_the_time_a_failed_check_and_a_conflict_began(): void
+    {
+        $row = $this->row();
+        $this->reader->answers = [new PullRequestSnapshot(headSha: 'abc', checks: PullRequestChecks::Failed, mergeability: PullRequestMergeability::Conflicting)];
+
+        $this->handle($row, self::NOW);
+
+        self::assertEquals(new \DateTimeImmutable(self::NOW), $this->reload($row)->checksFailedSince);
+        self::assertEquals(new \DateTimeImmutable(self::NOW), $this->reload($row)->conflictingSince);
     }
 
     public function test_an_unknown_coverage_holds_the_merge_until_a_later_read(): void

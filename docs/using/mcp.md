@@ -535,9 +535,12 @@ after it. Two projects each have a card 1. `card_get` and `card_update` take
 either `cardId` or `number`, never both. A number resolves only inside the
 project that the connection is bound to. The other tools take no number.
 
-A `card_list` or `card_search` row is a summary with eight fields: `cardId`,
-`number`, `title`, `type`, `status`, `reporter`, `parentCardId` and
-`updatedAt`. `parentCardId` is null for a card with no parent.
+A `card_list` or `card_search` row is a summary with nine fields: `cardId`,
+`number`, `title`, `type`, `status`, `reporter`, `parentCardId`, `updatedAt` and
+`state`. `parentCardId` is null for a card with no parent. `state` is null, or
+holds `kind`, `code` and `since`: what the card needs now on the board, which is
+`stuck`, `needs-you`, `working` or `waiting`. The full card adds `reason` and
+`others` to `state`. [The board](board.md#the-mcp-tools) lists the codes.
 
 A card has a `type`. The workflow template of the project declares the types,
 so each project can have its own. `board_columns` returns them in `types`, and

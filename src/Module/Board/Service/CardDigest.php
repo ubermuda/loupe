@@ -25,6 +25,7 @@ final readonly class CardDigest
         ?CardProgress $progress,
         ?CardRunWarning $runWarning,
         array $badges,
+        ?CardState $state = null,
     ): string {
         return substr(sha1(json_encode([
             $card->number,
@@ -41,6 +42,7 @@ final readonly class CardDigest
             $runWarning?->runId,
             $runWarning?->state->value,
             array_map(static fn (CardBadge $badge): string => $badge->value, $badges),
+            $state?->digest(),
         ], \JSON_THROW_ON_ERROR)), 0, 12);
     }
 
