@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -383,7 +384,7 @@ func TestTheProxyForwardsNoSecondAnswerForTheReplayedHandshake(t *testing.T) {
 	<-errs
 }
 
-func TestTheProxyReportsAnUnreachableLoupe(t *testing.T) {
+func TestTheProxyAnswersACallWithAnErrorWhenLoupeIsUnreachable(t *testing.T) {
 	server := loupe(t, nil)
 	endpoint := server.URL
 	server.Close()
@@ -396,13 +397,136 @@ func TestTheProxyReportsAnUnreachableLoupe(t *testing.T) {
 		t.Fatalf("write to the proxy: %v", err)
 	}
 
+	if reply := client.reads.next(t); !strings.Contains(reply, `"id":1`) || !strings.Contains(reply, `"error"`) {
+		t.Fatalf("reply: got %s, want a JSON-RPC error for id 1", reply)
+	}
 	select {
 	case err := <-errs:
-		if err == nil {
-			t.Fatal("Run against a closed server: got no error")
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("Run did not report an unreachable server within 5 seconds")
+		t.Fatalf("Run ended for an unreachable server: %v", err)
+	case <-time.After(100 * time.Millisecond):
 	}
 	client.writes.Close()
+	<-errs
+}
+
+// flaky answers the first n calls with status and the rest like loupe does.
+func flaky(t *testing.T, n int, status int, retryAfter string) (*httptest.Server, *int) {
+	t.Helper()
+	var mu sync.Mutex
+	calls := 0
+	ok := loupe(t, nil)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		calls++
+		refuse := calls <= n
+		mu.Unlock()
+		if refuse {
+			if retryAfter != "" {
+				w.Header().Set("Retry-After", retryAfter)
+			}
+			w.WriteHeader(status)
+
+			return
+		}
+		proxy, _ := http.NewRequest(r.Method, ok.URL, r.Body)
+		proxy.Header = r.Header
+		resp, err := ok.Client().Do(proxy)
+		if err != nil {
+			w.WriteHeader(http.StatusBadGateway)
+
+			return
+		}
+		defer resp.Body.Close()
+		for k, v := range resp.Header {
+			w.Header()[k] = v
+		}
+		w.WriteHeader(resp.StatusCode)
+		_, _ = io.Copy(w, resp.Body)
+	}))
+	t.Cleanup(server.Close)
+
+	return server, &calls
+}
+
+// retrying builds the HTTP end of the pipe with a retry layer that waits no
+// real time.
+func retrying(server *httptest.Server, budget time.Duration) Dial {
+	hc := *server.Client()
+	hc.Transport = &Credentials{
+		Tokens: api.StaticToken("t0ken"),
+		Base: &Retrying{
+			Base:    hc.Transport,
+			Budget:  budget,
+			Backoff: []time.Duration{time.Second},
+			After:   func(time.Duration) <-chan time.Time { c := make(chan time.Time, 1); c <- time.Now(); return c },
+		},
+	}
+
+	return dial(server.URL, &hc)
+}
+
+func TestTheProxyWaitsOutARateLimitAndTheAgentSeesAnAnswer(t *testing.T) {
+	server, calls := flaky(t, 1, http.StatusTooManyRequests, "1")
+	local, client := newAgent()
+
+	errs := run(t, context.Background(), local, retrying(server, time.Minute))
+
+	if _, err := client.writes.Write([]byte(`{"jsonrpc":"2.0","id":1,"method":"initialize"}` + "\n")); err != nil {
+		t.Fatalf("write to the proxy: %v", err)
+	}
+	if reply := client.reads.next(t); !strings.Contains(reply, `"id":1`) || !strings.Contains(reply, "result") {
+		t.Fatalf("reply: got %s, want the result for id 1", reply)
+	}
+	if *calls != 2 {
+		t.Fatalf("calls to Loupe: got %d, want 2", *calls)
+	}
+
+	client.writes.Close()
+	if err := <-errs; err != nil {
+		t.Fatalf("Run after the agent closed its input: %v", err)
+	}
+}
+
+func TestTheProxyAnswersACallWithAnErrorWhenTheWaitsRunOutAndKeepsRunning(t *testing.T) {
+	server, _ := flaky(t, 1000, http.StatusServiceUnavailable, "")
+	local, client := newAgent()
+
+	errs := run(t, context.Background(), local, retrying(server, 3*time.Second))
+
+	if _, err := client.writes.Write([]byte(`{"jsonrpc":"2.0","id":4,"method":"tools/list"}` + "\n")); err != nil {
+		t.Fatalf("write to the proxy: %v", err)
+	}
+	reply := client.reads.next(t)
+	if !strings.Contains(reply, `"id":4`) || !strings.Contains(reply, `"error"`) {
+		t.Fatalf("reply: got %s, want a JSON-RPC error for id 4", reply)
+	}
+
+	select {
+	case err := <-errs:
+		t.Fatalf("Run ended after a refused call: %v", err)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	client.writes.Close()
+	<-errs
+}
+
+func TestTheProxyEndsWhenLoupeRefusesTheCredentials(t *testing.T) {
+	server, _ := flaky(t, 1000, http.StatusForbidden, "")
+	local, client := newAgent()
+
+	errs := run(t, context.Background(), local, retrying(server, time.Minute))
+
+	if _, err := client.writes.Write([]byte(`{"jsonrpc":"2.0","id":1,"method":"initialize"}` + "\n")); err != nil {
+		t.Fatalf("write to the proxy: %v", err)
+	}
+
+	select {
+	case err := <-errs:
+		if !errors.Is(err, ErrCredentialsRefused) {
+			t.Fatalf("Run: got %v, want ErrCredentialsRefused", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run did not end after a credential refusal")
+	}
 }
