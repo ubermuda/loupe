@@ -13,10 +13,10 @@ final class Version20261010200258 extends AbstractMigration
     #[\Override]
     public function getDescription(): string
     {
-        return 'Write the shipped Lifecycle copy, whose agent review rules wait for implement and fix work, into every Lifecycle binding, and keep the epic branch of each copy';
+        return 'Write the shipped Lifecycle copy, whose agent review rules wait for work that pushes to the branch, into every Lifecycle binding, and keep the epic branch of each copy';
     }
 
-    /** The engine reads the stored copy, so a project bound before this release would review a head while its implement or fix work still runs. The epic branch belongs to the project, so each copy keeps its own, or keeps none. */
+    /** The engine reads the stored copy, so a project bound before this release would review a head while work that pushes to its branch still runs. The epic branch belongs to the project, so each copy keeps its own, or keeps none. */
     public function up(Schema $schema): void
     {
         $source = Yaml::parseFile(__DIR__.'/../config/workflows/lifecycle.yaml');

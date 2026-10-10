@@ -169,14 +169,16 @@ final class ShippedTemplatesTest extends KernelTestCase
         foreach (['implementation', 'in-review'] as $slot) {
             yield $slot.', implement work runs' => [$slot, ['implement'], false];
             yield $slot.', fix work runs' => [$slot, ['fix'], false];
+            yield $slot.', sync work runs' => [$slot, ['sync'], false];
+            yield $slot.', rebase work runs' => [$slot, ['rebase-stacked'], false];
             yield $slot.', its own review runs' => [$slot, ['review'], true];
-            yield $slot.', other work runs' => [$slot, ['sync'], true];
+            yield $slot.', other work runs' => [$slot, ['merge'], true];
         }
     }
 
     /** @param list<string> $activeWorkKinds */
     #[DataProvider('activeWorkDuringReview')]
-    public function test_a_head_waits_for_its_review_until_implement_and_fix_work_ends(string $slot, array $activeWorkKinds, bool $asks): void
+    public function test_a_head_waits_for_its_review_until_work_that_pushes_to_its_branch_ends(string $slot, array $activeWorkKinds, bool $asks): void
     {
         $facts = self::withAgentReview($slot, [null], activeWorkKinds: $activeWorkKinds);
         $ruleId = 'agent-review'.('in-review' === $slot ? '-in-review' : '');

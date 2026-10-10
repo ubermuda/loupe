@@ -29,7 +29,7 @@ final class LifecycleAgentReviewWaitsMigrationTest extends KernelTestCase
             "UPDATE workflow_bindings SET definition = jsonb_set(definition, '{rules}', (
                 SELECT jsonb_agg(CASE
                     WHEN rule->>'id' IN ('agent-review', 'agent-review-in-review')
-                    THEN jsonb_set(rule, '{when,all}', (rule->'when'->'all') - 3 - 3)
+                    THEN jsonb_set(rule, '{when,all}', (rule->'when'->'all') - 3 - 3 - 3 - 3)
                     ELSE rule
                 END ORDER BY position)
                 FROM jsonb_array_elements(definition->'rules') WITH ORDINALITY AS rules(rule, position)
