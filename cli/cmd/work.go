@@ -554,7 +554,9 @@ func (r *router) workResultLocked(p pending, res workerResult, shut bool) (strin
 	return state, reason, true
 }
 
-// workOutcome maps how a run ended to the result of its work request.
+// workOutcome maps how a run ended to the result of its work request. A done
+// result carries the reason of the structured result too, because a workflow
+// rule can match on it.
 func workOutcome(res workerResult) (string, string) {
 	refused := func(fallback string) (string, string) {
 		if res.hasResult {
@@ -576,7 +578,7 @@ func workOutcome(res workerResult) (string, string) {
 		return refused(workUnfinished)
 	}
 
-	return api.WorkRequestDone, ""
+	return api.WorkRequestDone, resultReason(res.reason)
 }
 
 // settleWork posts the result of a work request through the report queue,

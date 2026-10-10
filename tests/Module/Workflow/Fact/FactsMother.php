@@ -23,6 +23,9 @@ use App\Module\Board\Workflow\ParentFactProvider;
 use App\Module\Board\Workflow\ParentFacts;
 use App\Module\Board\Workflow\PullRequestListFactProvider;
 use App\Module\Board\Workflow\StaleApprovalFacts;
+use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Bridge\Workflow\LatestWorkFactProvider;
+use App\Module\Bridge\Workflow\LatestWorkFacts;
 use App\Module\Bridge\Workflow\ParentWorkFactProvider;
 use App\Module\Bridge\Workflow\ParentWorkFacts;
 use App\Module\Bridge\Workflow\RefusalFactProvider;
@@ -83,9 +86,13 @@ final class FactsMother
             ...self::byClass(new PullRequestList($pullRequests, $pullRequest)),
             ...self::byClass(new AgentReviewFacts(self::reviewedHeads($pullRequest, $pullRequests), epic: false, unposted: false)),
             ...self::byClass(new WorkRequestFacts($run->activeWorkKinds), new RefusalFacts($run->lastRefusalCode), new WorkerRunFacts($run->activeWorkerKinds), new ParentWorkFacts($run->parentActiveKinds)),
-            ...self::byClass(new FixRunFacts([]), new StaleApprovalFacts([])),
+            ...self::byClass(new FixRunFacts([]), new StaleApprovalFacts([]), new LatestWorkFacts($run->latestWorkState, $run->latestWorkKind, $run->latestWorkReason)),
         ];
-        $prints = [FixRunFacts::class => [], StaleApprovalFacts::class => []];
+        $prints = [
+            FixRunFacts::class => [],
+            StaleApprovalFacts::class => [],
+            LatestWorkFacts::class => new \ReflectionClass(LatestWorkFactProvider::class)->newInstanceWithoutConstructor()->fingerprint($given[LatestWorkFacts::class]),
+        ];
         $legacy = [];
         foreach (self::PROVIDERS as $providerClass) {
             $provider = new \ReflectionClass($providerClass)->newInstanceWithoutConstructor();
@@ -179,9 +186,16 @@ final class FactsMother
      * @param list<string> $activeWorkerKinds
      * @param list<string> $parentActiveKinds
      */
-    public static function run(array $activeWorkKinds = [], ?string $lastRefusalCode = null, array $activeWorkerKinds = [], array $parentActiveKinds = []): RunInputs
-    {
-        return new RunInputs($activeWorkKinds, $lastRefusalCode, $activeWorkerKinds, $parentActiveKinds);
+    public static function run(
+        array $activeWorkKinds = [],
+        ?string $lastRefusalCode = null,
+        array $activeWorkerKinds = [],
+        array $parentActiveKinds = [],
+        ?WorkRequestState $latestWorkState = null,
+        ?string $latestWorkKind = null,
+        ?string $latestWorkReason = null,
+    ): RunInputs {
+        return new RunInputs($activeWorkKinds, $lastRefusalCode, $activeWorkerKinds, $parentActiveKinds, $latestWorkState, $latestWorkKind, $latestWorkReason);
     }
 
     /** @return array<class-string, object> */

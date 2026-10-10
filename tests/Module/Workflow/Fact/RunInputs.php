@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Fact;
 
+use App\Module\Bridge\ValueObject\WorkRequestState;
+
 /** What a test says about the work of a card. FactsMother turns it into the facts of the providers. */
 final readonly class RunInputs
 {
@@ -17,6 +19,9 @@ final readonly class RunInputs
         public ?string $lastRefusalCode,
         public array $activeWorkerKinds,
         public array $parentActiveKinds,
+        public ?WorkRequestState $latestWorkState = null,
+        public ?string $latestWorkKind = null,
+        public ?string $latestWorkReason = null,
     ) {
     }
 }

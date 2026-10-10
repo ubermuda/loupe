@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Bridge\Workflow\Condition;
 
+use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Bridge\Workflow\Condition\ParentWorkActive;
+use App\Module\Bridge\Workflow\Condition\RunFinishedWith;
 use App\Module\Bridge\Workflow\Condition\RunLastRefusal;
 use App\Module\Bridge\Workflow\Condition\RunWorkActive;
 use App\Module\Bridge\Workflow\Condition\RunWorkerActive;
+use App\Module\Bridge\Workflow\LatestWorkFacts;
 use App\Module\Bridge\Workflow\ParentWorkFacts;
 use App\Module\Bridge\Workflow\RefusalFacts;
 use App\Module\Bridge\Workflow\WorkerRunFacts;
@@ -21,6 +24,8 @@ use PHPUnit\Framework\TestCase;
 
 final class RunConditionsTest extends TestCase
 {
+    private const array NOTHING_TO_BUILD = ['kind' => 'implement', 'reason' => 'nothing-to-build'];
+
     /** @param array<string, mixed> $params */
     #[DataProvider('cases')]
     public function test_it_evaluates_the_facts(Condition $condition, array $params, Facts $facts, bool $expected): void
@@ -52,6 +57,15 @@ final class RunConditionsTest extends TestCase
         yield 'last refusal, same code' => [new RunLastRefusal(), ['code' => 'no-worker'], self::withRun(lastRefusalCode: 'no-worker'), true];
         yield 'last refusal, other code' => [new RunLastRefusal(), ['code' => 'no-worker'], self::withRun(lastRefusalCode: 'dirty-tree'), false];
         yield 'last refusal, none' => [new RunLastRefusal(), ['code' => 'no-worker'], self::withRun(lastRefusalCode: null), false];
+
+        yield 'finished with, done of that kind with that reason' => [new RunFinishedWith(), self::NOTHING_TO_BUILD, self::withLatest(WorkRequestState::Done, 'implement', 'nothing-to-build'), true];
+        yield 'finished with, done of another kind' => [new RunFinishedWith(), self::NOTHING_TO_BUILD, self::withLatest(WorkRequestState::Done, 'fix', 'nothing-to-build'), false];
+        yield 'finished with, done with another reason' => [new RunFinishedWith(), self::NOTHING_TO_BUILD, self::withLatest(WorkRequestState::Done, 'implement', 'done'), false];
+        yield 'finished with, done with no reason' => [new RunFinishedWith(), self::NOTHING_TO_BUILD, self::withLatest(WorkRequestState::Done, 'implement', null), false];
+        yield 'finished with, refused with that kind and reason' => [new RunFinishedWith(), self::NOTHING_TO_BUILD, self::withLatest(WorkRequestState::Refused, 'implement', 'nothing-to-build'), false];
+        yield 'finished with, a newer request is open' => [new RunFinishedWith(), self::NOTHING_TO_BUILD, self::withLatest(WorkRequestState::Open, 'implement', null), false];
+        yield 'finished with, a newer request was cancelled' => [new RunFinishedWith(), self::NOTHING_TO_BUILD, self::withLatest(WorkRequestState::Cancelled, 'implement', null), false];
+        yield 'finished with, no request' => [new RunFinishedWith(), self::NOTHING_TO_BUILD, self::withLatest(null, null, null), false];
     }
 
     /**
@@ -81,12 +95,18 @@ final class RunConditionsTest extends TestCase
         yield 'card.run.worker_active' => [new RunWorkerActive(), ['kind' => 'breakdown'], 'run_worker_active', [], [WorkerRunFacts::class]];
         yield 'card.parent.run.active' => [new ParentWorkActive(), ['kind' => 'breakdown'], 'parent_work_active', [], [ParentWorkFacts::class]];
         yield 'card.run.last_refusal' => [new RunLastRefusal(), ['code' => 'no-worker'], 'run_last_refusal', ['%code%' => 'no-worker'], [RefusalFacts::class]];
+        yield 'card.run.finished_with' => [new RunFinishedWith(), self::NOTHING_TO_BUILD, 'run_finished_with', ['%kind%' => 'implement', '%reason%' => 'nothing-to-build'], [LatestWorkFacts::class]];
     }
 
     /** @param list<string> $activeWorkKinds */
     private static function withRun(array $activeWorkKinds = [], ?string $lastRefusalCode = null): Facts
     {
         return FactsMother::facts(run: FactsMother::run(activeWorkKinds: $activeWorkKinds, lastRefusalCode: $lastRefusalCode));
+    }
+
+    private static function withLatest(?WorkRequestState $state, ?string $kind, ?string $reason): Facts
+    {
+        return FactsMother::facts(run: FactsMother::run(latestWorkState: $state, latestWorkKind: $kind, latestWorkReason: $reason));
     }
 
     /**

@@ -182,7 +182,7 @@ back to Implementation at once when it has no open blocker.
 |---|---|
 | Product design | Asks for an interactive product design session when the card has no product document, and asks for a revision when the product document gets changes requested. An approved product document, with the tag `product-design`, moves the card to Tech design |
 | Tech design | Asks for the tech design when the card has no design document, and for a revision when it gets changes requested. An approved tech design, with the tag `tech-design`, moves the card to Implementation once the card has no open blocker |
-| Implementation | Asks for the implementation, or for a breakdown of an epic into children. An epic gets its breakdown when it enters, with or without children. A pull request that is open, not a draft, whose required checks passed and whose [agent review](#agent-review) passed moves the card to In review. Failed checks, a conflict or a request for changes ask for a fix, 3 rounds at most |
+| Implementation | Asks for the implementation, or for a breakdown of an epic into children. An epic gets its breakdown when it enters, with or without children. A pull request that is open, not a draft, whose required checks passed and whose [agent review](#agent-review) passed moves the card to In review. Failed checks, a conflict or a request for changes ask for a fix, 3 rounds at most. A card with no pull request whose implementation run finished with the reason `nothing-to-build` or `delivered-without-code` moves to the terminal column. See [Finishing without code](#finishing-without-code) |
 | In review | Asks for a fix as in Implementation. A pull request that turns back into a draft moves the card to Implementation. A stacked pull request whose parent merged gets a new base. An approved pull request that is behind gets its branch updated. A ready pull request merges once its agent review passed |
 
 A design document in review, a draft and a revision keep the slot from asking
@@ -190,6 +190,31 @@ for a second design. Archive the document to ask for a new one.
 
 An upgrade retags the existing documents. The tag `product` becomes
 `product-design`, and the tag `design` becomes `tech-design`.
+
+### Finishing without code
+
+An implementation worker can find that a card has no code to build. An answered
+decision of the tech design can remove all the work, or the card can ask only
+for a document, such as a measurement. The worker then ends its run as finished,
+with one of two reason codes:
+
+| Reason code | When the worker uses it |
+|---|---|
+| `nothing-to-build` | An answered decision removed all the work of the card |
+| `delivered-without-code` | The card asked only for a document, and the worker linked it |
+
+The bridge settles the `implement` request as done with that reason. The rule
+with the same name then moves the card to the terminal column. The rule waits
+while the card links a pull request, while it is an epic, and while work runs on
+it. The card history says "Via the nothing-to-build workflow rule" or "Via the
+delivered-without-code workflow rule". The worker also adds one line to the card
+body that names the decision or the document. A parent epic counts the card as
+finished, as it counts any card in a terminal column.
+
+In a workflow file, the condition `card.run.finished_with` with a `kind` and a
+`reason` is true when the latest work request of the card is done, of
+that kind, with that reason. A bridge older than this release sends no reason
+with a done request, so the rules never fire for its runs.
 
 ### Agent review
 
