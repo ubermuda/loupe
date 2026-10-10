@@ -55,6 +55,7 @@ func newMcpCmd() *cobra.Command {
 				Tokens:  tokenSource(cfg, &http.Client{Timeout: refreshTimeout}),
 				Project: project,
 				Session: mcpSession,
+				Base:    &mcpproxy.Retrying{},
 			}}
 
 			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt)

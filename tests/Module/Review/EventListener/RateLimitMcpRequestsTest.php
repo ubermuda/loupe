@@ -35,6 +35,19 @@ final class RateLimitMcpRequestsTest extends TestCase
         $listener($this->call('203.0.113.7'));
     }
 
+    public function test_a_refusal_tells_the_client_how_long_to_wait(): void
+    {
+        $listener = $this->listenerAuthenticatedAs('mcp-token-1');
+        $listener($this->call('203.0.113.7'));
+
+        try {
+            $listener($this->call('203.0.113.7'));
+            self::fail('The second call must be refused.');
+        } catch (TooManyRequestsHttpException $e) {
+            self::assertGreaterThanOrEqual(1, (int) $e->getHeaders()['Retry-After']);
+        }
+    }
+
     public function test_one_agents_roaming_address_does_not_widen_its_allowance(): void
     {
         $listener = $this->listenerAuthenticatedAs('mcp-token-1');

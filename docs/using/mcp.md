@@ -127,7 +127,9 @@ The command adds one thing a direct HTTP connection cannot. Loupe keeps each MCP
 session for an hour in one web container's cache directory, so a session ends on
 an idle agent, on a deploy, and on a request that reaches another container.
 `loupe mcp` then opens a new session and carries on, where a direct connection
-loses its Loupe tools for the rest of the agent's run.
+loses its Loupe tools for the rest of the agent's run. It also waits and tries
+again when Loupe answers with a rate limit or a short outage during a deploy, and
+it gives the agent an error for that one call when the wait ends.
 
 One sign-in is enough. `loupe login` asks for `agent mcp projects`, so the same
 login serves `loupe bridge` and `loupe mcp`, and it covers every project you own
