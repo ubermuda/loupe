@@ -167,6 +167,10 @@ rules:
               - not: { card.type: { type: epic } }
               - pr.open: {}
               - agent_review.due: {}
+              - not: { card.run.work_active: { kind: implement } }
+              - not: { card.run.work_active: { kind: fix } }
+              - not: { card.run.work_active: { kind: sync } }
+              - not: { card.run.work_active: { kind: rebase-stacked } }
       then:
           request:
               kind: review
@@ -242,6 +246,10 @@ rules:
               - not: { card.type: { type: epic } }
               - pr.open: {}
               - agent_review.due: {}
+              - not: { card.run.work_active: { kind: implement } }
+              - not: { card.run.work_active: { kind: fix } }
+              - not: { card.run.work_active: { kind: sync } }
+              - not: { card.run.work_active: { kind: rebase-stacked } }
       then:
           request:
               kind: review
