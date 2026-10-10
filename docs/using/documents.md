@@ -54,6 +54,10 @@ reviewer wants that passage to become — which the author applies by rewriting
 the Markdown and submitting a new version. Loupe never edits the document
 itself.
 
+The page head shows the document title. When the document opens with a level-one
+heading that repeats the title, the page hides that heading and leaves it out of the
+Outline panel.
+
 Comments, suggestions and strikes apply to the version shown on the page.
 If a newer version arrives, Loupe rejects the submission and keeps the draft open.
 Copy the draft before reloading, then select the passage in the current version.
@@ -157,8 +161,9 @@ and its anchor is gone. A pending thread that still points at real text waits
 for the agent, so it adds nothing. A row with nothing waiting stays empty, which
 is what makes the waiting rows easy to find.
 
-The top bar of the review page holds the breadcrumb, the version, **Finish
-review** and the global actions. The Comments panel and its toolbar button hold
+The top bar of the review page holds the breadcrumb, the version, the global
+actions and **Finish review**. On a wide screen, **Finish review** or the
+verdict ends level with the right edge of the panel column. The Comments panel and its toolbar button hold
 the thread counts for the version on screen. Every count is a thread count, so a
 reply never adds to one.
 
@@ -219,6 +224,7 @@ Use the **Highlight new text** switch in the document header to see what a versi
 The switch marks every passage that this version added since the previous version.
 Added text shows on a green tint, in a darker green ink for readers who cannot tell the tint apart.
 Decisions and comments work as usual while the switch is on.
+The switch shows a spinner while it loads the new passages.
 
 The switch compares the version on screen with the version before it.
 On an earlier version, it compares that version with the one before that.
@@ -266,7 +272,7 @@ work here too, and a jump can land in either column.
 This view uses the full width for the two versions, so every panel starts
 hidden. Select a toolbar button to show a panel as a column on the right, and
 the two versions make room for it. This view has no Comments panel and takes no
-new comment. Read or write comments on **Rendered**, or in the document itself.
+new comment.
 On a phone the columns stack, older above newer, and each names its version.
 
 **Markdown** compares the two sources line by line, so it shows a change the
@@ -334,8 +340,8 @@ to explain your choice, or to write your own answer with no option picked. The
 **Decisions** panel counts a note with no pick as an answer. The
 note saves 800 ms after you stop typing, and again when you leave the field.
 **Clear choice** sits at the top right of the block, beside the "Pick one" or
-"Pick any" chip. It removes the pick and keeps the note. The status line shows "Saved." or
-"Cleared." after each save.
+"Pick any" chip. It removes the pick and keeps the note. A flash above the document shows "Saved." or
+"Cleared." after each save, and the reason when a save fails.
 
 The last write wins. Loupe does not refuse a save because another answer came
 first. A save from a page that shows an older version goes onto the current

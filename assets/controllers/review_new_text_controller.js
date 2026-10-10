@@ -36,14 +36,19 @@ export default class extends Controller {
         this.element.setAttribute('aria-checked', on ? 'true' : 'false');
         const request = ++this.request;
         this.element.setAttribute('title', this.title);
+        this.element.removeAttribute('aria-busy');
         if (!on) {
             this.#paint([]);
             return;
+        }
+        if (this.anchors === null) {
+            this.element.setAttribute('aria-busy', 'true');
         }
         try {
             this.anchors ??= await this.#load();
         } catch {
             if (request === this.request) {
+                this.element.removeAttribute('aria-busy');
                 this.#off(this.errorMessageValue, false);
             }
             return;
@@ -51,6 +56,7 @@ export default class extends Controller {
         if (request !== this.request) {
             return;
         }
+        this.element.removeAttribute('aria-busy');
         if (this.anchors.reason !== null) {
             const message =
                 this.anchors.reason === 'no-previous-version'

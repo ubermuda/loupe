@@ -942,16 +942,23 @@
    typography plugin's `prose` rules sit in the utilities layer. Every rule is
    scoped under .lp-review, so the landing page's review mock keeps its look. */
 
-/* Top bar: the review action, a hairline, then the bell and New work. */
-.lp-topbar:has(> .lp-review-topbar-actions) > .lp-review-topbar-actions {
-    @apply order-1 ml-auto;
-}
-.lp-topbar:has(> .lp-review-topbar-actions) > .lp-topbar__global-actions {
-    @apply order-2 ml-0;
+.lp-topbar > .lp-review-topbar-actions {
+    @apply ml-0;
 }
 @media (width >= 64rem) {
-    .lp-topbar:has(> .lp-review-topbar-actions) > .lp-topbar__global-actions {
+    .lp-topbar > .lp-review-topbar-actions {
         @apply border-l border-line pl-3.5;
+    }
+}
+/* review_panels_controller.js sets the inset that ends the review action
+   level with the panel column. The fallback is exact where the column is at
+   its widest, 3rem + 48rem + 5rem + 24rem from the left. */
+@media (width >= 75rem) {
+    .lp-topbar:has(> .lp-review-topbar-actions) {
+        padding-right: var(
+            --review-panels-inset,
+            max(calc(var(--spacing) * 7.5), calc(100% - var(--spacing) * 320))
+        );
     }
 }
 
@@ -1009,6 +1016,19 @@
 }
 .lp-review .lp-new-text-switch[aria-disabled='true'] {
     @apply cursor-not-allowed opacity-60 hover:bg-transparent;
+}
+/* While the new text loads, a spinner takes the place of the checkbox. */
+.lp-review .lp-new-text-switch__spinner {
+    @apply absolute top-1/2 left-2 hidden size-3.5 -translate-y-1/2 text-fg-mute motion-safe:animate-spin;
+}
+.lp-review .lp-new-text-switch[aria-busy='true'] {
+    @apply cursor-progress;
+}
+.lp-review .lp-new-text-switch[aria-busy='true']::before {
+    @apply invisible;
+}
+.lp-review .lp-new-text-switch[aria-busy='true'] .lp-new-text-switch__spinner {
+    @apply block;
 }
 /* The cards that wait on the review, as one byline item with a tooltip. */
 .lp-review .lp-review-doc__wait {
@@ -1273,13 +1293,13 @@
 
 /* ── Column ─────────────────────────────────────────────────────── */
 /* One text column of 48rem with no card or border, at the left, and the panel
-   column 3.5rem to its right. The panel column takes 20rem, and grows to 24rem
-   where the room allows. Below 75rem the toolbar and the open panels stack
-   above the document. */
+   column 5rem to its right, which leaves room for the comment markers. The
+   panel column takes 20rem, and grows to 24rem where the room allows. Below
+   75rem the toolbar and the open panels stack above the document. */
 .lp-review .lp-review-block {
     --doc-margin: calc(var(--spacing) * 80);
     --doc-margin-max: calc(var(--spacing) * 96);
-    --doc-margin-gap: calc(var(--spacing) * 14);
+    --doc-margin-gap: calc(var(--spacing) * 20);
 }
 @media (width >= 56.25rem) {
     .lp-review .lp-review-block {
@@ -1340,13 +1360,13 @@
             100% - var(--review-column-start) - var(--review-column)
         );
     }
-    /* The panel column stays in view and scrolls on its own when the open
-       panels are taller than the window. */
+    /* The panel column fills the window below the top bar, stays in view, and
+       scrolls on its own when the open panels are taller than the window. */
     .lp-review .lp-review-panels__inner {
         @apply overflow-y-auto overscroll-contain pb-1;
         position: sticky;
         top: calc(var(--spacing) * 6);
-        max-height: min(calc(100dvh - var(--spacing) * 26), 100%);
+        height: min(calc(100dvh - var(--spacing) * 26), 100%);
         scrollbar-width: thin;
     }
 }
@@ -1372,8 +1392,14 @@
         order: 10;
     }
 }
-.lp-review .lp-review-doc__prose > :first-child {
+.lp-review .lp-review-doc__prose > :first-child,
+.lp-review .lp-review-doc__prose > [data-repeated-title] + * {
     @apply mt-0;
+}
+/* The page head already shows the title. Hidden, not removed, so the text
+   stays in the textContent comment anchors are measured against. */
+.lp-review .lp-review-doc__prose > [data-repeated-title] {
+    @apply hidden;
 }
 /* Sections are separated by whitespace, never by a rule. */
 .lp-review .lp-review-doc__prose hr {
@@ -1827,8 +1853,8 @@
 .lp-review .lp-diff-notes__entry {
     @apply my-2 leading-relaxed;
 }
-.lp-review .lp-diff-notes__entry .lp-version-pill {
-    @apply bg-transparent p-0 pr-1 font-semibold text-review-tab-ink;
+.lp-review .lp-diff-notes__entry .lp-tag {
+    @apply mr-1.5;
 }
 .lp-review .lp-diff-notes + .lp-review-doc__prose,
 .lp-review .lp-diff-notes + .lp-diff,
@@ -5807,10 +5833,10 @@
        the card it reports on rather than inside it. */
     /* Collapsed, not hidden: `display: none` drops a live region from the a11y tree. */
     .lp-decision-status {
-        @apply m-0 pt-1.5 text-xs text-fg-mute empty:h-0 empty:overflow-hidden empty:pt-0;
+        @apply m-0 pb-6 empty:h-0 empty:overflow-hidden empty:pb-0;
     }
-    .lp-decision-status__message--failed {
-        @apply text-danger;
+    .lp-decision-status .lp-flash {
+        @apply m-0;
     }
 
     .lp-decision-summary__list {

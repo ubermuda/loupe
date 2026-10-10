@@ -176,3 +176,60 @@ it('still works when storage is blocked', async () => {
     expect(button.getAttribute('aria-checked')).toBe('true');
     blocked.mockRestore();
 });
+
+function pending() {
+    const requests = [];
+    vi.stubGlobal(
+        'fetch',
+        vi.fn(
+            () =>
+                new Promise((resolve, reject) => {
+                    requests.push({ resolve, reject });
+                }),
+        ),
+    );
+
+    return requests;
+}
+
+it('is busy while the passages load, and idle once they arrive', async () => {
+    const requests = pending();
+    const button = await mount();
+
+    await click(button);
+    expect(button.getAttribute('aria-busy')).toBe('true');
+
+    requests[0].resolve({
+        ok: true,
+        json: async () => ({ anchors: ANCHORS, reason: null }),
+    });
+    await settle();
+    await settle();
+
+    expect(button.hasAttribute('aria-busy')).toBe(false);
+    expect(painted).toEqual([ANCHORS]);
+});
+
+it('is idle again when the load fails', async () => {
+    const requests = pending();
+    const button = await mount();
+
+    await click(button);
+    requests[0].reject(new TypeError('Failed to fetch'));
+    await settle();
+    await settle();
+
+    expect(button.hasAttribute('aria-busy')).toBe(false);
+    expect(button.getAttribute('title')).toBe('Load failed');
+});
+
+it('is idle at once when turned off during the load', async () => {
+    pending();
+    const button = await mount();
+
+    await click(button);
+    await click(button);
+
+    expect(button.hasAttribute('aria-busy')).toBe(false);
+    expect(button.getAttribute('aria-checked')).toBe('false');
+});

@@ -30,6 +30,8 @@ export default class extends Controller {
             this.filterTarget.open = false;
         };
         this.onFilterResize = () => this.placeFilter();
+        this.topbarObserver = new ResizeObserver(() => this.#alignTopbar());
+        this.topbarObserver.observe(this.element);
         const stored = this.modeValue === 'columns' ? [] : this.#storedPanels();
         if (stored !== null) {
             for (const button of this.buttonTargets) {
@@ -129,6 +131,26 @@ export default class extends Controller {
 
     disconnect() {
         this.#unwatchFilter();
+        this.topbarObserver.disconnect();
+        document
+            .querySelector('.lp-topbar')
+            ?.style.removeProperty('--review-panels-inset');
+    }
+
+    // The top bar's review action reads this inset to end where the panel column ends.
+    #alignTopbar() {
+        const topbar = document.querySelector('.lp-topbar');
+        const panels = this.element.querySelector('.lp-review-panels');
+        if (topbar === null || panels === null) {
+            return;
+        }
+        const inset =
+            topbar.getBoundingClientRect().right -
+            panels.getBoundingClientRect().right;
+        topbar.style.setProperty(
+            '--review-panels-inset',
+            `${Math.max(0, Math.round(inset))}px`,
+        );
     }
 
     /**

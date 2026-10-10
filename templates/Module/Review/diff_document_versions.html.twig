@@ -28,7 +28,7 @@
         <div class="lp-diff-notes__body" data-disclosure-target="content">
             {% for meta in changeNotes %}
             <p class="lp-diff-notes__entry">
-                <span class="lp-version-pill">{{ 'v' ~ meta.versionNumber }}</span>
+                <twig:Ds:Tag tone="neutral">{{ 'v' ~ meta.versionNumber }}</twig:Ds:Tag>
                 <span>{{ meta.description }}</span>
             </p>
             {% endfor %}

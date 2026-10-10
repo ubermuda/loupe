@@ -120,6 +120,7 @@ final class SaveDecisionAnswerControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame('Saved.', self::statusMessage((string) $client->getResponse()->getContent()));
+        self::assertStringContainsString('lp-flash--success', (string) $client->getResponse()->getContent());
         $answer = $this->answerRow($document);
         self::assertNotNull($answer);
         self::assertSame('Staging is quiet this week.', $answer->note);
@@ -174,6 +175,7 @@ final class SaveDecisionAnswerControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
         self::assertSame('A note can have a maximum of 2000 characters.', self::statusMessage((string) $client->getResponse()->getContent()));
+        self::assertStringContainsString('lp-flash--error', (string) $client->getResponse()->getContent());
         self::assertNull($this->answerRow($document));
     }
 
@@ -554,12 +556,12 @@ final class SaveDecisionAnswerControllerTest extends WebTestCase
     /** The text of the status line, lifted out of the stream that carries it. */
     private static function statusMessage(string $body): string
     {
-        preg_match('~<span class="lp-decision-status__message[^"]*">(.*?)</span>~s', $body, $matches);
+        preg_match('~<span class="lp-flash__message">(.*?)</span>~s', $body, $matches);
         if (!isset($matches[1])) {
             self::fail('the stream carries no status message');
         }
 
-        return $matches[1];
+        return trim($matches[1]);
     }
 
     /**

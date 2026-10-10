@@ -94,7 +94,8 @@ async function mount({
     checked = [],
     kind = 'checkbox',
 } = {}) {
-    document.body.innerHTML = `<p id="decision-status"></p>
+    document.body.innerHTML = `<div id="decision-status"></div>
+${['info', 'error'].map((severity) => `<template data-decision-status-flash="${severity}"><div class="lp-flash lp-flash--${severity}"><span class="lp-flash__dot"></span><span class="lp-flash__message"></span></div></template>`).join('')}
 <div data-controller="decision" data-action="change->decision#select"
         data-decision-page="${page}"
         data-decision-summary-url-value="${SUMMARY}"
@@ -326,9 +327,7 @@ it('keeps the note and reports a network failure', async () => {
     expect(note('a').value).toBe('Unsaved words');
     const status = document.getElementById('decision-status');
     expect(status.textContent).toBe('Could not save.');
-    expect(
-        status.querySelector('.lp-decision-status__message--failed'),
-    ).not.toBeNull();
+    expect(status.querySelector('.lp-flash--error')).not.toBeNull();
 
     note('a').dispatchEvent(new Event('blur'));
     expect(sent).toHaveLength(2);
@@ -738,7 +737,7 @@ it('drops a decision stream that arrives on another document or version', async 
 });
 
 it('drops a decision stream that arrives on a page with no decisions', async () => {
-    document.body.innerHTML = '<p id="decision-status"></p>';
+    document.body.innerHTML = '<div id="decision-status"></div>';
 
     expect(streamRender('doc-1/3').defaultPrevented).toBe(true);
 });
@@ -902,6 +901,9 @@ it('shows the stored picks and note after a change, and does not send them back'
     expect(document.getElementById('decision-status').textContent).toBe(
         'Changed by Ann Other.',
     );
+    expect(
+        document.querySelector('#decision-status .lp-flash--info'),
+    ).not.toBeNull();
 
     note('a').dispatchEvent(new Event('blur'));
     expect(sent).toHaveLength(0);

@@ -308,9 +308,6 @@ test('the two columns pair the blocks and carry no comment column', async ({
     // carries no comment column and takes no new comment.
     await expect(page.locator(MARGIN)).toHaveCount(0);
     await expect(page.locator(WHOLE_DOCUMENT)).toHaveCount(0);
-    await expect(page.locator('#diff-columns-notice')).toContainText(
-        'no comment column',
-    );
 
     // The columns take the gutter and the comment column for the second
     // reading measure, and the chrome above them still sits inside the block.
@@ -348,7 +345,6 @@ test('the two columns pair the blocks and carry no comment column', async ({
     await expect(
         page.getByRole('button', { name: 'Comment on the whole document' }),
     ).toBeVisible();
-    await expect(page.locator('#diff-columns-notice')).toHaveCount(0);
 });
 
 test('the toolbar holds the same two columns in every view', async ({

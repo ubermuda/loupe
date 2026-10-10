@@ -438,21 +438,21 @@ export default class extends Controller {
     }
 
     showChangedBy(name) {
-        const status = document.getElementById('decision-status');
-        if (!status) return;
-        const message = document.createElement('span');
-        message.className = 'lp-decision-status__message';
-        message.textContent = this.changedByValue.replace('%name%', name);
-        status.replaceChildren(message);
+        this.#showStatus('info', this.changedByValue.replace('%name%', name));
     }
 
     showError() {
+        this.#showStatus('error', this.errorMessageValue);
+    }
+
+    #showStatus(severity, text) {
         const status = document.getElementById('decision-status');
-        if (!status) return;
-        const message = document.createElement('span');
-        message.className =
-            'lp-decision-status__message lp-decision-status__message--failed';
-        message.textContent = this.errorMessageValue;
-        status.replaceChildren(message);
+        const template = document.querySelector(
+            `template[data-decision-status-flash="${severity}"]`,
+        );
+        if (!status || !template) return;
+        const flash = template.content.firstElementChild.cloneNode(true);
+        flash.querySelector('.lp-flash__message').textContent = text;
+        status.replaceChildren(flash);
     }
 }

@@ -197,20 +197,17 @@
                             <p class="lp-diff-views__heading" aria-hidden="true">{{ 'review.document.diff.view.label'|trans }}</p>
                             <a class="lp-diff-views__link"
                                href="{{ path('app_document_review_diff', viewParams|merge({view: 'rendered'})) }}"
-                               {% if diffView.value == 'rendered' %}aria-current="page"{% endif %}
-                               {% if diffColumns %}aria-describedby="diff-columns-notice"{% endif %}>
+                               {% if diffView.value == 'rendered' %}aria-current="page"{% endif %}>
                                 <twig:ux:icon name="lucide:check" class="lp-diff-views__check" />{{ 'review.document.diff.view.rendered'|trans }}</a>
                             {# describedby rather than a second link: the notice below says
                                why this view is worth opening, and this is the control that
-                               opens it. Second of the three: it reads the same document,
-                               where the columns rebuild the page. #}
+                               opens it. #}
                             <a class="lp-diff-views__link"
                                href="{{ path('app_document_review_diff', viewParams|merge({view: 'source'})) }}"
                                {% if diffView.value == 'source' %}aria-current="page"{% endif %}
                                {% if diffUnmarked %}aria-describedby="diff-unmarked-notice"{% endif %}>
                                 <twig:ux:icon name="lucide:check" class="lp-diff-views__check" />{{ 'review.document.diff.view.source'|trans }}</a>
-                            {# The same rendered blocks in two columns. The notice
-                               below says what it gives up, and this link opens it. #}
+                            {# The same rendered blocks in two columns. #}
                             <a class="lp-diff-views__link"
                                href="{{ path('app_document_review_diff', viewParams|merge({view: 'side-by-side'})) }}"
                                {% if diffColumns %}aria-current="page"{% endif %}>
@@ -224,13 +221,6 @@
                 </div>
                 {% endif %}
 
-                {% if diffColumns %}
-                <p id="diff-columns-notice" class="lp-diff-notice">
-                    <twig:ux:icon name="lucide:info" class="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>{{ 'review.document.diff.side_by_side.read_only'|trans }}</span>
-                </p>
-                {% endif %}
-
                 {% if diffUnmarked %}
                 <p id="diff-unmarked-notice" class="lp-diff-notice">
                     <twig:ux:icon name="lucide:info" class="w-4 h-4 shrink-0 mt-0.5" />
@@ -242,7 +232,13 @@
             {% endif %}
 
             {% if not diffMode %}
-                {% if decisionRows|length > 0 %}<p id="decision-status" class="lp-decision-status" aria-live="polite"></p>{% endif %}
+                {% if decisionRows|length > 0 %}
+                {# The region is the one live region, so each flash drops its own status role. #}
+                <div id="decision-status" class="lp-decision-status" aria-live="polite"></div>
+                {% for severity in ['info', 'error'] %}
+                <template data-decision-status-flash="{{ severity }}"><twig:Ds:Flash severity="{{ severity }}" role="none"></twig:Ds:Flash></template>
+                {% endfor %}
+                {% endif %}
             {% endif %}
 
             {% if canComment %}

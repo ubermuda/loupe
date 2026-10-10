@@ -1072,6 +1072,35 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-comment-anchor-target="doc"] .lp-review-contents'));
     }
 
+    public function test_a_leading_heading_that_repeats_the_title_is_hidden_and_left_out_of_the_contents(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-repeat', 'owner-repeat@example.com');
+        $project = $this->project($em, $owner);
+
+        $markdown = "# Sectioned doc\n\nBody.\n\n## First\n\nMore.\n";
+        $doc = new Document(owner: $owner, project: $project, title: 'Sectioned Doc');
+        $doc->addVersion($markdown, new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render($markdown));
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-comment-anchor-target="doc"] > h1#heading-sectioned-doc[data-repeated-title]'));
+        self::assertSame(
+            ['#heading-first'],
+            $crawler->filter('[data-panel="contents"] .lp-review-contents__link')->each(static fn ($node): string => (string) $node->attr('href')),
+        );
+    }
+
     public function test_a_heading_with_no_derivable_label_is_listed_under_its_own_id(): void
     {
         $client = static::createClient();

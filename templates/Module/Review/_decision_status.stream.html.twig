@@ -4,6 +4,6 @@
    total sits in a tab whose open state the reviewer owns. Swapping either
    element out re-announces unpredictably and would close an open panel. #}
 <turbo-stream data-decision-page="{{ page }}" action="update" target="decision-status">
-    <template><span class="lp-decision-status__message{{ failed ? ' lp-decision-status__message--failed' }}">{{ message }}</span></template>
+    <template><twig:Ds:Flash severity="{{ failed ? 'error' : 'success' }}" role="none">{{ message }}</twig:Ds:Flash></template>
 </turbo-stream>
 {% include '@Review/_decision_summary.stream.html.twig' with {page: page, rows: rows, answeredCount: answeredCount} only %}

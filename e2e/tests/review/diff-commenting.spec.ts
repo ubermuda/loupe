@@ -372,15 +372,12 @@ test('side-by-side takes no comment and carries no comment column', async ({
     await expect(page.locator('.lp-diff-columns')).toBeVisible();
 
     // Both columns need the width, so the comparison offers no annotation
-    // surface at all and says where the comments are instead.
+    // surface at all.
     await expect(page.locator(DOC)).toHaveCount(0);
     await expect(page.locator(TOOLBAR)).toHaveCount(0);
     await expect(page.locator('.lp-review-margin')).toHaveCount(0);
     await expect(page.locator('#comment-threads')).toHaveCount(0);
     await expect(page.locator('#comment-rows')).toHaveCount(0);
-    await expect(page.locator('#diff-columns-notice')).toContainText(
-        'no comment column',
-    );
 
     // Rendered keeps every comment path for the same pair.
     await page.goto(`${reviewPath}/diff/1/2`);
@@ -450,9 +447,6 @@ test('a diff whose newer side is not the current version offers no commenting', 
     await expect(page.locator(DOC)).toHaveCount(0);
     await expect(page.locator(TOOLBAR)).toHaveCount(0);
     await expect(page.locator('[data-diff-offset]')).toHaveCount(0);
-    await expect(page.locator('#diff-columns-notice')).toContainText(
-        'no comment column',
-    );
 
     // The pair that does end at the current version still accepts one.
     await page.goto(

@@ -1210,7 +1210,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         // With no pane to anchor in, the anchor controller must not attach.
         self::assertCount(0, $columns->filter('[data-controller~="comment-anchor"]'));
         self::assertCount(0, $columns->filter('[data-diff-side="old"] [data-diff-offset]'));
-        self::assertCount(1, $columns->filter('#diff-columns-notice'));
+        self::assertCount(0, $columns->filter('#diff-columns-notice'));
         self::assertCount(1, $columns->filter('.lp-review-block--wide'));
         self::assertCount(1, $columns->filter('.lp-review-doc--wide'));
 
@@ -1224,7 +1224,6 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $rendered = $client->request(Request::METHOD_GET, $base);
         self::assertResponseIsSuccessful();
         self::assertCount(0, $rendered->filter('.lp-diff-columns'));
-        self::assertCount(0, $rendered->filter('#diff-columns-notice'));
         self::assertCount(0, $rendered->filter('.lp-review-block--wide'));
         self::assertCount(1, $rendered->filter('.lp-review-margin'));
     }

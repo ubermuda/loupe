@@ -5,9 +5,20 @@ import ReviewPanelsController from '../../assets/controllers/review_panels_contr
 
 const STORAGE_KEY = 'loupe.review.panels';
 let application;
+let resizeCallbacks;
 
 beforeEach(() => {
     window.localStorage.clear();
+    resizeCallbacks = [];
+    window.ResizeObserver = class {
+        constructor(callback) {
+            resizeCallbacks.push(callback);
+        }
+
+        observe() {}
+
+        disconnect() {}
+    };
     application = Application.start();
     application.register('review-panels', ReviewPanelsController);
 });
@@ -382,4 +393,24 @@ it('hangs the filter menu from its toggle in the window, so no panel clips it', 
     window.dispatchEvent(new Event('scroll'));
 
     expect(filter.open).toBe(false);
+});
+
+it('gives the top bar the inset from its right edge to the panel column', async () => {
+    const block = await mount();
+    const topbar = document.createElement('header');
+    topbar.className = 'lp-topbar';
+    document.body.prepend(topbar);
+    const panels = document.createElement('aside');
+    panels.className = 'lp-review-panels';
+    block.append(panels);
+    topbar.getBoundingClientRect = () => ({ right: 1585 });
+    panels.getBoundingClientRect = () => ({ right: 1496.4 });
+
+    for (const callback of resizeCallbacks) callback([]);
+
+    expect(topbar.style.getPropertyValue('--review-panels-inset')).toBe('89px');
+
+    block.remove();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(topbar.style.getPropertyValue('--review-panels-inset')).toBe('');
 });
