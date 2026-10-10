@@ -8,8 +8,10 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\DiffDocumentVersionsHandler;
 use App\Module\Review\Entity\Comment;
+use App\Module\Review\Entity\DecisionSelection;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
+use App\Module\Review\Service\DecisionBlockService;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\ValueObject\Anchor;
 use App\Module\Review\ValueObject\DiffRefusal;
@@ -106,6 +108,32 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
      * unchanged between them. A section removed whole is one such run across two
      * block wrappers, and the count the bar reports is the number of runs.
      */
+    public function test_a_recommended_option_in_a_diff_shows_a_named_badge(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-badge', 'owner-diff-badge@example.com');
+        $project = $this->project($em, $owner);
+
+        $fence = "<!-- decision: deploy-target -->\n\n- ( ) Ship to staging first (recommended: moderate)\n- ( ) Ship straight to production\n\n<!-- /decision -->\n";
+        $doc = new Document(owner: $owner, project: $project, title: 'Badge Diff');
+        $doc->addVersion("Where should this land?\n\n".$fence, '<p>v1</p>');
+        $doc->addVersion("Where should this land now?\n\n".$fence, '<p>v2</p>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('.lp-diff-doc .lp-decision__badge[data-decision-recommended="moderate"][role="note"][aria-label="Recommended, moderate confidence"]:not([title]) > .lp-tooltip[role="tooltip"][data-label="Recommended, moderate confidence"]');
+    }
+
     public function test_every_run_of_changes_is_one_numbered_jump_target(): void
     {
         $client = static::createClient();
@@ -313,14 +341,14 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         // lines too, so every changed line is one contiguous run. The rendered
         // view groups by what is drawn, where the unchanged words of the tail
         // sentence stand between the removed section and the reworded phrase.
-        foreach ([$base => [2, '2 changes'], $base.'?view=source' => [1, '1 change']] as $url => [$hunks, $counter]) {
+        foreach ([$base => [2, '2 changes', '%current% of 2 changes'], $base.'?view=source' => [1, '1 change', '%current% of 1 change']] as $url => [$hunks, $counter, $position]) {
             $crawler = $client->request(Request::METHOD_GET, $url);
 
             self::assertResponseIsSuccessful();
             self::assertCount($hunks, $crawler->filter('[data-diff-navigation-target="hunk"]'));
             self::assertSame($counter, trim($crawler->filter('.lp-diff-nav__count')->text()));
             self::assertSame(
-                'Change %current% of '.$hunks,
+                $position,
                 $crawler->filter('[data-controller~="diff-navigation"]')->attr('data-diff-navigation-position-value'),
             );
         }
@@ -384,6 +412,9 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
 
         $rendered = $client->request(Request::METHOD_GET, $base);
         self::assertCount(3, $rendered->filter('.lp-diff-views__link'));
+        // The views wait behind a settings button, in a menu that starts closed.
+        self::assertSame('Diff view', $rendered->filter('.lp-diff-views__trigger')->attr('aria-label'));
+        self::assertCount(3, $rendered->filter('.lp-diff-views__panel[hidden] .lp-diff-views__link'));
         self::assertSame(
             'Rendered',
             $rendered->filter('.lp-diff-views__link[aria-current]')->text(),
@@ -500,6 +531,16 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertCount(0, $diff->filter('.lp-comment-composer'));
         self::assertCount(0, $diff->filter('.lp-anchor-toolbar'));
         self::assertStringNotContainsString('data-diff-offset', (string) $client->getResponse()->getContent());
+        // The toolbar offers Outline and Decisions, and no Comments. This
+        // document holds no decision, so Decisions is disabled.
+        self::assertSame(
+            ['decisions', 'outline'],
+            $diff->filter('.lp-review-toolbar__button')->each(static fn (Crawler $button): string => (string) $button->attr('data-review-panels-name-param')),
+        );
+        self::assertSame('true', $diff->filter('.lp-review-toolbar__button[data-review-panels-name-param="decisions"]')->attr('aria-disabled'));
+        self::assertStringContainsString('no decisions', (string) $diff->filter('.lp-review-toolbar__button[data-review-panels-name-param="decisions"]')->attr('title'));
+        self::assertCount(0, $diff->filter('dialog input[name="submit_review_form[verdict]"]'));
+        self::assertCount(1, $diff->filter('.lp-review-doc__byline [aria-controls="review-page-menu"]'));
 
         // The review page on the current version, so the assertions above cannot
         // pass merely because the selectors never match anything.
@@ -518,8 +559,6 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
 
     /**
      * The newer side IS the version a comment lands on, so the pane accepts one.
-     * The verdict stays off, because it describes a document rather than a
-     * comparison.
      */
     public function test_a_diff_ending_at_the_current_version_accepts_a_comment(): void
     {
@@ -551,9 +590,10 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertCount(1, $diff->filter('#comment-threads'));
         self::assertCount(1, $diff->filter('.lp-anchor-toolbar'));
         self::assertGreaterThan(0, $diff->filter('.lp-comment-composer')->count());
+        self::assertCount(1, $diff->filter('.lp-review-toolbar__button[data-review-panels-name-param="comments"]'));
 
-        // Still a comparison: nothing that reports on a single version is offered.
-        self::assertCount(0, $diff->filter('input[name="submit_review_form[verdict]"]'));
+        // The verdict applies to the current version, which this diff ends at.
+        self::assertCount(2, $diff->filter('dialog input[name="submit_review_form[verdict]"]'));
 
         // Inserted text carries an offset. Deleted text carries none, which is
         // what lets the browser refuse a selection that touches it.
@@ -603,8 +643,8 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('.lp-diff-doc'));
         self::assertSelectorTextContains('.lp-empty', 'too large to compare');
         // The versions themselves are still readable from History, which is what
-        // the message points the reviewer at.
-        self::assertCount(1, $crawler->filter('.lp-tabs__tab[href$="/review/history"]'));
+        // the message points the reviewer at. The ⋯ menu holds the way there.
+        self::assertCount(1, $crawler->filter('a.lp-page-menu__row[href$="/review/history"]'));
     }
 
     /**
@@ -750,33 +790,30 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $diff = $client->request(Request::METHOD_GET, $base);
 
         self::assertResponseIsSuccessful();
-        // The margin's Outline view lists the diff's headings, the way it does
-        // on the review page.
-        self::assertCount(1, $diff->filter('[data-margin-panel="outline"]'));
+        // The Outline panel lists the diff's headings, the way it does on the
+        // review page.
+        self::assertCount(1, $diff->filter('[data-review-panel="outline"]'));
 
         // Removed headings are listed too: they are on the page the reader has,
         // in the order the merged render holds them.
         self::assertSame(
             ['First', 'Gone', 'Renamed', 'Arrived', 'Second!'],
-            $diff->filter('[data-margin-panel="outline"] .lp-review-contents__link')->each(
+            $diff->filter('[data-review-panel="outline"] .lp-review-contents__link')->each(
                 static fn (Crawler $link): string => $link->text(),
             ),
         );
         $this->assertContentsRowsResolve($diff);
 
-        // A diff approves nothing, so no row offers or reports a state.
         self::assertCount(0, $diff->filter('.lp-review-contents__tick'));
-        self::assertCount(0, $diff->filter('.lp-section-approvals__pending'));
 
-        // Both counts below lg say how many headings there are. An approved-of-
-        // total reading there claims every section of a diff awaits approval.
+        // Both counts below lg say how many headings there are.
         self::assertSame('5', trim($diff->filter('#review-menu-sections-count')->text()));
         self::assertSame('5', trim($diff->filter('#review-menu-sections-head-count')->text()));
 
         // The Markdown view lists headings too. Its ids are minted from the
         // source lines, because it renders no heading element to read one from.
         $source = $client->request(Request::METHOD_GET, $base.'?view=source');
-        self::assertCount(1, $source->filter('[data-margin-panel="outline"]'));
+        self::assertCount(1, $source->filter('[data-review-panel="outline"]'));
         $this->assertContentsRowsResolve($source);
 
         // The columns take the margin's width, so the review menu lists their
@@ -808,11 +845,63 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
             ),
         );
 
-        // The review page for the same document still reports approval state, so
-        // the assertions above cannot pass by the panel having lost it outright.
+        // The review page for the same document lists its headings, so the
+        // assertions above cannot pass by the panel having lost them outright.
         $latest = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
-        self::assertCount(1, $latest->filter('[data-margin-panel="outline"]'));
-        self::assertCount(3, $latest->filter('[data-margin-panel="outline"] .lp-review-contents__tick'));
+        self::assertCount(1, $latest->filter('[data-review-panel="outline"]'));
+        self::assertCount(3, $latest->filter('[data-review-panel="outline"] .lp-review-contents__link'));
+    }
+
+    /**
+     * While comparing, the Outline panel opens and says how many changes each
+     * section holds. The Markdown view counts by source line, so it shows none.
+     */
+    public function test_the_outline_counts_the_changes_of_each_section(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-counts', 'owner-diff-counts@example.com');
+        $project = $this->project($em, $owner);
+
+        $renderer = new MarkdownRenderer(new NullLogger(), new IdentityTranslator());
+        $old = "## First\n\nOne.\n\nTwo.\n\nThree.\n\n## Kept\n\nSame.\n\n## Gone\n\nDropped.\n\n## Last\n\nSame.\n";
+        $new = "## First\n\nOne changed.\n\nTwo.\n\nThree changed.\n\n## Kept\n\nSame.\n\n## Last\n\nSame.\n";
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Counted Diff');
+        $doc->addVersion($old, $renderer->render($old));
+        $doc->addVersion($new, $renderer->render($new));
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $base = '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2';
+        $counts = static fn (Crawler $page): array => $page->filter('#review-panel-outline .lp-review-contents__item')->each(
+            static fn (Crawler $row): string => $row->filter('.lp-review-contents__link')->text().':'.($row->filter('.lp-review-contents__changes')->count() > 0 ? $row->filter('.lp-review-contents__changes')->text() : '-'),
+        );
+
+        $rendered = $client->request(Request::METHOD_GET, $base);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['First:2 changes', 'Kept:-', 'Gone:1 change', 'Last:-'], $counts($rendered));
+        self::assertSame('compare', $rendered->filter('[data-review-panels-mode-value]')->attr('data-review-panels-mode-value'));
+        self::assertNull($rendered->filter('#review-panel-outline')->attr('hidden'));
+
+        $columns = $client->request(Request::METHOD_GET, $base.'?view=side-by-side');
+        self::assertSame(['First:2 changes', 'Kept:-', 'Gone:1 change', 'Last:-'], $counts($columns));
+        self::assertSame('columns', $columns->filter('[data-review-panels-mode-value]')->attr('data-review-panels-mode-value'));
+        self::assertNotNull($columns->filter('#review-panel-outline')->attr('hidden'));
+
+        $source = $client->request(Request::METHOD_GET, $base.'?view=source');
+        self::assertSame(['First:-', 'Kept:-', 'Gone:-', 'Last:-'], $counts($source));
+
+        // The document has no comparison to count, and keeps the stored choice.
+        $document = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+        self::assertCount(0, $document->filter('.lp-review-contents__changes'));
+        self::assertSame('document', $document->filter('[data-review-panels-mode-value]')->attr('data-review-panels-mode-value'));
     }
 
     /**
@@ -898,9 +987,9 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         );
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $source->filter('[data-margin-panel="outline"]'));
+        self::assertCount(1, $source->filter('[data-review-panel="outline"]'));
 
-        $rows = $source->filter('[data-margin-panel="outline"] .lp-review-contents__link');
+        $rows = $source->filter('[data-review-panel="outline"] .lp-review-contents__link');
         self::assertSame(
             ['Guide', 'Removed', 'Added', 'Stable'],
             $rows->each(static fn (Crawler $link): string => $link->text()),
@@ -922,9 +1011,8 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
             self::assertStringContainsString($label, $source->filter($href)->text(), $href.' names another line.');
         }
 
-        // A diff approves nothing here either, so the count is the headings alone.
         self::assertCount(0, $source->filter('.lp-review-contents__tick'));
-        self::assertSame('4', trim($source->filter('#section-summary-count')->text()));
+        self::assertCount(4, $source->filter('#review-panel-outline .lp-review-contents__link'));
     }
 
     /**
@@ -1004,11 +1092,19 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame('1', $crawler->filter('#diff-from option[selected]')->attr('value'));
         self::assertSame('2', $crawler->filter('#diff-to option[selected]')->attr('value'));
-        $return = $crawler->filter('.lp-review-doc__actions a')->reduce(
-            static fn (Crawler $link): bool => str_contains($link->text(), 'Return to document'),
-        );
+        // The way back leads the compare bar.
+        $return = $crawler->filter('.lp-diff-bar__main > a:first-child');
+        self::assertSame('Return to document', $return->attr('aria-label'));
+        self::assertSame('Document', trim($return->text()));
         self::assertSame('/projects/'.$projectId.'/documents/'.$id.'/review', $return->attr('href'));
+        self::assertCount(0, $crawler->filter('.lp-review-doc__byline a[href$="/review"]'));
+        self::assertCount(0, $crawler->filter('.lp-review-workspace-nav'));
         self::assertSelectorNotExists('.lp-version-banner');
+
+        // The document reaches the comparison from its "⋯" menu, with no view tabs.
+        $document = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+        self::assertCount(0, $document->filter('.lp-review-workspace-nav'));
+        self::assertCount(1, $document->filter('#review-page-menu a[href$="/review/diff/1/2"]'));
     }
 
     /**
@@ -1105,11 +1201,16 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertGreaterThan(0, $columns->filter('.lp-diff-columns__cell--void')->count());
 
         // The columns take the width the comment column would, so this view
-        // carries none and accepts no comment.
+        // carries none and accepts no comment. The toolbar stays, to bring a
+        // panel back.
         self::assertCount(0, $columns->filter('.lp-review-margin'));
+        self::assertCount(1, $columns->filter('.lp-review-toolbar'));
+        self::assertCount(0, $columns->filter('.lp-review-toolbar__button[data-review-panels-name-param="comments"]'));
         self::assertCount(0, $columns->filter('[data-comment-anchor-target="doc"]'));
+        // With no pane to anchor in, the anchor controller must not attach.
+        self::assertCount(0, $columns->filter('[data-controller~="comment-anchor"]'));
         self::assertCount(0, $columns->filter('[data-diff-side="old"] [data-diff-offset]'));
-        self::assertCount(1, $columns->filter('#diff-columns-notice'));
+        self::assertCount(0, $columns->filter('#diff-columns-notice'));
         self::assertCount(1, $columns->filter('.lp-review-block--wide'));
         self::assertCount(1, $columns->filter('.lp-review-doc--wide'));
 
@@ -1123,9 +1224,80 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $rendered = $client->request(Request::METHOD_GET, $base);
         self::assertResponseIsSuccessful();
         self::assertCount(0, $rendered->filter('.lp-diff-columns'));
-        self::assertCount(0, $rendered->filter('#diff-columns-notice'));
         self::assertCount(0, $rendered->filter('.lp-review-block--wide'));
         self::assertCount(1, $rendered->filter('.lp-review-margin'));
+    }
+
+    /**
+     * The diff is a mode of the review page, so the verdict and the answers on
+     * record stay in view. Answering stays in the document, which is where each
+     * row of the Decisions panel leads.
+     */
+    public function test_a_diff_ending_at_the_current_version_keeps_the_review_state(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $renderer = static::getContainer()->get(MarkdownRenderer::class);
+
+        $owner = $this->createUser($em, 'owner-diff-state', 'owner-diff-state@example.com');
+        $project = $this->project($em, $owner);
+
+        $fence = "<!-- decision: deploy-target -->\n\n- ( ) Ship to staging first\n- ( ) Ship straight to production\n\n<!-- /decision -->\n";
+        $doc = new Document(owner: $owner, project: $project, title: 'Stateful Diff');
+        foreach (['one step', 'two steps', 'three steps'] as $steps) {
+            $source = "# Plan\n\nThe rollout takes {$steps}.\n\n".$fence;
+            $doc->addVersion($source, $renderer->render($source));
+        }
+        $em->persist($doc);
+        $em->persist(new DecisionSelection($doc, 'deploy-target', 1, 'Ship straight to production', 3));
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $base = '/projects/'.$projectId.'/documents/'.$id.'/review';
+        $diff = $client->request(Request::METHOD_GET, $base.'/diff/2/3');
+
+        self::assertResponseIsSuccessful();
+        // Finish review and its dialog, as on the document.
+        self::assertCount(1, $diff->filter('[data-action="click->review-finish#open"]'));
+        self::assertCount(2, $diff->filter('dialog input[name="submit_review_form[verdict]"]'));
+
+        // The Decisions panel lists the answer, says why it cannot change here,
+        // and each row leads to the block in the document.
+        $button = $diff->filter('.lp-review-toolbar__button[data-review-panels-name-param="decisions"]');
+        self::assertNull($button->attr('aria-disabled'));
+        $panel = $diff->filter('#review-panel-decisions');
+        self::assertStringContainsString('Ship straight to production', $panel->filter('.lp-decision-summary__answer')->text());
+        self::assertStringContainsString('read-only', $panel->filter('.lp-review-panel__hint')->text());
+        self::assertSame(
+            $base.'#'.DecisionBlockService::blockElementId('deploy-target'),
+            $panel->filter('.lp-decision-summary__link')->attr('href'),
+        );
+        self::assertNull($panel->filter('.lp-decision-summary__link')->attr('data-action'));
+        // The phone menu lists the same rows, with the same links.
+        self::assertSame(
+            $base.'#'.DecisionBlockService::blockElementId('deploy-target'),
+            $diff->filter('#review-menu-decisions-list .lp-review-menu__section')->attr('href'),
+        );
+
+        // The block in the pane stays inert, and no answer can be posted.
+        self::assertSame('disabled', $diff->filter('.lp-diff-doc fieldset.lp-decision')->attr('disabled'));
+        self::assertCount(0, $diff->filter('#decision-answer'));
+        self::assertCount(0, $diff->filter('[data-action~="change->decision#select"]'));
+
+        // A pair that ends before the current version offers no verdict, because
+        // a verdict applies to the document as it stands.
+        $older = $client->request(Request::METHOD_GET, $base.'/diff/1/2');
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $older->filter('[data-action="click->review-finish#open"]'));
+        self::assertCount(0, $older->filter('dialog input[name="submit_review_form[verdict]"]'));
+        self::assertSame(
+            $base.'/versions/2#'.DecisionBlockService::blockElementId('deploy-target'),
+            $older->filter('#review-panel-decisions .lp-decision-summary__link')->attr('href'),
+        );
     }
 
     public function test_unauthenticated_user_is_redirected(): void

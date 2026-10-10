@@ -19,11 +19,13 @@ final readonly class DecisionSummary
      * @param list<Decision>           $decisions
      * @param array<string, list<int>> $selectedIndexesByDecisionId keyed by decision id, absent when unanswered
      * @param array<string, string>    $notesByDecisionId           keyed by decision id, absent when no note is saved
+     * @param array<string, string>    $headingsByDecisionId        the nearest heading above each block, absent when none
      */
     public function __construct(
         public array $decisions,
         public array $selectedIndexesByDecisionId,
         public array $notesByDecisionId,
+        public array $headingsByDecisionId,
     ) {
     }
 
@@ -54,16 +56,39 @@ final readonly class DecisionSummary
      * out in the template, because it is the same id the rendered fieldset
      * carries and a second spelling of the prefix is a link that breaks silently.
      *
-     * @return list<array{label: string, elementId: string, answered: bool, selected: list<string>}>
+     * @return list<array{tag: string, label: string, title: string, elementId: string, answered: bool, selected: list<string>, note: string|null}>
      */
     public function rows(): array
     {
-        return array_map(fn (Decision $decision): array => [
+        return array_map(fn (Decision $decision, int $position): array => [
+            'tag' => $this->tag($decision, $position),
             'label' => $decision->label(),
+            'title' => $this->title($decision),
             'elementId' => DecisionBlockService::blockElementId($decision->id),
             'answered' => $this->isAnswered($decision),
             'selected' => $this->selectedOptions($decision),
-        ], $this->decisions);
+            'note' => $this->notesByDecisionId[$decision->id] ?? null,
+        ], $this->decisions, array_keys($this->decisions));
+    }
+
+    /** "How do we ship?" from a heading such as "D4: How do we ship?", else the block's label. */
+    private function title(Decision $decision): string
+    {
+        if (1 === preg_match('~^D\d+(?!\d)\s*[:.]?\s*(.+)$~u', $this->headingsByDecisionId[$decision->id] ?? '', $matches)) {
+            return trim($matches[1]);
+        }
+
+        return $decision->label();
+    }
+
+    /** "D4" from a heading such as "D4: How do we ship?", else the block's place in the list. */
+    private function tag(Decision $decision, int $position): string
+    {
+        if (1 === preg_match('~^D(\d+)(?!\d)~', $this->headingsByDecisionId[$decision->id] ?? '', $matches)) {
+            return 'D'.$matches[1];
+        }
+
+        return 'D'.($position + 1);
     }
 
     /**

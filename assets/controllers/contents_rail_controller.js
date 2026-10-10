@@ -95,14 +95,12 @@ export default class extends Controller {
      * the one asked for.
      */
     #flash(heading) {
-        // The whole head, so the approval control travels with its heading.
-        const head = heading.closest('.lp-section-head') ?? heading;
         clearTimeout(this.flashTimer);
         this.flashed?.classList.remove(ARRIVED_CLASS);
-        head.classList.add(ARRIVED_CLASS);
-        this.flashed = head;
+        heading.classList.add(ARRIVED_CLASS);
+        this.flashed = heading;
         this.flashTimer = setTimeout(() => {
-            head.classList.remove(ARRIVED_CLASS);
+            heading.classList.remove(ARRIVED_CLASS);
             this.flashed = null;
         }, FLASH_MS);
     }

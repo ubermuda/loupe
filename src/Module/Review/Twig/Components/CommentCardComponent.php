@@ -29,6 +29,8 @@ use Symfony\UX\TwigComponent\Attribute\AsTwigComponent;
  *   replacement  string              Proposed wording; only read for a suggestion.
  *   body         string              The comment itself; empty for a strike.
  *   orphaned     bool                The passage is gone from this version.
+ *   popover      bool                Renders the card as an auto popover. The
+ *                                    review page opens it over its passage.
  *   replies      list<array{author: string, body: string, age: string}>
  */
 #[AsTwigComponent(name: 'CommentCard')]
@@ -55,6 +57,8 @@ final class CommentCardComponent
     public string $body = '';
 
     public bool $orphaned = false;
+
+    public bool $popover = false;
 
     /** @var list<array{author: string, body: string, age: string}> */
     public array $replies = [];

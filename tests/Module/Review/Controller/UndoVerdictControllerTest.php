@@ -45,7 +45,7 @@ final class UndoVerdictControllerTest extends WebTestCase
 
         $client->loginUser($owner);
         $page = $client->request(Request::METHOD_GET, "/projects/$projectId/documents/$documentId/review");
-        $form = $page->filter('.lp-verdict-bar__undo button')->form();
+        $form = $page->filter('.lp-verdict-chip__undo button')->form();
         $form['undo_verdict_form[reviewId]'] = $reviewId;
         $client->submit($form);
 
@@ -80,7 +80,7 @@ final class UndoVerdictControllerTest extends WebTestCase
 
         $client->loginUser($owner);
         $page = $client->request(Request::METHOD_GET, "/projects/$projectId/documents/$documentId/review");
-        $staleForm = $page->filter('.lp-verdict-bar__undo button')->form();
+        $staleForm = $page->filter('.lp-verdict-chip__undo button')->form();
         $em = static::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $document = $em->find(Document::class, $documentId);
@@ -163,7 +163,7 @@ final class UndoVerdictControllerTest extends WebTestCase
         ]);
         $audit->forget();
         $page = $client->followRedirect();
-        $client->submit($page->filter('.lp-verdict-bar__undo button')->form());
+        $client->submit($page->filter('.lp-verdict-chip__undo button')->form());
 
         self::assertResponseRedirects("/projects/$projectId/documents/$documentId/review");
 

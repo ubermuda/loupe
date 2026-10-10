@@ -47,7 +47,6 @@ final class ShowDocumentHistoryController extends AppController
             'document' => $view->document,
             'versions' => $view->versions,
             'version' => $current->version,
-            'sections' => $current->sections,
             'signals' => $current->signals,
             'reviseDocumentForm' => $this->createForm(
                 ReviseDocumentFormType::class,

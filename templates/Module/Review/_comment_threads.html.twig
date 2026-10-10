@@ -1,84 +1,13 @@
-{#
-  Every comment thread on the version, split by whether it has a passage to sit
-  beside. Rendered both on initial page load and by the whole-list Turbo Stream
-  (add / delete / resolve all replace #comment-threads), so everything that must
-  refresh on a mutation lives inside this element.
-
-  General comments — no anchor — lead the reading column, because there is no
-  passage for them to be level with. Anchored comments go in the margin, where
-  comment_anchor_controller measures each one's passage and sets its `top`. Below
-  the margin's breakpoint the cards stack below the document in passage order.
-
-  There is deliberately no status grouping any more: a card's position now says
-  which passage it belongs to, and sorting the column by status would break that
-  the moment a thread was resolved.
-
-  Vars:  @comment-budget-ignore
-    comments  list<Comment>   All comments for the version (roots and replies).
-    readOnly  bool            Optional; true when rendering a version other than
-                              the current one, where every write control acts on
-                              the wrong version. Defaults to false so the Turbo
-                              Stream re-renders — which only ever follow a
-                              mutation on the current version — stay interactive.
-#}
+{# Every thread's card, as a popover that its row or its highlight opens.
+   Outside the Comments panel: a popover under display:none does not render.
+   Vars: comments, every comment on the version; readOnly, true on an
+   earlier version. #}
 {% set readOnly = readOnly ?? false %}
 {% set rootComments = comments|filter(c => c.parent is null)|map(c => c) %}
-{# `is empty` would call a comment anchored to the literal text 0 general. #}
-{% set generalComments = rootComments|filter(c => c.anchor.quote == '')|map(c => c) %}
-{# A thread whose passage is gone from this version has no line to sit level
-   with, so it leads the column under its own heading instead of taking whatever
-   spot the running floor gives it. #}
-{% set orphanedComments = rootComments|filter(c => c.anchor.quote != '' and c.orphaned)|map(c => c) %}
-{% set anchoredComments = rootComments|filter(c => c.anchor.quote != '' and not c.orphaned)|map(c => c) %}
 {% set resolvedCount = rootComments|filter(c => c.threadStatus.value == 'resolved')|length %}
 <div id="comment-threads" class="lp-comment-threads" data-resolved-count="{{ resolvedCount }}">
-    {% if generalComments|length > 0 %}
-    {# Open by default: the disclosure controller reads that starting state off
-       the .disclosure-open class, because a <section> has no native `open`. #}
-    <section class="lp-general-comments disclosure-open" data-controller="disclosure">
-        <button type="button" class="lp-general-comments__toggle"
-                aria-controls="general-comments-list" aria-expanded="true" data-disclosure-target="trigger"
-                data-action="click->disclosure#toggle">
-            <twig:ux:icon name="lucide:chevron-right" class="lp-general-comments__caret" />
-            {{ 'review.document.group.general'|trans }} · {{ generalComments|length }}
-        </button>
-        <div id="general-comments-list" class="lp-general-comments__list open" data-disclosure-target="content">
-            {% for comment in generalComments %}
-                {% set replies = comments|filter(c => c.parent is not null and c.parent.id == comment.id) %}
-                <twig:CommentThread :comment="comment" :replies="replies|map(c => c)" :readOnly="readOnly" />
-            {% endfor %}
-        </div>
-    </section>
-    {% endif %}
-
-    <div class="lp-review-margin lp-comment-rail" data-comment-anchor-target="margin">
-        <div class="lp-review-margin-empty" data-review-margin-target="empty" role="status" hidden>
-            <p data-empty-filter="all">{{ 'review.document.margin.empty_all'|trans }}</p>
-            <p data-empty-filter="filtered">{{ 'review.document.margin.filter_empty'|trans }}</p>
-        </div>
-        {# Closed on arrival: these threads point at text this version does not
-           hold, so they are a thing to come back to rather than the first thing
-           to read. The heading still says how many there are. #}
-        {% if orphanedComments|length > 0 %}
-        <div class="lp-orphan-group" data-controller="disclosure">
-            <button type="button" class="lp-orphan-group__title"
-                    aria-controls="orphaned-threads" aria-expanded="false" data-disclosure-target="trigger"
-                    data-action="click->disclosure#toggle">
-                <twig:ux:icon name="lucide:chevron-right" class="lp-orphan-group__caret" />
-                <twig:ux:icon name="lucide:bell-off" class="lp-orphan-group__icon" />
-                {{ 'review.document.orphan_group'|trans({'%count%': orphanedComments|length}) }}
-            </button>
-            <div id="orphaned-threads" class="lp-orphan-group__list" data-disclosure-target="content">
-                {% for comment in orphanedComments %}
-                    {% set replies = comments|filter(c => c.parent is not null and c.parent.id == comment.id) %}
-                    <twig:CommentThread :comment="comment" :replies="replies|map(c => c)" :readOnly="readOnly" />
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
-        {% for comment in anchoredComments %}
-            {% set replies = comments|filter(c => c.parent is not null and c.parent.id == comment.id) %}
-            <twig:CommentThread :comment="comment" :replies="replies|map(c => c)" :readOnly="readOnly" />
-        {% endfor %}
-    </div>
+    {% for comment in rootComments %}
+        {% set replies = comments|filter(c => c.parent is not null and c.parent.id == comment.id) %}
+        <twig:CommentThread :comment="comment" :replies="replies|map(c => c)" :readOnly="readOnly" />
+    {% endfor %}
 </div>

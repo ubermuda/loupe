@@ -489,7 +489,7 @@ test('document dialogs create, retain and clear card links', async ({
     await reviseDialog
         .getByRole('button', { name: 'Save new version' })
         .click();
-    await expect(page.locator('.lp-review-doc__version')).toHaveText(
+    await expect(page.locator('.lp-topbar__trail .lp-version-pill')).toHaveText(
         'v2',
         ROUND_TRIP,
     );
@@ -506,7 +506,7 @@ test('document dialogs create, retain and clear card links', async ({
     await reviseDialog
         .getByRole('button', { name: 'Save new version' })
         .click();
-    await expect(page.locator('.lp-review-doc__version')).toHaveText(
+    await expect(page.locator('.lp-topbar__trail .lp-version-pill')).toHaveText(
         'v3',
         ROUND_TRIP,
     );

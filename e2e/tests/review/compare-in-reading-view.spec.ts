@@ -64,7 +64,7 @@ test('the comparison chrome is one toolbar row', async ({ page }) => {
     await expect(bar.locator('.lp-diff-views')).toHaveCount(1);
     await expect(bar.locator('.lp-diff-nav')).toHaveCount(1);
 
-    // The switch says which view is current by weight and tint, not by colour
+    // The menu marks the current view with a check and weight, not by colour
     // alone, and aria-current is what carries that to a screen reader.
     await expect(page.locator('.lp-diff-views__link[aria-current]')).toHaveText(
         'Rendered',
@@ -91,31 +91,31 @@ test('the comparison chrome is one toolbar row', async ({ page }) => {
     ).toBe(true);
 
     await next.click();
-    await expect(counter).toHaveText('Change 1 of 2');
+    await expect(counter).toHaveText('1 of 2 changes');
     await next.click();
-    await expect(counter).toHaveText('Change 2 of 2');
+    await expect(counter).toHaveText('2 of 2 changes');
     await previous.click();
-    await expect(counter).toHaveText('Change 1 of 2');
+    await expect(counter).toHaveText('1 of 2 changes');
     await expect(page.locator('.lp-diff__hunk--current')).toHaveCount(1);
 
-    // The Markdown view is a plain navigation, and the switch follows it.
-    await page.getByRole('link', { name: 'Markdown' }).click();
+    // The Markdown view is a plain navigation, and the menu follows it.
+    await bar.getByRole('button', { name: 'Diff view', exact: true }).click();
+    await bar.getByRole('link', { name: 'Markdown' }).click();
     await expect(page).toHaveURL(`${reviewPath}/diff/1/3?view=source`);
     await expect(page.locator('.lp-diff-views__link[aria-current]')).toHaveText(
         'Markdown',
     );
     await expect(page.locator('.lp-diff')).toBeVisible();
 
+    // A change of version compares at once, with no button to press.
     await bar.locator('#diff-from').selectOption('2');
-    await bar.locator('#diff-to').selectOption('3');
-    await bar.getByRole('button', { name: 'Compare' }).click();
     await expect(page).toHaveURL(`${reviewPath}/diff/2/3?view=source`, {
         timeout: coverageScaled(10000),
     });
     await expect(page.locator('#diff-from')).toHaveValue('2');
     await expect(page.locator('#diff-to')).toHaveValue('3');
 
-    // The header's return action is the way back to the latest version.
+    // The compare bar's return link is the way back to the latest version.
     await page.getByRole('link', { name: 'Return to document' }).click();
     await expect(page).toHaveURL(reviewPath);
     await expect(page.locator('.lp-diff-bar')).toHaveCount(0);

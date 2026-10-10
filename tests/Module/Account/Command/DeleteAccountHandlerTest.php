@@ -27,7 +27,6 @@ use App\Module\Review\Entity\DecisionSelection;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Highlight;
 use App\Module\Review\Entity\Review;
-use App\Module\Review\Entity\SectionApproval;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\ValueObject\Anchor;
@@ -334,7 +333,6 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM document_tags WHERE document_id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM decision_selections WHERE document_id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM decision_answers WHERE document_id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
-        self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM section_approvals WHERE document_id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
 
         // Nothing belonging to the other, untouched users was removed: their
         // own project, their comment authored on the foreign document, and
@@ -345,9 +343,6 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         self::assertNotNull($spared);
         self::assertNotNull($em->find(User::class, $fixture['thirdId']));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM comments WHERE id = :id', ['id' => (string) $fixture['otherAuthoredCommentId']]));
-        // The approval the deleted user left on the surviving document is gone
-        // with them, while the document itself stays.
-        self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM section_approvals WHERE document_id = :id', ['id' => (string) $fixture['otherDocumentId']]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE id = :id', ['id' => (string) $fixture['otherDocumentId']]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM decision_answers WHERE document_id = :id AND answered_by_id IS NULL', ['id' => (string) $fixture['otherDocumentId']]));
     }
@@ -510,8 +505,6 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         // account deletion unless DocumentOwnershipAccountPurger clears it.
         $em->persist(new DecisionSelection($foreignDocument, 'deploy-target', 1, 'Ship straight to production', 1));
         $em->persist(new DecisionAnswer($foreignDocument, 'deploy-target', 'Staging is down.', $other, 1));
-        // Same chain and the same NOT DEFERRABLE constraint as the selection above.
-        $em->persist(new SectionApproval($foreignDocument, 'heading-hi', str_repeat('a', 64), $owner, 1));
 
         // Tagged, because that document is deleted by DocumentOwnershipAccountPurger
         // rather than by ProjectDeleter, and the join table's FK has no cascade —
@@ -525,9 +518,6 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         // the whole reason this owner-mismatch fixture exists.
         $em->persist(new Highlight(version: $foreignVersion, anchor: Anchor::unanchored()));
 
-        // The deleted user as approver on a document they do NOT own: only
-        // SectionApprovalAccountPurger clears this one.
-        $em->persist(new SectionApproval($otherDocument, 'heading-hi', str_repeat('b', 64), $owner, 1));
         // The shared answer stays on the surviving document, and forgets who saved it.
         $em->persist(new DecisionAnswer($otherDocument, 'deploy-target', 'Staging first.', $owner, 1));
 

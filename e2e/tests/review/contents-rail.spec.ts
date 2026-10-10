@@ -16,6 +16,7 @@ import {
     suppressToolbar,
     suppressWidget,
 } from '../fixtures';
+import { showPanel } from './panels';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eContentsRail1!';
@@ -42,7 +43,7 @@ Gamma is short too.
 
 Delta is short as well, and it is what the bottom of the pane holds.`;
 
-const RAIL = '#review-margin-panel-outline';
+const RAIL = '#review-panel-outline';
 const RAIL_LINK = `${RAIL} .lp-review-contents__link`;
 const CURRENT = `${RAIL} .lp-review-contents__link--current`;
 
@@ -84,9 +85,7 @@ const test = base.extend<{ reviewUrl: string }>({
             const url = `/projects/${body.projectId}/documents/${body.documentId}/review`;
 
             await page.goto(url);
-            await page
-                .getByRole('tab', { name: 'Outline', exact: true })
-                .click();
+            await showPanel(page, 'Outline');
             await use(url);
         },
         { auto: true },
@@ -199,7 +198,10 @@ test('a heading that scrolls to the bottom is the one that stays marked', async 
     // The arrival mark says the animated scroll has finished. Scrolling before
     // then only races it, because the animation owns the pane until it ends.
     await expect(
-        page.locator('.lp-section-head').filter({ hasText: 'Gamma' }).first(),
+        page
+            .locator('.lp-review-doc__prose h2')
+            .filter({ hasText: 'Gamma' })
+            .first(),
     ).toHaveClass(/lp-arrived/);
 
     // The reader leaving the bottom hands the rail back to the scroll rule.
@@ -215,7 +217,7 @@ test('arriving at a heading names it for a moment', async ({ page }) => {
     await page.locator(RAIL_LINK).filter({ hasText: 'Beta' }).click();
 
     const head = page
-        .locator('.lp-section-head')
+        .locator('.lp-review-doc__prose h2')
         .filter({ hasText: 'Beta' })
         .first();
     await expect(head).toHaveClass(/lp-arrived/);
@@ -235,30 +237,4 @@ test('arriving at a heading names it for a moment', async ({ page }) => {
     await expect(head).not.toHaveClass(/lp-arrived/, {
         timeout: 8000,
     });
-});
-
-test('the current row survives an approval, which replaces the rows', async ({
-    page,
-}) => {
-    await expect(page.locator(RAIL)).toBeVisible();
-    await expect(page.locator(CURRENT)).toHaveText(/Alpha/);
-
-    await page
-        .locator(
-            '[data-comment-anchor-target="doc"] [data-section-approve="heading-alpha"]',
-        )
-        .click();
-    // The rail count is streamed alongside the rows, so it says the swap landed.
-    await expect(page.locator('#section-summary-count')).toHaveText('1/4', {
-        timeout: 20000,
-    });
-
-    await expect(page.locator(CURRENT)).toHaveText(/Alpha/);
-
-    // And the rail still follows the reader afterwards: it marks the headings
-    // of the document, which the stream never replaced.
-    await page.locator('.lp-main').evaluate((pane) => {
-        pane.scrollTop += 900;
-    });
-    await expect(page.locator(CURRENT)).toHaveText(/Beta/);
 });

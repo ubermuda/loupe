@@ -12,7 +12,6 @@ use App\Module\Inbox\Entity\InboxLinkedPage;
 use App\Module\Inbox\Service\InboxAvailability;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
-use App\Module\Review\Entity\Document;
 use Symfony\Component\Form\FormView;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
@@ -37,19 +36,12 @@ final class LinkedInboxSectionExtension extends AbstractExtension
     {
         return [
             new TwigFunction('inbox_card_section', $this->cardSection(...), ['needs_environment' => true, 'is_safe' => ['html']]),
-            new TwigFunction('inbox_document_section', $this->documentSection(...), ['needs_environment' => true, 'is_safe' => ['html']]),
         ];
     }
 
     public function cardSection(Environment $twig, Card $card): string
     {
         return $this->section($twig, $card->project, InboxLinkedPage::Card, $card->id);
-    }
-
-    /** @param int|null $versionNumber the older version the page shows, or null on the current one */
-    public function documentSection(Environment $twig, Document $document, ?int $versionNumber = null): string
-    {
-        return $this->section($twig, $document->project, InboxLinkedPage::Document, $document->id, $versionNumber);
     }
 
     private function section(Environment $twig, Project $project, InboxLinkedPage $page, ?Uuid $targetId, ?int $versionNumber = null): string

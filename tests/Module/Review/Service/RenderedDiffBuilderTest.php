@@ -148,6 +148,37 @@ final class RenderedDiffBuilderTest extends TestCase
         self::assertSame(0, $this->builder->build('<p>Untouched.</p>')->changeCount);
     }
 
+    /**
+     * The Outline panel counts the changes of each section. A removed or added
+     * section opens its change on its own heading, which sits inside the mark,
+     * so it counts under that heading rather than under the one above it.
+     */
+    public function test_each_change_counts_under_the_heading_it_falls_in(): void
+    {
+        $old = "# Plan\n\nThe rollout takes one step.\n\n## Risk\n\nLow.\n\n## Rollback\n\nRevert the tag.\n\n## Command\n\n```bash\ndeploy --dry-run\n```\n\nRun it once.\n\n## Owner\n\nThe platform team.\n";
+        $new = "# Plan\n\nThe rollout takes three steps.\n\n## Risk\n\nLow.\n\n## Command\n\n```bash\ndeploy --now\n```\n\nRun it once.\n\n## Monitoring\n\nWatch the queue.\n\n## Owner\n\nThe platform team.\n";
+
+        $marked = $this->mark($old, $new);
+
+        self::assertSame(4, $marked->changeCount);
+        self::assertSame(
+            ['heading-plan' => 1, 'heading-rollback' => 1, 'heading-command' => 1, 'heading-monitoring' => 1],
+            $marked->changesByHeadingId,
+        );
+    }
+
+    public function test_a_change_in_a_heading_and_one_before_any_heading(): void
+    {
+        $marked = $this->mark(
+            "Intro one.\n\n## Scope\n\nBody.\n\n## Risk\n\nLow.\n",
+            "Intro two.\n\n## Scope now\n\nBody.\n\n## Risk\n\nLow.\n",
+        );
+
+        // The intro change has no heading to count under, so no row shows it.
+        self::assertSame(2, $marked->changeCount);
+        self::assertSame(['heading-scope-now' => 1], $marked->changesByHeadingId);
+    }
+
     private function mark(string $old, string $new): RenderedDiff
     {
         $diff = $this->differ->diff($old, $new);

@@ -1,0 +1,7 @@
+{# `inReviewMenu`: the page's review menu holds Finish review below lg, so the bar drops it there. Otherwise the bar keeps only its icon. #}
+<div class="lp-review-topbar-actions {{ inReviewMenu ? 'lp-review-topbar-actions--finish' : 'lp-review-topbar-actions--compact' }}">
+    <twig:Ds:Button variant="primary" type="button" data-controller="review-finish" data-action="click->review-finish#open" aria-label="{{ 'review.document.finish.title'|trans }}">
+        <twig:ux:icon name="lucide:check" />
+        <span>{{ 'review.document.finish.title'|trans }}</span>
+    </twig:Ds:Button>
+</div>

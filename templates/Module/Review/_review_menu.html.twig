@@ -1,7 +1,7 @@
 {# The review screen's menu below the lg breakpoint. Above lg it is display:none
    and the same controls live in the top bar and the metadata tabs.
    Params: document, version, versions, showVersions, showContents, sectionRows,
-   sectionsApprovable, approvedSections, referenceCount, decisionRows, answeredDecisions,
+   referenceCount, decisionRows, decisionsUrl, answeredDecisions,
    showResolvedToggle, showVerdict, diffMode, diffFromVersion, diffViewValue. #}
 <div class="lp-review-menu" data-controller="review-menu">
     <div class="lp-review-menu__scrim"
@@ -20,12 +20,7 @@
                     data-action="click->review-menu#drill">
                 <twig:ux:icon name="lucide:list" />
                 <span class="lp-review-menu__label">{{ 'review.document.contents.label'|trans }}</span>
-                <span class="lp-review-menu__count" id="review-menu-sections-count">{{ sectionsApprovable
-                    ? 'review.document.sections.count_compact'|trans({
-                        '%approved%': approvedSections,
-                        '%total%': sectionRows|length,
-                    })
-                    : sectionRows|length }}</span>
+                <span class="lp-review-menu__count" id="review-menu-sections-count">{{ sectionRows|length }}</span>
             </button>
             {% endif %}
             {% if showVersions %}
@@ -81,15 +76,10 @@
         <div class="lp-review-menu__view" data-review-menu-target="view" data-view="contents" hidden>
             <p class="lp-review-menu__head">
                 <span>{{ 'review.document.contents.label'|trans }}</span>
-                <span class="lp-review-menu__head-count" id="review-menu-sections-head-count">{{ sectionsApprovable
-                    ? 'review.document.sections.count_compact'|trans({
-                        '%approved%': approvedSections,
-                        '%total%': sectionRows|length,
-                    })
-                    : sectionRows|length }}</span>
+                <span class="lp-review-menu__head-count" id="review-menu-sections-head-count">{{ sectionRows|length }}</span>
             </p>
             <div id="review-menu-sections-list">
-                {% include '@Review/_menu_section_rows.html.twig' with {rows: sectionRows, approvable: sectionsApprovable} only %}
+                {% include '@Review/_menu_section_rows.html.twig' with {rows: sectionRows} only %}
             </div>
         </div>
         {% endif %}
@@ -170,7 +160,7 @@
                 }) }}</span>
             </p>
             <div id="review-menu-decisions-list">
-                {% include '@Review/_menu_decision_rows.html.twig' with {rows: decisionRows} only %}
+                {% include '@Review/_menu_decision_rows.html.twig' with {rows: decisionRows, documentUrl: decisionsUrl} only %}
             </div>
         </div>
         {% endif %}

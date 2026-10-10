@@ -1195,7 +1195,7 @@
             </trans-unit>
             <trans-unit id="review.revise.help">
                 <source>review.revise.help</source>
-                <target>Saving creates a new version. Unchanged sections keep their approval.</target>
+                <target>Saving creates a new version.</target>
             </trans-unit>
             <trans-unit id="review.revise.cancel">
                 <source>review.revise.cancel</source>
@@ -1240,10 +1240,6 @@
             <trans-unit id="review.dashboard.series.item">
                 <source>review.dashboard.series.item</source>
                 <target>%series%, item %ordinal%</target>
-            </trans-unit>
-            <trans-unit id="review.document.series.item">
-                <source>review.document.series.item</source>
-                <target>Series %series%, item %ordinal%</target>
             </trans-unit>
             <trans-unit id="review.series.error.name_required">
                 <source>review.series.error.name_required</source>
@@ -1319,21 +1315,42 @@
                 <source>review.document.page.title</source>
                 <target>%title%</target>
             </trans-unit>
+            <trans-unit id="inbox.document_wait.line">
+                <source>inbox.document_wait.line</source>
+                <target>{0}No card waits on this review|{1}Card %cards% waits on this review|]1,Inf[Cards %cards% wait on this review</target>
+            </trans-unit>
+            <trans-unit id="inbox.document_wait.and">
+                <source>inbox.document_wait.and</source>
+                <target>and</target>
+            </trans-unit>
             <trans-unit id="review.document.byline_updated">
                 <source>review.document.byline_updated</source>
                 <target>updated %updated%</target>
             </trans-unit>
-            <trans-unit id="review.document.sections.progress"><source>review.document.sections.progress</source><target>%approved%/%total% sections approved</target></trans-unit>
-            <trans-unit id="review.document.margin.label"><source>review.document.margin.label</source><target>Document context</target></trans-unit>
+            <trans-unit id="review.document.panels.label"><source>review.document.panels.label</source><target>Review panels</target></trans-unit>
+            <trans-unit id="review.document.panels.decisions"><source>review.document.panels.decisions</source><target>Decisions</target></trans-unit>
+            <trans-unit id="review.document.panels.comments"><source>review.document.panels.comments</source><target>Comments</target></trans-unit>
+            <trans-unit id="review.document.panels.outline"><source>review.document.panels.outline</source><target>Outline</target></trans-unit>
+            <trans-unit id="review.document.panels.comments_label"><source>review.document.panels.comments_label</source><target>Comments panel, %count% open</target></trans-unit>
+            <trans-unit id="review.document.panels.outline_heading"><source>review.document.panels.outline_heading</source><target>On this page</target></trans-unit>
+            <trans-unit id="review.document.group.in_text"><source>review.document.group.in_text</source><target>In the text</target></trans-unit>
+            <trans-unit id="review.document.group.not_in_text"><source>review.document.group.not_in_text</source><target>No longer in the text</target></trans-unit>
+            <trans-unit id="review.document.comment.marker"><source>review.document.comment.marker</source><target>Comments on this passage: %count%</target></trans-unit>
+            <trans-unit id="review.document.panels.decisions_count"><source>review.document.panels.decisions_count</source><target>%answered% of %total% answered</target></trans-unit>
+            <trans-unit id="review.document.decisions.note"><source>review.document.decisions.note</source><target>Note: %note%</target></trans-unit>
+            <trans-unit id="review.document.page_menu.label"><source>review.document.page_menu.label</source><target>More about this document</target></trans-unit>
+            <trans-unit id="review.document.page_menu.heading.card"><source>review.document.page_menu.heading.card</source><target>Linked cards (%count%)</target></trans-unit>
+            <trans-unit id="review.document.page_menu.heading.outgoing"><source>review.document.page_menu.heading.outgoing</source><target>Links to (%count%)</target></trans-unit>
+            <trans-unit id="review.document.page_menu.heading.incoming"><source>review.document.page_menu.heading.incoming</source><target>Links to this document (%count%)</target></trans-unit>
+            <trans-unit id="review.document.page_menu.show_more"><source>review.document.page_menu.show_more</source><target>Show %count% more</target></trans-unit>
+            <trans-unit id="review.document.page_menu.card_line"><source>review.document.page_menu.card_line</source><target>Linked card · %type% · %column%</target></trans-unit>
+            <trans-unit id="review.document.page_menu.outgoing_line"><source>review.document.page_menu.outgoing_line</source><target>Links to · %status%</target></trans-unit>
+            <trans-unit id="review.document.page_menu.incoming_line"><source>review.document.page_menu.incoming_line</source><target>Links to this document · %status%</target></trans-unit>
+            <trans-unit id="review.document.page_menu.history"><source>review.document.page_menu.history</source><target>Version history</target></trans-unit>
+            <trans-unit id="review.document.page_menu.history_line"><source>review.document.page_menu.history_line</source><target>{0} No versions|{1} One version|]1,Inf[ %count% versions</target></trans-unit>
+            <trans-unit id="review.document.page_menu.compare"><source>review.document.page_menu.compare</source><target>Compare versions</target></trans-unit>
+            <trans-unit id="review.document.page_menu.compare_line"><source>review.document.page_menu.compare_line</source><target>v%from% to v%to%</target></trans-unit>
             <trans-unit id="review.document.margin.filter"><source>review.document.margin.filter</source><target>Filter comments</target></trans-unit>
-            <trans-unit id="review.document.margin.comments"><source>review.document.margin.comments</source><target>Comments</target></trans-unit>
-            <trans-unit id="review.document.margin.outline"><source>review.document.margin.outline</source><target>Outline</target></trans-unit>
-            <trans-unit id="review.document.margin.decisions"><source>review.document.margin.decisions</source><target>Decisions</target></trans-unit>
-            <trans-unit id="review.document.margin.details"><source>review.document.margin.details</source><target>Details</target></trans-unit>
-            <trans-unit id="review.document.margin.details_empty">
-                <source>review.document.margin.details_empty</source>
-                <target>Nothing is linked to this document yet.</target>
-            </trans-unit>
             <trans-unit id="review.document.margin.filter_open"><source>review.document.margin.filter_open</source><target>Open</target></trans-unit>
             <trans-unit id="review.document.margin.filter_resolved"><source>review.document.margin.filter_resolved</source><target>Resolved</target></trans-unit>
             <trans-unit id="review.document.margin.filter_unanchored"><source>review.document.margin.filter_unanchored</source><target>Unanchored</target></trans-unit>
@@ -1341,20 +1358,14 @@
             <trans-unit id="review.document.margin.filter_empty"><source>review.document.margin.filter_empty</source><target>No comments match this filter.</target></trans-unit>
             <trans-unit id="review.document.margin.outline_empty"><source>review.document.margin.outline_empty</source><target>This document has no section headings.</target></trans-unit>
             <trans-unit id="review.document.margin.decisions_disabled_empty"><source>review.document.margin.decisions_disabled_empty</source><target>This document has no decisions to answer.</target></trans-unit>
-            <trans-unit id="review.document.margin.decisions_disabled_diff"><source>review.document.margin.decisions_disabled_diff</source><target>A comparison cannot answer decisions. Open the Document view to answer them.</target></trans-unit>
+            <trans-unit id="review.document.margin.decisions_read_only_diff"><source>review.document.margin.decisions_read_only_diff</source><target>Decisions are read-only while you compare versions. Select a decision to answer it in the document.</target></trans-unit>
             <trans-unit id="review.document.margin.decisions_empty"><source>review.document.margin.decisions_empty</source><target>This document has no decisions.</target></trans-unit>
-            <trans-unit id="review.document.margin.decisions_save_hint"><source>review.document.margin.decisions_save_hint</source><target>Select an option to save it. Add a note if you need one.</target></trans-unit>
             <trans-unit id="review.decision.note.label"><source>review.decision.note.label</source><target>Note</target></trans-unit>
             <trans-unit id="review.decision.note.placeholder"><source>review.decision.note.placeholder</source><target>Add a note, or write your own answer</target></trans-unit>
-            <trans-unit id="review.decision.clear"><source>review.decision.clear</source><target>Clear</target></trans-unit>
+            <trans-unit id="review.decision.clear"><source>review.decision.clear</source><target>Clear choice</target></trans-unit>
             <trans-unit id="review.decision.recommended.high"><source>review.decision.recommended.high</source><target>Recommended, high confidence</target></trans-unit>
             <trans-unit id="review.decision.recommended.moderate"><source>review.decision.recommended.moderate</source><target>Recommended, moderate confidence</target></trans-unit>
             <trans-unit id="review.decision.recommended.low"><source>review.decision.recommended.low</source><target>Recommended, low confidence</target></trans-unit>
-            <trans-unit id="review.document.margin.references_empty"><source>review.document.margin.references_empty</source><target>None</target></trans-unit>
-            <trans-unit id="review.document.margin.series"><source>review.document.margin.series</source><target>Series</target></trans-unit>
-            <trans-unit id="review.document.margin.version_note"><source>review.document.margin.version_note</source><target>Version note</target></trans-unit>
-            <trans-unit id="review.document.margin.linked_card"><source>review.document.margin.linked_card</source><target>Linked card</target></trans-unit>
-            <trans-unit id="review.document.margin.linked_card_unavailable"><source>review.document.margin.linked_card_unavailable</source><target>No linked board card is available for this document.</target></trans-unit>
             <trans-unit id="review.document.verdict.approve">
                 <source>review.document.verdict.approve</source>
                 <target>Approve</target>
@@ -1389,7 +1400,7 @@
             </trans-unit>
             <trans-unit id="review.document.finish.context">
                 <source>review.document.finish.context</source>
-                <target>v%version% · %approved%/%total% sections approved · %open% open threads</target>
+                <target>v%version% · %open% open threads</target>
             </trans-unit>
             <trans-unit id="review.document.finish.cancel">
                 <source>review.document.finish.cancel</source>
@@ -1455,18 +1466,6 @@
                 <source>review.document.threads.show_resolved</source>
                 <target>Show resolved</target>
             </trans-unit>
-            <trans-unit id="review.document.threads.summary">
-                <source>review.document.threads.summary</source>
-                <target>%open% open · %resolved% resolved</target>
-            </trans-unit>
-            <trans-unit id="review.document.threads.addressed_count">
-                <source>review.document.threads.addressed_count</source>
-                <target>{0}none addressed|{1}1 addressed|]1,Inf[%count% addressed</target>
-            </trans-unit>
-            <trans-unit id="review.document.threads.all_answered">
-                <source>review.document.threads.all_answered</source>
-                <target>All answered</target>
-            </trans-unit>
             <trans-unit id="review.document.group.general">
                 <source>review.document.group.general</source>
                 <target>On the document</target>
@@ -1478,10 +1477,6 @@
             <trans-unit id="review.document.meta.references">
                 <source>review.document.meta.references</source>
                 <target>References</target>
-            </trans-unit>
-            <trans-unit id="review.document.meta.tags">
-                <source>review.document.meta.tags</source>
-                <target>Tags</target>
             </trans-unit>
             <trans-unit id="review.document.meta.decisions">
                 <source>review.document.meta.decisions</source>
@@ -1495,10 +1490,6 @@
                 <source>review.document.decisions.pending</source>
                 <target>Not chosen yet</target>
             </trans-unit>
-            <trans-unit id="review.document.decisions.note_only">
-                <source>review.document.decisions.note_only</source>
-                <target>Answered with a note</target>
-            </trans-unit>
             <trans-unit id="review.document.status.pending">
                 <source>review.document.status.pending</source>
                 <target>Open</target>
@@ -1510,10 +1501,6 @@
             <trans-unit id="review.document.status.resolved">
                 <source>review.document.status.resolved</source>
                 <target>Resolved</target>
-            </trans-unit>
-            <trans-unit id="review.document.orphan_group">
-                <source>review.document.orphan_group</source>
-                <target>{0}No longer in the text|{1}No longer in the text · 1|]1,Inf[No longer in the text · %count%</target>
             </trans-unit>
             <trans-unit id="review.document.version.read_only">
                 <source>review.document.version.read_only</source>
@@ -1605,7 +1592,27 @@
             </trans-unit>
             <trans-unit id="review.document.since_last_visit.chip">
                 <source>review.document.since_last_visit.chip</source>
-                <target>New since v%from% · see what changed</target>
+                <target>v%to%, new since your last visit</target>
+            </trans-unit>
+            <trans-unit id="review.document.new_text.label">
+                <source>review.document.new_text.label</source>
+                <target>Highlight new text</target>
+            </trans-unit>
+            <trans-unit id="review.document.new_text.title">
+                <source>review.document.new_text.title</source>
+                <target>Highlight what v%to% added since v%from%</target>
+            </trans-unit>
+            <trans-unit id="review.document.new_text.no_previous">
+                <source>review.document.new_text.no_previous</source>
+                <target>This is the first version. No earlier version exists to compare with.</target>
+            </trans-unit>
+            <trans-unit id="review.document.new_text.refused">
+                <source>review.document.new_text.refused</source>
+                <target>This version cannot be compared with the one before it, so the new text is not marked.</target>
+            </trans-unit>
+            <trans-unit id="review.document.new_text.error">
+                <source>review.document.new_text.error</source>
+                <target>The new text could not be loaded. Try again.</target>
             </trans-unit>
             <trans-unit id="review.document.diff.notes_title">
                 <source>review.document.diff.notes_title</source>
@@ -1679,10 +1686,6 @@
                 <source>review.document.references.archived</source>
                 <target>Archived</target>
             </trans-unit>
-            <trans-unit id="review.document.references.archive_reason">
-                <source>review.document.references.archive_reason</source>
-                <target>Reason: %reason%</target>
-            </trans-unit>
 
             <!-- Document review comment composer -->
             <trans-unit id="review.document.comment.placeholder">
@@ -1709,9 +1712,13 @@
                 <source>review.document.comment.add</source>
                 <target>Comment</target>
             </trans-unit>
-            <trans-unit id="review.document.comment.untargeted">
-                <source>review.document.comment.untargeted</source>
-                <target>Add general comment</target>
+            <trans-unit id="review.document.comment.whole_document">
+                <source>review.document.comment.whole_document</source>
+                <target>Comment on the whole document</target>
+            </trans-unit>
+            <trans-unit id="review.document.comment.row_general">
+                <source>review.document.comment.row_general</source>
+                <target>Whole document</target>
             </trans-unit>
             <trans-unit id="review.document.margin.empty_all">
                 <source>review.document.margin.empty_all</source>
@@ -1728,10 +1735,6 @@
             <trans-unit id="review.document.navigation.label">
                 <source>review.document.navigation.label</source>
                 <target>Document views</target>
-            </trans-unit>
-            <trans-unit id="review.document.navigation.back">
-                <source>review.document.navigation.back</source>
-                <target>Back to documents</target>
             </trans-unit>
             <trans-unit id="review.document.navigation.document">
                 <source>review.document.navigation.document</source>
@@ -1805,10 +1808,6 @@
                 <source>review.document.comment.error.stale_version</source>
                 <target>A newer version exists. Copy your draft, reload the document, and select the passage again before submitting.</target>
             </trans-unit>
-            <trans-unit id="review.document.sections.count_compact">
-                <source>review.document.sections.count_compact</source>
-                <target>%approved%/%total%</target>
-            </trans-unit>
             <trans-unit id="review.document.menu.label">
                 <source>review.document.menu.label</source>
                 <target>Review actions</target>
@@ -1824,42 +1823,6 @@
             <trans-unit id="review.document.menu.back">
                 <source>review.document.menu.back</source>
                 <target>Back</target>
-            </trans-unit>
-            <trans-unit id="review.document.sections.approved">
-                <source>review.document.sections.approved</source>
-                <target>Approved</target>
-            </trans-unit>
-            <trans-unit id="review.document.sections.pending">
-                <source>review.document.sections.pending</source>
-                <target>Not approved</target>
-            </trans-unit>
-            <trans-unit id="review.document.sections.approve_label">
-                <source>review.document.sections.approve_label</source>
-                <target>Approve section %section%</target>
-            </trans-unit>
-            <trans-unit id="review.document.sections.withdraw_label">
-                <source>review.document.sections.withdraw_label</source>
-                <target>Withdraw approval of section %section%</target>
-            </trans-unit>
-            <trans-unit id="review.section.flash.approved">
-                <source>review.section.flash.approved</source>
-                <target>Section approved.</target>
-            </trans-unit>
-            <trans-unit id="review.section.flash.withdrawn">
-                <source>review.section.flash.withdrawn</source>
-                <target>Section approval withdrawn.</target>
-            </trans-unit>
-            <trans-unit id="review.section.error.save_failed">
-                <source>review.section.error.save_failed</source>
-                <target>Couldn’t save that section approval. Please try again.</target>
-            </trans-unit>
-            <trans-unit id="review.section.error.unknown">
-                <source>review.section.error.unknown</source>
-                <target>That section is no longer part of this document.</target>
-            </trans-unit>
-            <trans-unit id="review.section.error.stale_version">
-                <source>review.section.error.stale_version</source>
-                <target>This document changed while you were reading it. Reload the page and approve again.</target>
             </trans-unit>
             <trans-unit id="comment.error.not_owner">
                 <source>comment.error.not_owner</source>
@@ -4224,9 +4187,13 @@
                 <source>review.document.diff.nav.count</source>
                 <target>{0}No changes|{1}1 change|]1,Inf[%count% changes</target>
             </trans-unit>
+            <trans-unit id="review.document.diff.outline.changes">
+                <source>review.document.diff.outline.changes</source>
+                <target>{0}No changes|{1}1 change|]1,Inf[%count% changes</target>
+            </trans-unit>
             <trans-unit id="review.document.diff.nav.position">
                 <source>review.document.diff.nav.position</source>
-                <target>Change %current% of %total%</target>
+                <target>{0}No changes|{1}%current% of 1 change|]1,Inf[%current% of %total% changes</target>
             </trans-unit>
             <trans-unit id="review.document.diff.nav.previous">
                 <source>review.document.diff.nav.previous</source>
@@ -4263,10 +4230,6 @@
             <trans-unit id="review.document.diff.side_by_side.empty">
                 <source>review.document.diff.side_by_side.empty</source>
                 <target>This version has nothing here.</target>
-            </trans-unit>
-            <trans-unit id="review.document.diff.side_by_side.read_only">
-                <source>review.document.diff.side_by_side.read_only</source>
-                <target>This comparison has no comment column. Read the comments on the Rendered view or in the document.</target>
             </trans-unit>
             <trans-unit id="review.document.diff.mark.inserted">
                 <source>review.document.diff.mark.inserted</source>
@@ -4517,9 +4480,9 @@
                 <source>landing.tech.still.doc_title</source>
                 <target>Comment re-anchoring on revision</target>
             </trans-unit>
-            <trans-unit id="landing.tech.still.byline">
-                <source>landing.tech.still.byline</source>
-                <target>Version 2 &#183; reviewed by Geoffrey &#183; updated 2w ago</target>
+            <trans-unit id="landing.tech.still.version">
+                <source>landing.tech.still.version</source>
+                <target>v2</target>
             </trans-unit>
             <trans-unit id="landing.tech.still.doc_heading">
                 <source>landing.tech.still.doc_heading</source>
@@ -4837,13 +4800,29 @@
                 <source>landing.mock.document.threads</source>
                 <target>2 open · 5 resolved</target>
             </trans-unit>
-            <trans-unit id="landing.mock.document.byline">
-                <source>landing.mock.document.byline</source>
-                <target>Version 3 · reviewing as Geoffrey · updated 4 minutes ago</target>
+            <trans-unit id="landing.mock.document.updated">
+                <source>landing.mock.document.updated</source>
+                <target>4 minutes ago</target>
             </trans-unit>
-            <trans-unit id="landing.mock.document.tag">
-                <source>landing.mock.document.tag</source>
-                <target>payments</target>
+            <trans-unit id="landing.mock.decision.one.tag">
+                <source>landing.mock.decision.one.tag</source>
+                <target>D1</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.decision.one.label">
+                <source>landing.mock.decision.one.label</source>
+                <target>How the second write is retried</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.decision.one.answer">
+                <source>landing.mock.decision.one.answer</source>
+                <target>Queue it and retry</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.decision.two.tag">
+                <source>landing.mock.decision.two.tag</source>
+                <target>D2</target>
+            </trans-unit>
+            <trans-unit id="landing.mock.decision.two.label">
+                <source>landing.mock.decision.two.label</source>
+                <target>When the legacy writer goes</target>
             </trans-unit>
             <trans-unit id="landing.mock.body.heading">
                 <source>landing.mock.body.heading</source>
@@ -4860,18 +4839,6 @@
             <trans-unit id="landing.mock.body.paragraph2">
                 <source>landing.mock.body.paragraph2</source>
                 <target>The second pass flips reads to the new aggregate for internal accounts only. We accept a two-week window where both stores are authoritative and reconcile nightly. The third pass removes the legacy writer and drops the old table.</target>
-            </trans-unit>
-            <trans-unit id="landing.mock.body.paragraph3">
-                <source>landing.mock.body.paragraph3</source>
-                <target>Rollback at any point is a flag flip. Nothing in the first two passes is destructive, and the nightly reconciliation job reports drift to the payments channel before it reaches a customer.</target>
-            </trans-unit>
-            <trans-unit id="landing.mock.body.heading2">
-                <source>landing.mock.body.heading2</source>
-                <target>Open questions</target>
-            </trans-unit>
-            <trans-unit id="landing.mock.body.paragraph4">
-                <source>landing.mock.body.paragraph4</source>
-                <target>Idempotency keys are currently derived from the session id, which does not survive the migration.</target>
             </trans-unit>
             <trans-unit id="landing.mock.comment.quote">
                 <source>landing.mock.comment.quote</source>

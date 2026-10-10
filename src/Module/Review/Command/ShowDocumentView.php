@@ -11,7 +11,6 @@ use App\Module\Review\Entity\Review;
 use App\Module\Review\ValueObject\CommentSignals;
 use App\Module\Review\ValueObject\DecisionSummary;
 use App\Module\Review\ValueObject\DocumentHeading;
-use App\Module\Review\ValueObject\SectionApprovalSummary;
 
 final readonly class ShowDocumentView
 {
@@ -34,8 +33,6 @@ final readonly class ShowDocumentView
         public array $referenceDefinitions,
         /** The version this reader last engaged with, or null when there is no signal. */
         public ?int $lastSeenVersionNumber,
-        /** Which sections of this version the reader has approved. */
-        public SectionApprovalSummary $sections,
         public ?Review $review,
         public ?string $latestReviewId,
     ) {

@@ -118,6 +118,7 @@ export default class extends Controller {
 
     decorate(block) {
         block.querySelector('[data-decision-note-controls]')?.remove();
+        block.querySelector('[data-decision-clear-control]')?.remove();
         const editable = this.hasFormTarget;
         const draft = block.dataset.decisionNoteDraft;
         delete block.dataset.decisionNoteDraft;
@@ -129,7 +130,7 @@ export default class extends Controller {
         controls.dataset.decisionNoteControls = '';
         const field = document.createElement('textarea');
         field.className = 'lp-input lp-decision__note-field';
-        field.rows = 2;
+        field.rows = 1;
         field.value = note;
         field.setAttribute('aria-label', this.noteLabelValue);
         field.dataset.decisionNoteField = '';
@@ -148,8 +149,13 @@ export default class extends Controller {
         clear.type = 'button';
         clear.value = this.clearLabelValue;
         clear.className = this.clearClassValue;
+        clear.dataset.decisionClearControl = '';
         clear.addEventListener('click', () => this.clear(block));
-        controls.append(clear);
+        // It sits in the block header beside the kind-of-answer chip, apart
+        // from the note field, and is no part of the legend's text.
+        const legend = block.querySelector(':scope > legend');
+        if (legend) legend.after(clear);
+        else block.prepend(clear);
         block.append(controls);
         const saved = this.stateKey({
             indexes: this.savedIndexes(block),
@@ -432,21 +438,21 @@ export default class extends Controller {
     }
 
     showChangedBy(name) {
-        const status = document.getElementById('decision-status');
-        if (!status) return;
-        const message = document.createElement('span');
-        message.className = 'lp-decision-status__message';
-        message.textContent = this.changedByValue.replace('%name%', name);
-        status.replaceChildren(message);
+        this.#showStatus('info', this.changedByValue.replace('%name%', name));
     }
 
     showError() {
+        this.#showStatus('error', this.errorMessageValue);
+    }
+
+    #showStatus(severity, text) {
         const status = document.getElementById('decision-status');
-        if (!status) return;
-        const message = document.createElement('span');
-        message.className =
-            'lp-decision-status__message lp-decision-status__message--failed';
-        message.textContent = this.errorMessageValue;
-        status.replaceChildren(message);
+        const template = document.querySelector(
+            `template[data-decision-status-flash="${severity}"]`,
+        );
+        if (!status || !template) return;
+        const flash = template.content.firstElementChild.cloneNode(true);
+        flash.querySelector('.lp-flash__message').textContent = text;
+        status.replaceChildren(flash);
     }
 }

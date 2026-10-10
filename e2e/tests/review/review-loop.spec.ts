@@ -17,6 +17,7 @@ import {
 } from '../fixtures';
 import { submitRedirectingForm } from '../helpers';
 import { coverageScaled } from '../timeouts';
+import { showPanel } from './panels';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eReviewLoop1!';
@@ -30,6 +31,7 @@ const COMMENT_BODY = 'This is an e2e test comment on the selected text.';
 const REPLY_BODY = 'This is an e2e reply to the comment.';
 
 const DOC = '[data-comment-anchor-target="doc"]';
+const ROW = '#comment-rows .lp-comment-row';
 const TOOLBAR = '[data-comment-anchor-target="toolbar"]';
 const COMPOSER = '[data-comment-anchor-target="composer"]';
 const COMPOSER_BODY = '[data-comment-anchor-target="composerBody"]';
@@ -187,11 +189,11 @@ test('New document creates a draft that can be reviewed', async ({
         page.getByRole('heading', { name: 'A human draft', exact: true }),
     ).toBeVisible({ timeout: 20000 });
     const draftUrl = page.url();
-    await expect(page.locator('.lp-review-doc__byline')).toContainText('Draft');
+    await expect(page.locator('[data-document-publish]')).toBeVisible();
     await expect(page.locator(DOC)).toContainText(
         'A new document from the browser.',
     );
-    await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
+    await expect(page.locator('.lp-verdict-chip')).toHaveCount(0);
     await page.goto(`${review.dashboardUrl}?status=draft`);
     await expect(page.locator('[data-document-id]')).toHaveCount(1);
     await expect(page.locator('[data-document-id]')).toContainText(
@@ -207,7 +209,7 @@ test('New document creates a draft that can be reviewed', async ({
         .getByRole('radio', { name: 'Approve', exact: true })
         .check();
     await finishDialog.getByRole('button', { name: 'Submit review' }).click();
-    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible({
+    await expect(page.locator('.lp-verdict-chip--approved')).toBeVisible({
         timeout: 20000,
     });
 });
@@ -246,16 +248,18 @@ test('A revised draft stays a draft until Publish sends it to review', async ({
     await reviseDialog
         .getByRole('button', { name: 'Save new version' })
         .click();
-    await expect(page.locator('.lp-review-doc__version')).toHaveText('v2', {
-        timeout: 20000,
-    });
-    await expect(page.locator('.lp-review-doc__byline')).toContainText('Draft');
+    await expect(page.locator('.lp-topbar__trail .lp-version-pill')).toHaveText(
+        'v2',
+        {
+            timeout: 20000,
+        },
+    );
+    await expect(page.locator('[data-document-publish]')).toBeVisible();
 
     await page.getByRole('button', { name: 'Publish', exact: true }).click();
-    await expect(page.locator('.lp-review-doc__byline')).toContainText(
-        'In review',
-        { timeout: 20000 },
-    );
+    await expect(
+        page.getByRole('button', { name: 'Finish review', exact: true }),
+    ).toBeVisible({ timeout: 20000 });
     await expect(
         page.getByRole('button', { name: 'Publish', exact: true }),
     ).toHaveCount(0);
@@ -281,7 +285,10 @@ test('Revise saves a new version and preserves the previous text', async ({
         .fill('Clarify the document.');
     await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(dialog).toBeHidden();
-    await page.getByRole('link', { name: 'History', exact: true }).click();
+    await page
+        .getByRole('button', { name: 'More about this document' })
+        .click();
+    await page.getByRole('link', { name: /^Version history/ }).click();
     await expect(page).toHaveURL(`${review.reviewUrl}/history`);
     await page.getByRole('link', { name: 'Document', exact: true }).click();
     await expect(page).toHaveURL(review.reviewUrl);
@@ -296,9 +303,12 @@ test('Revise saves a new version and preserves the previous text', async ({
         dialog.getByLabel('Revision note', { exact: true }),
     ).toHaveValue('Clarify the document.');
     await dialog.getByRole('button', { name: 'Save new version' }).click();
-    await expect(page.locator('.lp-review-doc__version')).toHaveText('v2', {
-        timeout: 20000,
-    });
+    await expect(page.locator('.lp-topbar__trail .lp-version-pill')).toHaveText(
+        'v2',
+        {
+            timeout: 20000,
+        },
+    );
     await expect(page.locator(DOC)).toContainText('Revised content');
     await expect(
         page.getByRole('heading', {
@@ -349,7 +359,9 @@ test('Revise retains a stale draft and offers the current version', async ({
         .getByRole('link', { name: 'Go to the current version' })
         .click();
     await expect(page.locator(DOC)).toContainText('Concurrent revision');
-    await expect(page.locator('.lp-review-doc__version')).toHaveText('v2');
+    await expect(page.locator('.lp-topbar__trail .lp-version-pill')).toHaveText(
+        'v2',
+    );
 });
 
 /**
@@ -435,17 +447,23 @@ async function postComment(page: Page): Promise<void> {
     await expect(page.locator(COMPOSER)).toBeHidden({
         timeout: coverageScaled(10000),
     });
-    await expect(
-        page.locator('.lp-comment-thread__detail').first(),
-    ).toBeVisible({
+    await expect(page.locator(ROW).first()).toBeVisible({
         timeout: coverageScaled(10000),
     });
 }
 
+/** Opens the thread of a row in the Comments panel, unless it is open. */
 async function expectThreadVisible(page: Page, index = 0): Promise<void> {
-    await expect(
-        page.locator('.lp-comment-thread__detail').nth(index),
-    ).toBeVisible({ timeout: coverageScaled(10000) });
+    await showPanel(page, 'Comments');
+    const row = page.locator(ROW).nth(index);
+    await expect(row).toBeVisible({ timeout: coverageScaled(10000) });
+    if ((await row.getAttribute('aria-expanded')) !== 'true') {
+        await row.click();
+    }
+    const thread = page.locator(`#${await row.getAttribute('aria-controls')}`);
+    await expect(thread.locator('.lp-comment-thread__detail')).toBeVisible({
+        timeout: coverageScaled(10000),
+    });
 }
 
 for (const width of [1440, 390]) {
@@ -501,9 +519,7 @@ for (const width of [1440, 390]) {
 
         await selectKnownPhrase(page, KNOWN_PHRASE);
         await toolbar.getByRole('button', { name: /^Strike/ }).click();
-        await expect(
-            page.locator('.lp-comment-thread[data-anchor-kind="strike"]'),
-        ).toBeVisible();
+        await expect(page.locator(`${ROW}:has(del)`)).toBeVisible();
         await expect(page.locator(COMPOSER)).toBeHidden();
         await expect(
             page.locator('[data-comment-anchor-target="suggestComposer"]'),
@@ -644,9 +660,7 @@ test('posting a comment disables the submitter and renders the thread in the sid
     await expect(commentBody).toBeVisible({ timeout: coverageScaled(10000) });
     await expect(commentBody).toContainText(COMMENT_BODY);
 
-    // The thread carries the anchored document text. The rail hides the quote,
-    // because the passage is highlighted level with the card, so this reads the
-    // markup rather than the screen.
+    // The thread carries the anchored document text.
     await expect(page.locator('.lp-comment-quote').first()).toContainText(
         KNOWN_PHRASE,
     );
@@ -771,11 +785,14 @@ test('a completed review leaves another tabs unsent review recoverable', async (
     );
     await other.getByRole('button', { name: 'Submit review' }).click();
     expect((await reviewPageReloaded).status()).toBe(200);
-    await expect(other.locator('.lp-verdict-bar--approved')).toBeVisible();
-    await page.getByRole('link', { name: 'History', exact: true }).click();
+    await expect(other.locator('.lp-verdict-chip--approved')).toBeVisible();
+    await page
+        .getByRole('button', { name: 'More about this document' })
+        .click();
+    await page.getByRole('link', { name: /^Version history/ }).click();
     await expect(page).toHaveURL(`${review.reviewUrl}/history`);
     await page.getByRole('link', { name: 'Document', exact: true }).click();
-    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible();
+    await expect(page.locator('.lp-verdict-chip--approved')).toBeVisible();
     const recovery = page.locator(
         '[data-form-draft-recovery-key-value="document:review:' +
             review.documentId +
@@ -790,7 +807,7 @@ test('a completed review leaves another tabs unsent review recoverable', async (
     await recovery.getByRole('button', { name: 'Discard draft' }).click();
     await expect(recovery).toBeHidden();
     await expect(page.locator('#review-document-title')).toBeFocused();
-    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible();
+    await expect(page.locator('.lp-verdict-chip--approved')).toBeVisible();
     await other.close();
 });
 
@@ -826,8 +843,10 @@ test('a stale review page cannot approve a newer version', async ({
         page.getByRole('textbox', { name: 'Review note' }),
     ).toHaveValue('Keep this draft.');
     await page.getByRole('link', { name: 'Go to the current version' }).click();
-    await expect(page.locator('.lp-review-doc__version')).toHaveText('v2');
-    await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
+    await expect(page.locator('.lp-topbar__trail .lp-version-pill')).toHaveText(
+        'v2',
+    );
+    await expect(page.locator('.lp-verdict-chip')).toHaveCount(0);
     await page
         .getByRole('button', { name: 'Finish review', exact: true })
         .click();
@@ -871,16 +890,18 @@ test('a stale withdrawal preserves the verdict from another tab', async ({
         page.getByRole('button', { name: 'Submit review' }),
         `${review.reviewUrl}/submit`,
     );
-    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible();
+    await expect(page.locator('.lp-verdict-chip--approved')).toBeVisible();
 
     const current = await context.newPage();
     await suppressToolbar(current);
     await suppressWidget(current);
     await current.goto(review.reviewUrl);
+    // Undo and Change verdict wait in the dropdown the verdict chip opens.
+    await current.locator('.lp-verdict-chip__trigger').click();
     await submitRedirectingForm(
         current,
         current
-            .locator('.lp-verdict-bar__undo')
+            .locator('.lp-verdict-chip__undo')
             .getByRole('button', { name: 'Undo', exact: true }),
         `${review.reviewUrl}/undo`,
     );
@@ -901,40 +922,42 @@ test('a stale withdrawal preserves the verdict from another tab', async ({
         current.getByRole('button', { name: 'Submit review' }),
         `${review.reviewUrl}/submit`,
     );
-    await expect(
-        current.locator('.lp-verdict-bar--changes-requested'),
-    ).toContainText('Clarify the retry policy.');
+    await expect(current.locator('.lp-verdict-chip__panel')).toContainText(
+        'Clarify the retry policy.',
+    );
 
+    await page.locator('.lp-verdict-chip__trigger').click();
     await page
-        .locator('.lp-verdict-bar__undo')
+        .locator('.lp-verdict-chip__undo')
         .getByRole('button', { name: 'Undo', exact: true })
         .click();
     await expect(page.locator('[data-review-withdrawal-errors]')).toContainText(
         'The review changed after this page loaded.',
     );
-    await expect(
-        page.locator('.lp-verdict-bar--changes-requested'),
-    ).toContainText('Clarify the retry policy.');
+    await expect(page.locator('.lp-verdict-chip__panel')).toContainText(
+        'Clarify the retry policy.',
+    );
     await page.reload();
-    await expect(
-        page.locator('.lp-verdict-bar--changes-requested'),
-    ).toContainText('Clarify the retry policy.');
+    await expect(page.locator('.lp-verdict-chip__panel')).toContainText(
+        'Clarify the retry policy.',
+    );
+    await page.locator('.lp-verdict-chip__trigger').click();
     await submitRedirectingForm(
         page,
         page
-            .locator('.lp-verdict-bar__undo')
+            .locator('.lp-verdict-chip__undo')
             .getByRole('button', { name: 'Undo', exact: true }),
         `${review.reviewUrl}/undo`,
     );
     await expect(page.locator('.lp-flash--success')).toContainText(
         'Your verdict has been withdrawn.',
     );
-    await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
+    await expect(page.locator('.lp-verdict-chip')).toHaveCount(0);
     await page.reload();
-    await expect(page.locator('.lp-review-doc__byline')).toContainText(
-        'In review',
-    );
-    await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
+    await expect(
+        page.getByRole('button', { name: 'Finish review', exact: true }),
+    ).toBeVisible();
+    await expect(page.locator('.lp-verdict-chip')).toHaveCount(0);
 });
 
 test('a standing verdict changes in one step', async ({ page, review }) => {
@@ -953,11 +976,12 @@ test('a standing verdict changes in one step', async ({ page, review }) => {
         `${review.reviewUrl}/submit`,
     );
     await expect(
-        page.locator('.lp-verdict-bar--changes-requested'),
+        page.locator('.lp-verdict-chip--changes-requested'),
     ).toBeVisible();
 
+    await page.locator('.lp-verdict-chip__trigger').click();
     await page
-        .locator('.lp-verdict-bar')
+        .locator('.lp-verdict-chip')
         .getByRole('button', { name: 'Change verdict', exact: true })
         .click();
     const dialog = page.getByRole('dialog', { name: 'Finish review' });
@@ -967,10 +991,8 @@ test('a standing verdict changes in one step', async ({ page, review }) => {
         dialog.getByRole('button', { name: 'Submit review' }),
         `${review.reviewUrl}/submit`,
     );
-    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible();
-    await expect(page.locator('.lp-review-doc__byline')).toContainText(
-        'Approved',
-    );
+    await expect(page.locator('.lp-verdict-chip--approved')).toBeVisible();
+    await expect(page.locator('.lp-verdict-chip')).toContainText('Approved');
 });
 
 test('requesting changes asks for a note and keeps it across Cancel', async ({
@@ -1000,7 +1022,7 @@ test('requesting changes asks for a note and keeps it across Cancel', async ({
         page.getByRole('textbox', { name: 'Review note' }),
     ).toHaveValue('Explain the retry behaviour.');
     await page.getByRole('button', { name: 'Submit review' }).click();
-    await expect(page.locator('.lp-review-verdict-note')).toHaveText(
+    await expect(page.locator('.lp-verdict-chip__note')).toHaveText(
         'Explain the retry behaviour.',
         { timeout: coverageScaled(10000) },
     );
@@ -1019,17 +1041,16 @@ test('requesting changes needs no note when the document has an open comment', a
     await page.getByRole('button', { name: 'Submit review' }).click();
 
     await expect(
-        page.locator('.lp-verdict-bar--changes-requested'),
+        page.locator('.lp-verdict-chip--changes-requested'),
     ).toBeVisible({ timeout: coverageScaled(10000) });
-    await expect(page.locator('.lp-review-verdict-note')).toHaveCount(0);
+    await expect(page.locator('.lp-verdict-chip__note')).toHaveCount(0);
 });
 
 test('requesting changes shows the verdict on the project dashboard', async ({
     page,
     review,
 }) => {
-    // Three page loads after a submit, a comment and a resolve, after a login
-    // that took 10 s of the 30 s budget on a loaded runner.
+    // A comment, a resolve, a verdict and four page loads, each a server round trip.
     test.slow();
     // A verdict is reached on a document that has been commented on, so the
     // thread is part of the state under test, not incidental setup.
@@ -1068,7 +1089,7 @@ test('requesting changes shows the verdict on the project dashboard', async ({
     // Leave and come back: the verdict is stored, not a property of the response
     // that happened to follow the POST.
     await page.goto(review.reviewUrl);
-    await expect(page.locator('.lp-review-verdict-note')).toHaveText(
+    await expect(page.locator('.lp-verdict-chip__note')).toHaveText(
         'Explain the retry behaviour.',
     );
     await page.goto(review.dashboardUrl);
@@ -1121,12 +1142,19 @@ for (const width of [1440, 390]) {
 
         // The undo notice is the only recovery surface, so a second delete that
         // the reader walks away from leaves the thread gone for good.
+        await expectThreadVisible(page);
         await page.getByRole('button', { name: 'Delete', exact: true }).click();
         await expect(page.locator('.lp-comment-thread')).toHaveCount(0);
         await page.goto(review.reviewUrl);
         await expect(page.locator(DOC)).toBeVisible();
         await expect(page.locator('.lp-comment-thread')).toHaveCount(0);
-        await page.getByRole('tab', { name: 'Details', exact: true }).click();
+        await page
+            .getByRole('button', {
+                name: 'More about this document',
+                exact: true,
+            })
+            .click();
+        await expect(page.locator('#review-page-menu')).toBeVisible();
         await expect(
             page.getByRole('link', { name: 'Deleted threads' }),
         ).toHaveCount(0);
@@ -1182,10 +1210,11 @@ test('hovering an anchored passage activates its comment card', async ({
 }) => {
     await postComment(page);
 
+    // The card is a closed popover, so this reads its class, not the screen.
     const thread = page
         .locator('[data-comment-anchor-target="thread"]')
         .first();
-    await expect(thread).toBeVisible({ timeout: coverageScaled(10000) });
+    await expect(thread).toHaveCount(1);
     await expect(thread).not.toHaveClass(/lp-comment-thread--active/);
 
     // Aim at the middle of the anchored phrase and move the real pointer there,
@@ -1218,9 +1247,27 @@ test('hovering an anchored passage activates its comment card', async ({
         timeout: coverageScaled(5000),
     });
 
-    // Moving off it releases the pairing again.
-    await page.mouse.move(box.x, box.y - 200);
+    // Moving off it releases the pairing again. The heading is bare prose, and
+    // a fixed offset can land on the card in the panels stacked above.
+    await page.locator('[data-comment-anchor-target="doc"] h1').first().hover();
     await expect(thread).not.toHaveClass(/lp-comment-thread--active/, {
         timeout: coverageScaled(5000),
     });
+});
+
+/** A restored thread links back with its card id as the URL fragment. */
+test('a link to a thread opens it as a popover', async ({ page, review }) => {
+    await postComment(page);
+    const threadId = await page
+        .locator('.lp-comment-thread')
+        .getAttribute('id');
+
+    // A hash change alone does not load the page again.
+    await page.goto('about:blank');
+    await page.goto(`${review.reviewUrl}#${threadId}`);
+    const thread = page.locator(`#${threadId}`);
+    await expect(thread).toBeVisible({ timeout: coverageScaled(10000) });
+    await expect(thread.locator('.lp-comment-body')).toContainText(
+        COMMENT_BODY,
+    );
 });

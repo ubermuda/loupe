@@ -407,7 +407,8 @@ test('the lane button in the card drawer shows the lane on the board behind it',
         .getByRole('button', { name: 'Show as a lane on the board' })
         .click();
 
-    await expect(lane(page, epic.id)).toBeVisible();
+    // The lane arrives through the hub, as in lanesGone.
+    await expect(lane(page, epic.id)).toBeVisible({ timeout: 15000 });
     await expect(
         page.locator(`${CARD}[data-card-id="${epic.id}"]`),
     ).toHaveCount(0);

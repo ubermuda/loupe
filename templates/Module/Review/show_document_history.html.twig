@@ -14,12 +14,18 @@
     <span class="lp-topbar__meta">{{ 'review.document.history.count'|trans({'%count%': versions|length}) }}</span>
 {% endblock %}
 
+{% block topbar_actions %}
+{% if document.status.value in ['draft', 'in-review'] %}
+{% include '@Review/_finish_review_button.html.twig' with {inReviewMenu: false} only %}
+{% endif %}
+{% endblock %}
+
 {% block body %}
 {% set routeParameters = {projectId: document.project.id, documentId: document.id} %}
 {% set latestVersion = versions|first.versionNumber %}
 {% set earliestVersion = versions|last.versionNumber %}
 {% set finishReviewAvailable = document.status.value in ['draft', 'in-review'] %}
-<div class="lp-review" data-site-review-quotes="off"{% if finishReviewAvailable %} data-controller="modal"{% endif %}>
+<div class="lp-review" data-site-review-quotes="off"{% if finishReviewAvailable %} data-controller="modal" data-action="review:finish@window->modal#open"{% endif %}>
 <div class="lp-review-block">
     {% include '@Review/_document_header.html.twig' with {
         document: document,
@@ -28,13 +34,7 @@
         activeView: 'history',
         showDocumentActions: true,
         reviseDocumentForm: reviseDocumentForm,
-        approvedSections: sections.approvedCount,
-        totalSections: sections.rows|length,
-        showMarginControls: false,
-        commentCount: null,
-        canComment: false,
-        marginTabs: [],
-        returnToDocument: false,
+        showPageMenu: false,
     } only %}
     <div class="lp-history-tools">
         <h2 class="lp-history-title">{{ 'review.document.history.page.title'|trans }}</h2>
@@ -135,7 +135,6 @@
 {% include '@Review/_finish_review.html.twig' with {
     document: document,
     submitReviewForm: submitReviewForm,
-    sections: sections,
     signals: signals,
 } only %}
 {% endif %}

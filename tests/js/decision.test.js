@@ -94,14 +94,15 @@ async function mount({
     checked = [],
     kind = 'checkbox',
 } = {}) {
-    document.body.innerHTML = `<p id="decision-status"></p>
+    document.body.innerHTML = `<div id="decision-status"></div>
+${['info', 'error'].map((severity) => `<template data-decision-status-flash="${severity}"><div class="lp-flash lp-flash--${severity}"><span class="lp-flash__dot"></span><span class="lp-flash__message"></span></div></template>`).join('')}
 <div data-controller="decision" data-action="change->decision#select"
         data-decision-page="${page}"
         data-decision-summary-url-value="${SUMMARY}"
         data-decision-changed-by-value="Changed by %name%."
         data-decision-note-label-value="Note"
         data-decision-note-placeholder-value="Add a note"
-        data-decision-clear-label-value="Clear"
+        data-decision-clear-label-value="Clear choice"
         data-decision-clear-class-value="lp-decision__clear"
         data-decision-error-message-value="Could not save.">
     <div class="prose">${block('a', notes.a, checked, kind)}${block('b', notes.b, checked, kind)}</div>
@@ -173,7 +174,38 @@ it('adds no text node to the blocks', async () => {
     expect(
         document.querySelector('[data-decision-id="a"] input[type="button"]')
             .value,
-    ).toBe('Clear');
+    ).toBe('Clear choice');
+});
+
+it('puts Clear choice in the block header, away from the note field', async () => {
+    await mount({ notes: { a: 'Kept' } });
+    const fieldset = document.querySelector('fieldset[data-decision-id="a"]');
+    const button = fieldset.querySelector('input[type="button"]');
+
+    expect(button.parentElement).toBe(fieldset);
+    expect(fieldset.firstElementChild.tagName).toBe('LEGEND');
+    expect(fieldset.firstElementChild.nextElementSibling).toBe(button);
+    expect(fieldset.querySelector('.lp-decision__note').contains(button)).toBe(
+        false,
+    );
+    expect(button.textContent).toBe('');
+});
+
+it('keeps one Clear choice button when a block is decorated again', async () => {
+    await mount({ notes: { a: 'Kept' } });
+    const controller = application.getControllerForElementAndIdentifier(
+        document.querySelector('[data-controller="decision"]'),
+        'decision',
+    );
+    controller.decorate(
+        document.querySelector('fieldset[data-decision-id="a"]'),
+    );
+
+    expect(
+        document.querySelectorAll(
+            'fieldset[data-decision-id="a"] input[type="button"]',
+        ),
+    ).toHaveLength(1);
 });
 
 it('sends the whole block at once when an option changes', async () => {
@@ -295,9 +327,7 @@ it('keeps the note and reports a network failure', async () => {
     expect(note('a').value).toBe('Unsaved words');
     const status = document.getElementById('decision-status');
     expect(status.textContent).toBe('Could not save.');
-    expect(
-        status.querySelector('.lp-decision-status__message--failed'),
-    ).not.toBeNull();
+    expect(status.querySelector('.lp-flash--error')).not.toBeNull();
 
     note('a').dispatchEvent(new Event('blur'));
     expect(sent).toHaveLength(2);
@@ -707,7 +737,7 @@ it('drops a decision stream that arrives on another document or version', async 
 });
 
 it('drops a decision stream that arrives on a page with no decisions', async () => {
-    document.body.innerHTML = '<p id="decision-status"></p>';
+    document.body.innerHTML = '<div id="decision-status"></div>';
 
     expect(streamRender('doc-1/3').defaultPrevented).toBe(true);
 });
@@ -871,6 +901,9 @@ it('shows the stored picks and note after a change, and does not send them back'
     expect(document.getElementById('decision-status').textContent).toBe(
         'Changed by Ann Other.',
     );
+    expect(
+        document.querySelector('#decision-status .lp-flash--info'),
+    ).not.toBeNull();
 
     note('a').dispatchEvent(new Event('blur'));
     expect(sent).toHaveLength(0);

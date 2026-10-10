@@ -58,6 +58,7 @@ final class StrikeAndSuggestControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertStringContainsString('target="comment-threads"', (string) $client->getResponse()->getContent());
+        self::assertStringContainsString('target="comment-rows"', (string) $client->getResponse()->getContent());
 
         $comment = $this->onlyComment($document);
         self::assertSame('', $comment->replacement);

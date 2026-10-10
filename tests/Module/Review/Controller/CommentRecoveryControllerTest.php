@@ -117,6 +117,7 @@ final class CommentRecoveryControllerTest extends WebTestCase
         } else {
             self::assertResponseIsSuccessful();
             self::assertSelectorExists('turbo-stream[target="comment-recovery"]');
+            self::assertSelectorExists('turbo-stream[target="comment-rows"]');
             self::assertStringContainsString('Undo', $this->client->getResponse()->getContent() ?: '');
         }
         $this->em->clear();

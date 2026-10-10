@@ -84,20 +84,6 @@ final class LinkedInboxSectionTest extends WebTestCase
         self::assertSame($frame ?? '_top', $section->filter('form[name="inbox_done_'.$open->id.'"]')->attr('data-turbo-frame'));
     }
 
-    public function test_the_document_page_lists_its_linked_items(): void
-    {
-        $item = $this->question($this->em, $this->project, 3);
-        $this->askHolding($this->em, $this->project, [$item]);
-        $this->linkDocument($item);
-
-        $crawler = $this->client->request(Request::METHOD_GET, $this->documentUrl());
-
-        self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('[data-inbox-linked="document"] #inbox-item-3'));
-        $action = (string) $crawler->filter('form[name="inbox_answer_'.$item->id.'"]')->attr('action');
-        self::assertStringContainsString('returnTo=document', $action);
-    }
-
     public function test_the_sections_render_nothing_while_the_inbox_is_off(): void
     {
         $item = $this->question($this->em, $this->project, 1);
@@ -114,23 +100,6 @@ final class LinkedInboxSectionTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('.lp-review-doc');
         self::assertSelectorNotExists('[data-inbox-linked]');
-    }
-
-    public function test_inbox_markdown_above_a_document_takes_no_heading_id_of_the_document(): void
-    {
-        $this->document->addVersion('## Export', '<h2 id="heading-export">Export</h2>');
-        $this->em->flush();
-        $item = $this->question($this->em, $this->project, 1);
-        $item->body = "## Export\n\nWhich one?";
-        $this->askHolding($this->em, $this->project, [$item], context: "## Export\n\nBefore the migration.");
-        $this->linkDocument($item);
-
-        $crawler = $this->client->request(Request::METHOD_GET, $this->documentUrl());
-
-        self::assertResponseIsSuccessful();
-        self::assertCount(2, $crawler->filter('[data-inbox-linked] h2')->reduce(static fn (Crawler $heading): bool => 'Export' === trim($heading->text())));
-        self::assertCount(1, $crawler->filter('[id="heading-export"]'));
-        self::assertCount(1, $crawler->filter('.lp-review-doc [id="heading-export"]'));
     }
 
     #[TestWith([null, '3'])]
@@ -330,42 +299,6 @@ final class LinkedInboxSectionTest extends WebTestCase
 
         self::assertResponseRedirects($this->documentUrl());
         self::assertSame(InboxItemState::Declined, $this->reload($item)->state);
-    }
-
-    public function test_a_refused_done_from_the_document_page_shows_its_refusal_there(): void
-    {
-        $item = $this->answered($this->em, $this->todo($this->em, $this->project, 2), InboxItemState::Withdrawn);
-        $this->linkDocument($item);
-
-        $this->post($item, 'done', [], ['returnTo' => 'document', 'returnId' => (string) $this->document->id]);
-
-        self::assertResponseStatusCodeSame(422);
-        self::assertSelectorExists('.lp-review-doc');
-        self::assertSelectorTextContains('[data-inbox-linked="document"] #inbox-item-2 [data-inbox-refusal]', 'The agent closed this item');
-    }
-
-    public function test_a_response_from_an_older_document_version_stays_on_that_version(): void
-    {
-        $this->document->addVersion('# Export v2', '<h1>Export v2</h1>');
-        $this->em->flush();
-        $item = $this->question($this->em, $this->project, 5);
-        $todo = $this->answered($this->em, $this->todo($this->em, $this->project, 6), InboxItemState::Withdrawn);
-        $this->linkDocument($item);
-        $this->linkDocument($todo);
-        $versionUrl = $this->documentUrl().'/versions/1';
-
-        $crawler = $this->client->request(Request::METHOD_GET, $versionUrl);
-        $action = (string) $crawler->filter('form[name="inbox_answer_'.$item->id.'"]')->attr('action');
-        self::assertStringContainsString('returnVersion=1', $action);
-
-        $query = ['returnTo' => 'document', 'returnId' => (string) $this->document->id, 'returnVersion' => '1'];
-        $this->post($todo, 'done', [], $query);
-        self::assertResponseStatusCodeSame(422);
-        self::assertSelectorExists('.lp-version-banner');
-        self::assertSelectorTextContains('[data-inbox-linked="document"] #inbox-item-6 [data-inbox-refusal]', 'The agent closed this item');
-
-        $this->post($item, 'answer', ['selectedOptions' => '0'], $query);
-        self::assertResponseRedirects($versionUrl);
     }
 
     public function test_a_search_query_returns_to_the_inbox_search_and_never_rides_to_a_card_page(): void

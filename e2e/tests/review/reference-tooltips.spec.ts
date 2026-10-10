@@ -14,6 +14,7 @@ import {
     suppressWidget,
 } from '../fixtures';
 import { coverageScaled } from '../timeouts';
+import { panelButton } from './panels';
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -270,7 +271,10 @@ test('a mention at the bottom of the screen opens its definition above it', asyn
     const tooltip = page.locator(TOOLTIP);
     await mark.evaluate((element) => {
         const main = element.closest('.lp-main');
-        if (main instanceof HTMLElement) main.style.paddingBottom = '800px';
+        if (main instanceof HTMLElement) {
+            main.style.paddingTop = '800px';
+            main.style.paddingBottom = '800px';
+        }
         element.scrollIntoView({ block: 'end' });
     });
 
@@ -280,4 +284,58 @@ test('a mention at the bottom of the screen opens its definition above it', asyn
     const anchor = await mark.boundingBox();
     if (box === null || anchor === null) throw new Error('No box');
     expect(box.y + box.height).toBeLessThanOrEqual(anchor.y);
+});
+
+test('the page menu lists the linked documents and the version history', async ({
+    page,
+}) => {
+    const openMenu = async () => {
+        await page
+            .getByRole('button', {
+                name: 'More about this document',
+                exact: true,
+            })
+            .click();
+        const menu = page.locator('#review-page-menu');
+        await expect(menu).toBeVisible();
+
+        return menu;
+    };
+
+    await page.goto(reviewUrl(rollout));
+    let menu = await openMenu();
+    await expect(
+        menu
+            .locator('[data-page-menu-group="outgoing"]')
+            .getByRole('link', { name: /Cache plan/ }),
+    ).toHaveAttribute('href', reviewUrl(plan));
+    await expect(
+        menu.getByRole('link', { name: /Version history/ }),
+    ).toBeVisible();
+
+    await page.goto(reviewUrl(plan));
+    menu = await openMenu();
+    await expect(
+        menu
+            .locator('[data-page-menu-group="incoming"]')
+            .getByRole('link', { name: /Rollout/ }),
+    ).toHaveAttribute('href', reviewUrl(rollout));
+    await expect(
+        menu.getByRole('link', { name: /Version history/ }),
+    ).toBeVisible();
+});
+
+test('the open panels carry over to the next document', async ({ page }) => {
+    await page.goto(reviewUrl(plan));
+    const comments = panelButton(page, 'Comments');
+    await expect(comments).toHaveAttribute('aria-pressed', 'false');
+    await comments.click();
+    await expect(comments).toHaveAttribute('aria-pressed', 'true');
+
+    await page.goto(reviewUrl(rollout));
+    await expect(panelButton(page, 'Comments')).toHaveAttribute(
+        'aria-pressed',
+        'true',
+    );
+    await expect(page.locator('#review-panel-comments')).toBeVisible();
 });

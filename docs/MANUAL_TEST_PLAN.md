@@ -139,9 +139,9 @@ Tracked as a known gap. This is the newest feature and the least exercised.
 5. **Answer from a stale page.** Open the document, revise it in another tab,
    then answer in the first. The answer saves onto the current version, matched
    by option label. An option the revision removed shows an error instead.
-6. **Note and Clear.** Type a note and wait a second. It persists across a
-   reload. **Clear** removes the pick, keeps the note, and the status line
-   shows "Cleared.".
+6. **Note and Clear choice.** Type a note and wait a second. It persists across a
+   reload. **Clear choice** sits beside the "Pick one" chip. It removes the
+   pick, keeps the note, and the status line shows "Cleared.".
 7. **A malformed fence degrades locally.** An unclosed fence should render as an
    ordinary list, and a *later, correct* fence on the same document must still
    produce controls.

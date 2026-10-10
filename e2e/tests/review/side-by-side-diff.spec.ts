@@ -10,6 +10,7 @@
 import { expect, type Page } from '@playwright/test';
 import { createTest, suppressToolbar, suppressWidget } from '../fixtures';
 import { coverageScaled } from '../timeouts';
+import { showPanel } from './panels';
 
 // Switching view is a Turbo visit, and a loaded dev server answers one in more
 // than the 5 s default: a trace of a failed run measured 6.6 s for a single
@@ -88,22 +89,33 @@ const VERSION_TWO = [
 const CELL = '.lp-diff-columns__cell';
 const VOID_CELL = '.lp-diff-columns__cell--void';
 const MARGIN = '.lp-review-margin';
+const WHOLE_DOCUMENT = '.lp-comment-whole-document';
 const VIEWS = '.lp-diff-views';
 
-test('comparison controls share the standard desktop metrics', async ({
+test('comparison controls keep the compact compare bar metrics', async ({
     page,
 }) => {
     const reviewPath = await seedComparison(page);
     await page.goto(`${reviewPath}/diff/1/2`);
-    const controls = page.locator(
-        '.lp-diff-bar .lp-version-compare select, .lp-diff-bar .lp-version-compare button, .lp-diff-views__link',
-    );
-    await expect(controls).toHaveCount(6);
-    for (const control of await controls.all()) {
-        await expect(control).toBeVisible();
-        await expect(control).toHaveCSS('height', '36px');
-        await expect(control).toHaveCSS('font-size', '14px');
-        await expect(control).toHaveCSS('line-height', '20px');
+    // With JavaScript a change submits the pickers, so the Compare button stays in noscript.
+    const pickers = page.locator('.lp-diff-bar .lp-version-compare select');
+    await expect(pickers).toHaveCount(2);
+    for (const picker of await pickers.all()) {
+        await expect(picker).toBeVisible();
+        await expect(picker).toHaveCSS('height', '32px');
+        await expect(picker).toHaveCSS('font-size', '14px');
+    }
+    // The views wait behind one settings button, the height of the pickers.
+    const trigger = page.getByRole('button', {
+        name: 'Diff view',
+        exact: true,
+    });
+    await expect(trigger).toHaveCSS('height', '32px');
+    await trigger.click();
+    const views = page.locator('.lp-diff-views__link');
+    await expect(views).toHaveCount(3);
+    for (const view of await views.all()) {
+        await expect(view).toBeVisible();
     }
     await page.goto(`${reviewPath.split('/documents/')[0]}/documents`);
     for (const selector of ['.lp-filter-input', '.lp-filter-select']) {
@@ -125,7 +137,6 @@ test('the visible picker compares equal versions and keeps the view', async ({
     await toolbar
         .getByLabel('Compare from version', { exact: true })
         .selectOption('2');
-    await toolbar.getByRole('button', { name: 'Compare', exact: true }).click();
     await expect(page).toHaveURL(`${reviewPath}/diff/2/2?view=source`, VISIT);
     await expect(page.locator('.lp-empty')).toContainText('identical');
     await expect(
@@ -140,7 +151,6 @@ test('the visible picker compares equal versions and keeps the view', async ({
     await toolbar
         .getByLabel('Compare from version', { exact: true })
         .selectOption('1');
-    await toolbar.getByRole('button', { name: 'Compare', exact: true }).click();
     await expect(page).toHaveURL(`${reviewPath}/diff/1/2?view=source`, VISIT);
     const notes = page.locator('.lp-diff-notes');
     await expect(notes).not.toHaveAttribute('open');
@@ -220,6 +230,10 @@ test('the two columns pair the blocks and carry no comment column', async ({
 
     await page
         .locator(VIEWS)
+        .getByRole('button', { name: 'Diff view', exact: true })
+        .click();
+    await page
+        .locator(VIEWS)
         .getByRole('link', { name: 'Side by side' })
         .click();
     await expect(page).toHaveURL(
@@ -293,12 +307,7 @@ test('the two columns pair the blocks and carry no comment column', async ({
     // The two columns spend the whole width on the versions, so this view
     // carries no comment column and takes no new comment.
     await expect(page.locator(MARGIN)).toHaveCount(0);
-    await expect(
-        page.getByRole('button', { name: 'Add general comment' }),
-    ).toHaveCount(0);
-    await expect(page.locator('#diff-columns-notice')).toContainText(
-        'no comment column',
-    );
+    await expect(page.locator(WHOLE_DOCUMENT)).toHaveCount(0);
 
     // The columns take the gutter and the comment column for the second
     // reading measure, and the chrome above them still sits inside the block.
@@ -324,14 +333,18 @@ test('the two columns pair the blocks and carry no comment column', async ({
     // Scoped: the sidebar and the crumbs both carry a Documents link.
     await page
         .locator(VIEWS)
+        .getByRole('button', { name: 'Diff view', exact: true })
+        .click();
+    await page
+        .locator(VIEWS)
         .getByRole('link', { name: 'Rendered', exact: true })
         .click();
     await expect(page).toHaveURL(`${reviewPath}/diff/1/2?view=rendered`, VISIT);
     await expect(page.locator(MARGIN)).toHaveCount(1);
+    await showPanel(page, 'Comments');
     await expect(
-        page.getByRole('button', { name: 'Add general comment' }),
+        page.getByRole('button', { name: 'Comment on the whole document' }),
     ).toBeVisible();
-    await expect(page.locator('#diff-columns-notice')).toHaveCount(0);
 });
 
 test('the toolbar holds the same two columns in every view', async ({
@@ -419,7 +432,7 @@ test('the jump controls still walk the changes across the two columns', async ({
     ).toHaveCount(1);
 
     await page.getByRole('button', { name: 'Next change' }).click();
-    await expect(counter).toHaveText('Change 1 of 4');
+    await expect(counter).toHaveText('1 of 4 changes');
     await expect(page.locator('.lp-diff__hunk--current')).toHaveCount(1);
 });
 

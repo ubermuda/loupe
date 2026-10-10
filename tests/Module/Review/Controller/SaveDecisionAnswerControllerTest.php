@@ -71,7 +71,7 @@ final class SaveDecisionAnswerControllerTest extends WebTestCase
         $client->loginUser($owner);
         $client->request(Request::METHOD_GET, $this->reviewPath($document));
 
-        self::assertSelectorExists('.lp-decision__badge[data-decision-recommended="moderate"][role="note"][aria-label="Recommended, moderate confidence"]');
+        self::assertSelectorExists('.lp-decision__badge[data-decision-recommended="moderate"][role="note"][aria-label="Recommended, moderate confidence"][tabindex="0"]:not([title]) > .lp-tooltip[role="tooltip"][data-label="Recommended, moderate confidence"]');
     }
 
     /**
@@ -120,6 +120,7 @@ final class SaveDecisionAnswerControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame('Saved.', self::statusMessage((string) $client->getResponse()->getContent()));
+        self::assertStringContainsString('lp-flash--success', (string) $client->getResponse()->getContent());
         $answer = $this->answerRow($document);
         self::assertNotNull($answer);
         self::assertSame('Staging is quiet this week.', $answer->note);
@@ -174,6 +175,7 @@ final class SaveDecisionAnswerControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
         self::assertSame('A note can have a maximum of 2000 characters.', self::statusMessage((string) $client->getResponse()->getContent()));
+        self::assertStringContainsString('lp-flash--error', (string) $client->getResponse()->getContent());
         self::assertNull($this->answerRow($document));
     }
 
@@ -343,15 +345,17 @@ final class SaveDecisionAnswerControllerTest extends WebTestCase
         $this->answer($client, $document, ['note' => 'Neither target yet.'], self::TURBO);
 
         $body = (string) $client->getResponse()->getContent();
-        self::assertMatchesRegularExpression('~target="decision-summary-count">\s*<template>1/1</template>~', $body);
+        self::assertMatchesRegularExpression('~target="decision-summary-count">\s*<template>1 of 1 answered</template>~', $body);
         self::assertMatchesRegularExpression('~target="review-menu-decisions-count">\s*<template>1/1</template>~', $body);
-        self::assertStringContainsString('Answered with a note', $body);
+        self::assertStringContainsString('Note: Neither target yet.', $body);
         self::assertStringNotContainsString('Not chosen yet', $body);
 
         $client->request(Request::METHOD_GET, $this->reviewPath($document));
-        self::assertSelectorTextSame('#decision-summary-count', '1/1');
+        self::assertSelectorTextSame('#decision-summary-count', '1 of 1 answered');
         self::assertSelectorTextSame('#review-menu-decisions-count', '1/1');
-        self::assertSelectorTextContains('#decision-summary-list', 'Answered with a note');
+        self::assertSelectorTextSame('#decision-summary-list .lp-decision-summary__note', 'Note: Neither target yet.');
+        self::assertSelectorExists('#decision-summary-list .lp-decision-summary__tag--answered');
+        self::assertSelectorNotExists('#decision-summary-list .lp-decision-summary__answer');
         self::assertSelectorNotExists('#decision-summary-list .lp-decision-summary__pending');
         self::assertSelectorExists('#review-menu-decisions-list .lp-review-menu__mark--approved');
     }
@@ -366,9 +370,35 @@ final class SaveDecisionAnswerControllerTest extends WebTestCase
         $this->answer($client, $document, ['optionIndexes' => [0]], self::TURBO);
 
         self::assertMatchesRegularExpression(
-            '~target="decision-summary-count">\s*<template>1/1</template>~',
+            '~target="decision-summary-count">\s*<template>1 of 1 answered</template>~',
             (string) $client->getResponse()->getContent(),
         );
+    }
+
+    public function test_the_panel_row_shows_the_pick_with_the_note_under_it(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed($client);
+
+        $client->loginUser($owner);
+        $this->answer($client, $document, ['optionIndexes' => [1], 'note' => 'Only this once.'], self::TURBO);
+
+        $client->request(Request::METHOD_GET, $this->reviewPath($document));
+        self::assertSelectorTextSame('#decision-summary-list .lp-decision-summary__answer', 'Ship straight to production');
+        self::assertSelectorTextSame('#decision-summary-list .lp-decision-summary__note', 'Note: Only this once.');
+    }
+
+    public function test_a_row_takes_its_tag_from_the_heading_above_the_block(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seedMarkdown($client, "## D4: Where should this land?\n\n".self::MARKDOWN);
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, $this->reviewPath($document));
+
+        self::assertSelectorTextSame('#decision-summary-list .lp-decision-summary__tag', 'D4');
+        self::assertSelectorNotExists('#decision-summary-list .lp-decision-summary__tag--answered');
+        self::assertSelectorTextSame('#decision-summary-count', '0 of 1 answered');
     }
 
     /**
@@ -526,12 +556,12 @@ final class SaveDecisionAnswerControllerTest extends WebTestCase
     /** The text of the status line, lifted out of the stream that carries it. */
     private static function statusMessage(string $body): string
     {
-        preg_match('~<span class="lp-decision-status__message[^"]*">(.*?)</span>~s', $body, $matches);
+        preg_match('~<span class="lp-flash__message">(.*?)</span>~s', $body, $matches);
         if (!isset($matches[1])) {
             self::fail('the stream carries no status message');
         }
 
-        return $matches[1];
+        return trim($matches[1]);
     }
 
     /**

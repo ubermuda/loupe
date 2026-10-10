@@ -134,7 +134,9 @@ final class ShowDocumentController extends AppController
             'diffView' => null,
             'diffChangeCount' => null,
             'diffCommenting' => false,
+            'diffDocumentUrl' => null,
             'readOnly' => $view->readOnly,
+            'verdictAvailable' => !$view->readOnly,
             'comments' => $view->comments,
             'headings' => $view->headings,
             'signals' => $view->signals,
@@ -146,7 +148,6 @@ final class ShowDocumentController extends AppController
             'decisionMarkedHtml' => $view->decisionMarkedHtml,
             'referenceDefinitions' => $view->referenceDefinitions,
             'lastSeenVersionNumber' => $view->lastSeenVersionNumber,
-            'sections' => $view->sections,
         ]);
     }
 }

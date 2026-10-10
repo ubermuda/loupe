@@ -8,6 +8,9 @@ use App\Module\Review\ValueObject\Decision;
 use App\Module\Review\ValueObject\DecisionType;
 use League\CommonMark\Event\DocumentParsedEvent;
 use League\CommonMark\Extension\CommonMark\Node\Block\HtmlBlock;
+use League\CommonMark\Extension\Table\Table;
+use League\CommonMark\Extension\Table\TableRow;
+use League\CommonMark\Extension\Table\TableSection;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
@@ -74,6 +77,14 @@ final readonly class DecisionBlockService
 
     private const array CONFIDENCES = ['high', 'moderate', 'low'];
 
+    /** How many of the three stars a confidence fills. */
+    private const array STARS = ['high' => 3, 'moderate' => 2, 'low' => 1];
+
+    private const int STAR_COUNT = 3;
+
+    /** The class a marked table carries once the sentinel is resolved. */
+    private const string OPTION_TABLE_CLASS = 'lp-option-table';
+
     /**
      * An id is what a selection is keyed by, so it is deliberately narrow: safe
      * verbatim in an attribute, in a regex character class, and in a URL. The
@@ -105,11 +116,27 @@ final readonly class DecisionBlockService
     {
         /** @var list<array{HtmlBlock, string|null}> $markers */
         $markers = [];
+        /** @var array{HtmlBlock, list<Table>}|null $optionsOpen */
+        $optionsOpen = null;
+        /** @var list<array{HtmlBlock, HtmlBlock, list<Table>}> $optionFences */
+        $optionFences = [];
         $walker = $event->getDocument()->walker();
 
         while (null !== $walkerEvent = $walker->next()) {
             $node = $walkerEvent->getNode();
-            if (!$walkerEvent->isEntering() || !$node instanceof HtmlBlock) {
+            if (!$walkerEvent->isEntering()) {
+                continue;
+            }
+
+            if ($node instanceof Table) {
+                if (null !== $optionsOpen && $node->parent() === $optionsOpen[0]->parent() && self::columnCount($node) >= 2) {
+                    $optionsOpen[1][] = $node;
+                }
+
+                continue;
+            }
+
+            if (!$node instanceof HtmlBlock) {
                 continue;
             }
 
@@ -119,10 +146,50 @@ final readonly class DecisionBlockService
                 $markers[] = [$node, $matches[1]];
             } elseif (1 === preg_match('~^<!--\s*/decision\s*-->$~', $literal)) {
                 $markers[] = [$node, null];
+            } elseif (1 === preg_match('~^<!--\s*options\s*-->$~', $literal)) {
+                // A second opener means the first never closed: it is abandoned.
+                $optionsOpen = [$node, []];
+            } elseif (1 === preg_match('~^<!--\s*/options\s*-->$~', $literal) && null !== $optionsOpen && $node->parent() === $optionsOpen[0]->parent()) {
+                $optionFences[] = [$optionsOpen[0], $node, $optionsOpen[1]];
+                $optionsOpen = null;
             }
         }
 
         $this->sentinelPairedFences($markers);
+        $this->sentinelOptionTables($optionFences);
+    }
+
+    /**
+     * Marks each table of a paired options fence with a sentinel in front of it.
+     *
+     * A fence holding no table of two columns or more is left untouched, so both
+     * of its markers show as the annotation a stray comment gets.
+     *
+     * @param list<array{HtmlBlock, HtmlBlock, list<Table>}> $fences
+     */
+    private function sentinelOptionTables(array $fences): void
+    {
+        foreach ($fences as [$opener, $closer, $tables]) {
+            if ([] === $tables) {
+                continue;
+            }
+
+            $opener->setLiteral($this->optionsFenceSentinel());
+            $closer->setLiteral($this->optionsFenceSentinel());
+            foreach ($tables as $table) {
+                $sentinel = new HtmlBlock(HtmlBlock::TYPE_6_BLOCK_ELEMENT);
+                $sentinel->setLiteral($this->optionTableSentinel());
+                $table->insertBefore($sentinel);
+            }
+        }
+    }
+
+    private static function columnCount(Table $table): int
+    {
+        $section = $table->firstChild();
+        $row = $section instanceof TableSection ? $section->firstChild() : null;
+
+        return $row instanceof TableRow ? iterator_count($row->children()) : 0;
     }
 
     /**
@@ -232,6 +299,8 @@ final readonly class DecisionBlockService
             ) ?? throw new \RuntimeException('Decision control conversion failed: '.preg_last_error_msg().'.');
         }
 
+        $html = $this->withOptionTables(implode($this->closeSentinel(), $segments));
+
         // Deliberately not the well-formed sentinel pattern: HtmlSanitizer cuts
         // its input with a raw substr() before parsing, so a large document can
         // lose the second half of a sentinel. Matching the nonce plus whatever
@@ -239,13 +308,82 @@ final readonly class DecisionBlockService
         $swept = preg_replace(
             '~'.$this->sentinelRoot().'[A-Za-z0-9_-]*~',
             '',
-            implode($this->closeSentinel(), $segments),
+            $html,
         );
 
         return self::withoutTrailingPrefixOf(
             $swept ?? throw new \RuntimeException('Decision sentinel sweep failed: '.preg_last_error_msg().'.'),
             $this->sentinelRoot(),
         );
+    }
+
+    /**
+     * Turns each sentinel-marked table into an option table.
+     *
+     * Only attributes are added, and strip_tags() drops those, so the text every
+     * comment anchor is measured against stays what the browser reads. The
+     * labels reach the eye through CSS generated content from `data-label`.
+     * Tables never nest, so splitting on the closing tag leaves at most one
+     * table in each segment.
+     */
+    private function withOptionTables(string $html): string
+    {
+        $sentinel = $this->optionTableSentinel();
+        if (!str_contains($html, $sentinel)) {
+            return $html;
+        }
+
+        $segments = explode('</table>', $html);
+        $tail = array_key_last($segments);
+
+        foreach ($segments as $index => $segment) {
+            $start = strrpos($segment, $sentinel);
+            if ($index === $tail || false === $start) {
+                continue;
+            }
+
+            $table = substr($segment, $start + \strlen($sentinel));
+            if (1 !== preg_match('~^\s*<table>~', $table, $opening)) {
+                continue;
+            }
+
+            $segments[$index] = substr($segment, 0, $start)
+                .'<table class="'.self::OPTION_TABLE_CLASS.'">'
+                .self::withCellLabels(substr($table, \strlen($opening[0])));
+        }
+
+        return implode('</table>', $segments);
+    }
+
+    /** Adds the column heading to each body cell as `data-label`. */
+    private static function withCellLabels(string $tableBody): string
+    {
+        $parts = explode('</thead>', $tableBody, 2);
+        if (2 !== \count($parts)) {
+            return $tableBody;
+        }
+
+        preg_match_all('~<th(?:\s[^>]*)?>([^<]*+(?:<(?!/th>)[^<]*+)*+)</th>~', $parts[0], $headings);
+        $labels = array_map(DisplayLabel::fromHtml(...), $headings[1]);
+
+        $rows = explode('</tr>', $parts[1]);
+        foreach ($rows as $index => $row) {
+            $column = 0;
+            $rows[$index] = preg_replace_callback(
+                '~<td(\s[^>]*)?>~',
+                static function (array $matches) use ($labels, &$column): string {
+                    $label = $labels[$column++] ?? '';
+                    if ('' === $label) {
+                        return $matches[0];
+                    }
+
+                    return substr($matches[0], 0, -1).' data-label="'.htmlspecialchars($label, \ENT_QUOTES | \ENT_SUBSTITUTE, 'UTF-8').'">';
+                },
+                $row,
+            ) ?? throw new \RuntimeException('Option table labelling failed: '.preg_last_error_msg().'.');
+        }
+
+        return $parts[0].'</thead>'.implode('</tr>', $rows);
     }
 
     /**
@@ -318,6 +456,35 @@ final readonly class DecisionBlockService
     }
 
     /**
+     * The text of the nearest heading above each block, keyed by decision id.
+     *
+     * A block with no heading above it is absent.
+     *
+     * @return array<string, string>
+     */
+    public function headingsAbove(string $html): array
+    {
+        preg_match_all('~<h[1-6](?:\s[^>]*)?>(.*?)</h[1-6]>~s', $html, $headings, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
+
+        $found = [];
+        foreach ($this->fieldsets($html) as $block) {
+            $above = null;
+            foreach ($headings as $heading) {
+                if ($heading[0][1] > $block['offset']) {
+                    break;
+                }
+                $above = $heading[1][0];
+            }
+
+            if (null !== $above) {
+                $found[$block['id']] = DisplayLabel::fromHtml($above);
+            }
+        }
+
+        return $found;
+    }
+
+    /**
      * Every decision fieldset in the rendered HTML, as id, inner markup and whole.
      *
      * Split on the closing tag rather than matched across it. A body written as
@@ -328,14 +495,17 @@ final readonly class DecisionBlockService
      * fieldsets emitted here are flat: fieldset() writes one per block and never
      * nests them.
      *
-     * @return list<array{id: string, type: DecisionType, inner: string}>
+     * @return list<array{id: string, type: DecisionType, inner: string, offset: int}>
      */
     private function fieldsets(string $html): array
     {
         $found = [];
+        $segmentOffset = 0;
 
         foreach (explode('</fieldset>', $html) as $segment) {
             $start = strrpos($segment, '<fieldset');
+            $offset = $segmentOffset;
+            $segmentOffset += \strlen($segment) + \strlen('</fieldset>');
             if (false === $start) {
                 continue;
             }
@@ -354,6 +524,7 @@ final readonly class DecisionBlockService
                 'id' => $openTag[1],
                 'type' => self::typeOfOpenTag($openTag[0]),
                 'inner' => substr($element, \strlen($openTag[0])),
+                'offset' => $offset + $start,
             ];
         }
 
@@ -399,15 +570,7 @@ final readonly class DecisionBlockService
             ) ?? throw new \RuntimeException('Decision note marking failed: '.preg_last_error_msg().'.');
         }
 
-        if ([] !== $badgeLabels) {
-            $html = preg_replace_callback(
-                '~<span class="lp-decision__badge" '.self::BADGE_MARKER.'="([a-z]+)">~',
-                static fn (array $matches): string => isset($badgeLabels[$matches[1]])
-                    ? substr($matches[0], 0, -1).' role="note" aria-label="'.htmlspecialchars($badgeLabels[$matches[1]], \ENT_QUOTES | \ENT_HTML5).'">'
-                    : $matches[0],
-                $html,
-            ) ?? throw new \RuntimeException('Decision badge labelling failed: '.preg_last_error_msg().'.');
-        }
+        $html = $this->withUntitledPrompts($this->withBadgeLabels($html, $badgeLabels));
 
         $marked = preg_replace_callback(
             '~<input[^>]*\s'.self::OPTION_MARKER.'="('.self::ID_PATTERN.'):(\d+)"[^>]*>~',
@@ -431,6 +594,50 @@ final readonly class DecisionBlockService
     }
 
     /**
+     * Gives a block that asks no question its id as the title. The id stays in
+     * an attribute that CSS draws, so the anchor basis is untouched.
+     */
+    public function withUntitledPrompts(string $html): string
+    {
+        return preg_replace(
+            '~(<fieldset[^>]*\s'.self::BLOCK_MARKER.'="('.self::ID_PATTERN.')"[^>]*>)<legend class="lp-decision__prompt"></legend>~',
+            '$1<legend class="lp-decision__prompt" data-untitled="$2"></legend>',
+            $html,
+        ) ?? throw new \RuntimeException('Decision title marking failed: '.preg_last_error_msg().'.');
+    }
+
+    /**
+     * Names each recommendation badge in the reader's language.
+     *
+     * @param array<string, string> $badgeLabels keyed by confidence
+     */
+    public function withBadgeLabels(string $html, array $badgeLabels): string
+    {
+        if ([] === $badgeLabels) {
+            return $html;
+        }
+
+        return preg_replace_callback(
+            '~<span class="lp-decision__badge" '.self::BADGE_MARKER.'="([a-z]+)"(?: tabindex="0")?>(?=(<span class="lp-decision__star))?~',
+            static function (array $matches) use ($badgeLabels): string {
+                if (!isset($badgeLabels[$matches[1]])) {
+                    return $matches[0];
+                }
+
+                $label = htmlspecialchars($badgeLabels[$matches[1]], \ENT_QUOTES | \ENT_HTML5);
+                // The words stay in an attribute, so the tooltip adds no text to
+                // the anchor basis. A badge with no stars must stay :empty.
+                $tooltip = isset($matches[2])
+                    ? '<span class="lp-tooltip lp-decision__tooltip" role="tooltip" data-label="'.$label.'"></span>'
+                    : '';
+
+                return substr($matches[0], 0, -1).' role="note" aria-label="'.$label.'">'.$tooltip;
+            },
+            $html,
+        ) ?? throw new \RuntimeException('Decision badge labelling failed: '.preg_last_error_msg().'.');
+    }
+
+    /**
      * The badge names withSelections() takes, in the reader's language.
      *
      * @return array<string, string>
@@ -443,6 +650,20 @@ final readonly class DecisionBlockService
         }
 
         return $labels;
+    }
+
+    /**
+     * Three star elements with no text in them, `$filled` of them lit. CSS draws
+     * each one, so nothing joins the anchor basis.
+     */
+    private static function stars(int $filled): string
+    {
+        $stars = '';
+        for ($star = 1; $star <= self::STAR_COUNT; ++$star) {
+            $stars .= sprintf('<span class="lp-decision__star%s"></span>', $star <= $filled ? ' lp-decision__star--filled' : '');
+        }
+
+        return $stars;
     }
 
     /**
@@ -483,7 +704,12 @@ final readonly class DecisionBlockService
             $badge = '';
             if (null !== $recommended && $recommended['index'] === $index) {
                 $label = $recommended['label'];
-                $badge = sprintf('<span class="lp-decision__badge" %s="%s"></span>', self::BADGE_MARKER, $recommended['confidence']);
+                $badge = sprintf(
+                    '<span class="lp-decision__badge" %s="%s" tabindex="0">%s</span>',
+                    self::BADGE_MARKER,
+                    $recommended['confidence'],
+                    self::stars(self::STARS[$recommended['confidence']]),
+                );
             }
 
             $options .= sprintf(
@@ -605,6 +831,16 @@ final readonly class DecisionBlockService
     private function sentinelPrefix(): string
     {
         return $this->sentinelRoot().'_';
+    }
+
+    private function optionsFenceSentinel(): string
+    {
+        return $this->sentinelPrefix().'OPTIONS_FENCE';
+    }
+
+    private function optionTableSentinel(): string
+    {
+        return $this->sentinelPrefix().'OPTIONS_TABLE';
     }
 
     private function openSentinel(string $id): string

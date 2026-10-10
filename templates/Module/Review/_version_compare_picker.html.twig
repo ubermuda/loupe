@@ -1,12 +1,12 @@
-{# The from/to picker that starts another comparison. app_document_review_compare
-   swaps a backwards pair and sends an unreal one to the history, so no
-   client-side guard has to keep the selects in step.
-   Params: document, versions, fromVersionNumber, toVersionNumber, viewValue,
-   idPrefix. #}
-<form class="lp-version-compare" method="GET"
+{# The from/to picker. app_document_review_compare swaps a backwards pair and
+   sends an unreal one to the history. Params: document, versions,
+   fromVersionNumber, toVersionNumber, viewValue, idPrefix, and autoSubmit,
+   which submits on a change and keeps the button for no-JS readers. #}
+{% set autoSubmit = autoSubmit|default(false) %}
+<form class="lp-version-compare" method="GET"{% if autoSubmit %} data-controller="submit-on-change"{% endif %}
       action="{{ path('app_document_review_compare', {projectId: document.project.id, documentId: document.id}) }}">
     <label class="lp-version-compare__label" for="{{ idPrefix }}-from">{{ 'review.document.diff.picker.from'|trans }}</label>
-    <twig:Ds:Select id="{{ idPrefix }}-from" name="from" class="lp-filter-select" aria-label="{{ 'review.document.diff.picker.from_label'|trans }}">
+    <twig:Ds:Select id="{{ idPrefix }}-from" name="from" class="lp-filter-select" aria-label="{{ 'review.document.diff.picker.from_label'|trans }}" data-action="{{ autoSubmit ? 'change->submit-on-change#submit' }}">
         {% for meta in versions|reverse %}
         <option value="{{ meta.versionNumber }}"{{ meta.versionNumber == fromVersionNumber ? ' selected' : '' }}>{{ 'v' ~ meta.versionNumber }}</option>
         {% endfor %}
@@ -15,7 +15,7 @@
     <twig:ux:icon name="lucide:arrow-right" class="lp-version-compare__arrow" aria-hidden="true" />
 
     <label class="lp-version-compare__label" for="{{ idPrefix }}-to">{{ 'review.document.diff.picker.to'|trans }}</label>
-    <twig:Ds:Select id="{{ idPrefix }}-to" name="to" class="lp-filter-select" aria-label="{{ 'review.document.diff.picker.to_label'|trans }}">
+    <twig:Ds:Select id="{{ idPrefix }}-to" name="to" class="lp-filter-select" aria-label="{{ 'review.document.diff.picker.to_label'|trans }}" data-action="{{ autoSubmit ? 'change->submit-on-change#submit' }}">
         {% for meta in versions|reverse %}
         <option value="{{ meta.versionNumber }}"{{ meta.versionNumber == toVersionNumber ? ' selected' : '' }}>{{ 'v' ~ meta.versionNumber }}</option>
         {% endfor %}
@@ -25,5 +25,5 @@
        send them back to the rendered one. #}
     {% if viewValue is not null and viewValue != 'rendered' %}<input type="hidden" name="view" value="{{ viewValue }}">{% endif %}
 
-    <twig:Ds:Button type="submit">{{ 'review.document.diff.picker.submit'|trans }}</twig:Ds:Button>
+    {% if autoSubmit %}<noscript>{% endif %}<twig:Ds:Button type="submit">{{ 'review.document.diff.picker.submit'|trans }}</twig:Ds:Button>{% if autoSubmit %}</noscript>{% endif %}
 </form>

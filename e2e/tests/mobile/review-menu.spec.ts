@@ -15,6 +15,7 @@ import {
     suppressToolbar,
     suppressWidget,
 } from '../fixtures';
+import { panelButton, showPanel } from '../review/panels';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eReviewMenu1!';
@@ -153,7 +154,7 @@ test('the review bar is one row of the height of the desktop bar', async ({
 
     // The verdict buttons move into the review menu below lg. Left in the bar
     // they are what pushes it to three rows.
-    await expect(page.locator('.lp-topbar__actions')).toBeHidden();
+    await expect(page.locator('.lp-review-topbar-actions')).toBeHidden();
 
     for (const spill of await overflowOf(page, '.lp-topbar__lead')) {
         expect(
@@ -174,9 +175,8 @@ test('the review bar is one row of the height of the desktop bar', async ({
     });
     expect(widths.here).toBeGreaterThan(widths.lead * 0.8);
 
-    await expect(page.locator('.lp-topbar__meta')).toHaveText(
-        '0 open · 0 resolved',
-    );
+    // The thread counts live in the Comments panel, so the bar holds the title alone.
+    await expect(page.locator('.lp-topbar__meta')).toHaveCount(0);
 });
 
 test('a title that fits the bar is not clipped', async ({ page }) => {
@@ -255,8 +255,7 @@ test('Contents drills down inside the panel and the button walks back', async ({
     await page.locator(TRIGGER).tap();
     const contents = page.locator(ROW, { hasText: 'Contents' });
     await expect(contents).toBeVisible();
-    // Approved-of-total, the same count the desktop tab carries.
-    await expect(contents).toContainText('0/3');
+    await expect(contents.locator('.lp-review-menu__count')).toHaveText('3');
 
     await contents.tap();
     // The panel stays open and swaps its contents, rather than closing and
@@ -392,7 +391,7 @@ test('a verdict leaves no button that opens an empty panel', async ({
         .tap();
     await page.getByRole('radio', { name: 'Approve', exact: true }).check();
     await page.getByRole('button', { name: 'Submit review' }).tap();
-    await expect(page.locator('.lp-verdict-bar')).toBeVisible({
+    await expect(page.locator('.lp-verdict-chip')).toBeVisible({
         timeout: 20000,
     });
 
@@ -401,8 +400,15 @@ test('a verdict leaves no button that opens an empty panel', async ({
     await expect(page.locator(TRIGGER)).toBeHidden();
 });
 
-test('scrolling the paper closes the menu', async ({ page, seeded }) => {
-    await page.goto(reviewPath(seeded));
+test('scrolling the paper closes the menu', async ({ page }) => {
+    // The three short sections fit one phone screen, so the paper has nothing to scroll.
+    const long = await seedDocument(
+        page,
+        DOCUMENT_TITLE,
+        undefined,
+        MARKDOWN + '\nA paragraph that fills the screen.\n'.repeat(40),
+    );
+    await page.goto(reviewPath(long));
 
     await page.locator(TRIGGER).tap();
     await expect(page.locator(PANEL)).toBeVisible();
@@ -414,24 +420,25 @@ test('scrolling the paper closes the menu', async ({ page, seeded }) => {
     await expect(page.locator(PANEL)).toBeHidden();
 });
 
-test('the comment margin follows the paper on a narrow screen', async ({
+test('the Comments panel stacks above the paper on a narrow screen', async ({
     page,
     seeded,
 }) => {
     await page.goto(reviewPath(seeded));
+    await showPanel(page, 'Comments');
 
     const positions = await page.evaluate(() => ({
-        paperBottom:
+        paperTop:
             document
                 .querySelector('.lp-review-doc__prose')
-                ?.getBoundingClientRect().bottom ?? 0,
-        commentsTop:
-            document
-                .querySelector('.lp-comment-threads')
                 ?.getBoundingClientRect().top ?? 0,
+        commentsBottom:
+            document
+                .querySelector('#review-panel-comments')
+                ?.getBoundingClientRect().bottom ?? Infinity,
     }));
 
-    expect(positions.commentsTop).toBeGreaterThanOrEqual(positions.paperBottom);
+    expect(positions.commentsBottom).toBeLessThanOrEqual(positions.paperTop);
 });
 
 test('the desktop review actions sit beside the document title', async ({
@@ -446,13 +453,11 @@ test('the desktop review actions sit beside the document title', async ({
 
     await expect(
         page
-            .locator('.lp-review-doc__actions')
+            .locator('.lp-review-topbar-actions')
             .getByRole('button', { name: 'Finish review' }),
     ).toBeVisible();
     await expect(page.locator(MENU)).toBeHidden();
-    await expect(
-        page.getByRole('tab', { name: 'Comments', exact: true }),
-    ).toBeVisible();
+    await expect(panelButton(page, 'Comments')).toBeVisible();
 
     // The context has a coarse pointer, and the touch-target rules are the last
     // word on `display` unless they leave it alone.

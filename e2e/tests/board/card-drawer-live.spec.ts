@@ -15,8 +15,9 @@ test('the drawer warns about a change made elsewhere, and shows a card deleted e
     browser,
     request,
 }) => {
-    // Two sessions, two saves and a delete, each a page visit.
-    test.slow();
+    // Two sessions, two saves and a delete take 53 to 84 s on CI, beside three
+    // other workers. That is too close to the 90 s of test.slow().
+    test.setTimeout(test.info().timeout * 6);
 
     const email = `e2e+drawerlive+${RUN}@example.com`;
     const registered = await request.post('/dev/register-and-verify', {
@@ -116,7 +117,8 @@ test('the open drawer shows a move made elsewhere, on the tab the reader had ope
     browser,
     request,
 }) => {
-    test.slow();
+    // Two sessions and a move take 40 to 65 s on CI.
+    test.setTimeout(test.info().timeout * 6);
 
     const email = `e2e+drawermove+${RUN}@example.com`;
     const registered = await request.post('/dev/register-and-verify', {

@@ -79,7 +79,7 @@ final class PublishDocumentControllerTest extends WebTestCase
         self::assertResponseRedirects($this->reviewUrl($document));
         self::assertSame(DocumentStatus::InReview, $this->statusOf($document));
         $this->client->followRedirect();
-        self::assertSelectorTextContains('.lp-review-doc__byline', 'In review');
+        self::assertSelectorExists('.lp-review-topbar-actions button[data-action="click->review-finish#open"]');
         self::assertSelectorNotExists('[data-document-publish]');
     }
 
@@ -92,7 +92,7 @@ final class PublishDocumentControllerTest extends WebTestCase
         $this->client->request(Request::METHOD_GET, $this->reviewUrl($document));
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('.lp-review-doc__actions');
+        self::assertSelectorExists('.lp-review-topbar-actions');
         self::assertSelectorNotExists('[data-document-publish]');
     }
 

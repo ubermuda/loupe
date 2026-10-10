@@ -51,7 +51,10 @@ test('the History tab records a verdict and its withdrawal', async ({
     seeded,
 }) => {
     await page.goto(seeded.reviewUrl);
-    await page.getByRole('link', { name: 'History', exact: true }).click();
+    await page
+        .getByRole('button', { name: 'More about this document' })
+        .click();
+    await page.getByRole('link', { name: /^Version history/ }).click();
     await expect(page).toHaveURL(`${seeded.reviewUrl}/history`);
     await expect(
         page.locator(
@@ -62,7 +65,7 @@ test('the History tab records a verdict and its withdrawal', async ({
         page.getByRole('heading', { name: TITLE, exact: true }),
     ).toBeVisible();
     await expect(page.locator('.lp-review-doc__version')).toHaveText('v4');
-    await expect(page.locator('.lp-review-margin-tabs')).toHaveCount(0);
+    await expect(page.locator('.lp-review-toolbar')).toHaveCount(0);
 
     await page
         .getByRole('button', { name: 'Finish review', exact: true })
@@ -91,14 +94,15 @@ test('the History tab records a verdict and its withdrawal', async ({
     await reviewDialog.getByRole('button', { name: 'Submit review' }).click();
     // The allowance review-loop gives the same assertion. This one missed its
     // 5 second default once on a loaded machine, at a measured 2.8 seconds.
-    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible({
+    await expect(page.locator('.lp-verdict-chip--approved')).toBeVisible({
         timeout: 20000,
     });
+    await page.locator('.lp-verdict-chip__trigger').click();
     await page
-        .locator('.lp-verdict-bar')
+        .locator('.lp-verdict-chip')
         .getByRole('button', { name: 'Undo', exact: true })
         .click();
-    await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
+    await expect(page.locator('.lp-verdict-chip')).toHaveCount(0);
 
     // A visit rather than a click on the tab, which the undo re-render can
     // swallow. The click above already proved the tab navigates.
@@ -165,6 +169,10 @@ test('the History tab compares two distant versions', async ({
         }),
     ).toHaveCount(1);
 
+    // The compare bar replaces the tabs, so leave it for the Document view first.
+    await page.getByRole('link', { name: 'Return to document' }).click();
+    await expect(page).toHaveURL(seeded.reviewUrl);
+
     await page.evaluate(() => {
         performance.clearMarks('review-preview-render');
         document.addEventListener('turbo:render', () => {
@@ -183,7 +191,10 @@ test('the History tab compares two distant versions', async ({
         },
         { times: 1 },
     );
-    await page.getByRole('link', { name: 'History', exact: true }).click();
+    await page
+        .getByRole('button', { name: 'More about this document' })
+        .click();
+    await page.getByRole('link', { name: /^Version history/ }).click();
     await expect(
         page.getByRole('heading', { name: 'Version history' }),
     ).toBeVisible();
@@ -223,9 +234,12 @@ test('the History tab compares two distant versions', async ({
         .getByRole('button', { name: 'Save new version', exact: true })
         .click();
     // The save redirects to the review page, whose render can pass 5s on a loaded runner.
-    await expect(page.locator('.lp-review-doc__version')).toHaveText('v5', {
-        timeout: 20000,
-    });
+    await expect(page.locator('.lp-topbar__trail .lp-version-pill')).toHaveText(
+        'v5',
+        {
+            timeout: 20000,
+        },
+    );
     // A visit rather than a click, which the save re-render can swallow.
     await page.goto(`${seeded.reviewUrl}/history`);
     await expect(page.locator('.lp-history__row')).toHaveCount(5);
