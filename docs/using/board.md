@@ -1158,7 +1158,10 @@ links stay. Send `[]` and every link is removed.
 ### A check from an agent review
 
 A review worker sends its findings with the `agent_review_submit` MCP tool. Each
-finding names a file, a range of lines and a severity. Loupe posts a check named
+finding names a file, a range of lines and a severity. A finding of the category
+`spec`, a gap between the pull request and the approved design, can name no file,
+and then has no line note. The summary of the check lists the `spec` findings
+first. Loupe posts a check named
 `loupe/agent-review` on the commit that the worker reviewed. The check puts one
 note beside the lines of each finding. An important finding shows as a failure,
 a nit as a warning, and a pre-existing finding as a notice. The check fails when

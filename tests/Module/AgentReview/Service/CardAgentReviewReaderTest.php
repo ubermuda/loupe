@@ -56,7 +56,7 @@ final class CardAgentReviewReaderTest extends KernelTestCase
         self::assertSame(str_repeat('a', 40), $summary['headSha']);
         self::assertSame('2026-10-02T10:00:00+00:00', $summary['createdAt']);
         self::assertNull($summary['postedAt']);
-        self::assertSame([['path' => 'src/Foo.php', 'startLine' => 3, 'endLine' => 5, 'severity' => 'important', 'title' => 'Null read', 'body' => 'The value can be null here.']], $summary['findings']);
+        self::assertSame([['path' => 'src/Foo.php', 'startLine' => 3, 'endLine' => 5, 'severity' => 'important', 'title' => 'Null read', 'body' => 'The value can be null here.', 'category' => 'code']], $summary['findings']);
     }
 
     public function test_a_pull_request_with_no_review_has_no_entry(): void

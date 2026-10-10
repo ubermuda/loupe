@@ -7,6 +7,7 @@ namespace App\Tests\Module\AgentReview\Mcp;
 use App\Module\AgentReview\Command\SubmitAgentReviewCommand;
 use App\Module\AgentReview\Command\SubmitAgentReviewHandler;
 use App\Module\AgentReview\Entity\AgentReview;
+use App\Module\AgentReview\Entity\AgentReviewCategory;
 use App\Module\AgentReview\Entity\AgentReviewSeverity;
 use App\Module\AgentReview\Mcp\AgentReviewSubmitTool;
 use App\Module\AgentReview\Repository\AgentReviewRepository;
@@ -133,6 +134,19 @@ final class AgentReviewSubmitToolTest extends KernelTestCase
         self::assertContains((string) $other->id, $evaluated);
     }
 
+    public function test_a_spec_finding_with_no_path_is_stored_and_fails_the_review(): void
+    {
+        $this->reviewRun();
+        $this->sendSession($this->sessionId);
+
+        $result = $this->submit([['severity' => 'important', 'category' => 'spec', 'title' => 'Requirement not built', 'body' => 'The import has no size limit.']]);
+
+        self::assertSame('failure', $result['conclusion']);
+        $finding = $this->stored($result['reviewId'])->findings()[0];
+        self::assertSame(AgentReviewCategory::Spec, $finding->category);
+        self::assertNull($finding->path);
+    }
+
     public function test_nits_alone_pass_under_the_default_severities(): void
     {
         $this->reviewRun();
@@ -232,6 +246,9 @@ final class AgentReviewSubmitToolTest extends KernelTestCase
         yield 'unknown severity' => [['severity' => 'blocker'], 'findings[0].severity'];
         yield 'empty title' => [['title' => ' '], 'findings[0].title'];
         yield 'body not a string' => [['body' => 3], 'findings[0].body'];
+        yield 'unknown category' => [['category' => 'style'], 'findings[0].category'];
+        yield 'code finding with no path' => [['path' => null, 'startLine' => null, 'endLine' => null], 'findings[0].path'];
+        yield 'spec finding with lines and no path' => [['category' => 'spec', 'path' => null], 'findings[0].path'];
     }
 
     /** @param array<string, mixed> $override */
