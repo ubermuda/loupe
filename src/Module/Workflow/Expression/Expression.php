@@ -28,6 +28,9 @@ abstract readonly class Expression
     /** The first leaf that keeps the expression from the wanted value, or null when no leaf does. */
     abstract public function leafAgainst(Facts $facts, bool $wanted): ?BlockingLeaf;
 
+    /** How many leaves must change for the expression to take the wanted value. An unreadable leaf counts as one. */
+    abstract public function countAgainst(Facts $facts, bool $wanted): int;
+
     /** @return list<EngineFact|class-string> the fact groups and facts classes the leaves read, each once, in first-seen order */
     abstract public function reads(): array;
 
@@ -52,6 +55,20 @@ abstract readonly class Expression
         }
 
         return array_values($keys);
+    }
+
+    /** @param list<int> $counts */
+    protected static function sumOf(array $counts): int
+    {
+        $sum = 0;
+        foreach ($counts as $count) {
+            if ($count > \PHP_INT_MAX - $sum) {
+                return \PHP_INT_MAX;
+            }
+            $sum += $count;
+        }
+
+        return $sum;
     }
 
     /** @param list<Expression> $children */

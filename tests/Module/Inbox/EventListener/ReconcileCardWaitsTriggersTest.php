@@ -302,16 +302,19 @@ final class ReconcileCardWaitsTriggersTest extends KernelTestCase
     /** @return list<array{string, list<string>|null}> */
     private function sent(): array
     {
-        $sent = [];
+        $byProject = [];
         foreach ($this->transport->getSent() as $envelope) {
             $message = $envelope->getMessage();
             if ($message instanceof ReconcileCardWaits) {
-                $ids = $message->cardIds;
-                if (null !== $ids) {
-                    sort($ids);
-                }
-                $sent[] = [$message->projectId, $ids];
+                $byProject[$message->projectId] = array_merge($byProject[$message->projectId] ?? [], $message->cardIds ?? []);
             }
+        }
+
+        $sent = [];
+        foreach ($byProject as $projectId => $ids) {
+            $ids = array_values(array_unique($ids));
+            sort($ids);
+            $sent[] = [$projectId, $ids];
         }
 
         return $sent;

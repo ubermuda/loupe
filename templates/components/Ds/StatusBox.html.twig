@@ -1,0 +1,44 @@
+{#
+  Props:  @comment-budget-ignore
+    kind         string   stuck, needs-you, working or waiting. Sets the colour and the icon of the chip.
+    title        string   Translated heading of the box.
+    chip         string   Translated chip text, the state and how long it has held.
+    lead         string   Translated sentence that says why the card has the state.
+    fields       list     Optional facts, each with a translated label and value, and wide for a sentence.
+    others       list     The other states that apply, each with kind, label, lead and since. Optional.
+    othersTitle  string   Translated heading of the other-states list. Optional.
+  Any other attribute, class included, is passed to the element.
+#}
+{% props kind, title, chip, lead, fields = [], others = [], othersTitle = null %}
+{% set icons = {'stuck': 'lucide:circle-alert', 'needs-you': 'lucide:circle-user', 'working': 'lucide:loader-circle', 'waiting': 'lucide:circle-pause'} %}
+{% set chips = {'stuck': 'failed', 'needs-you': 'pending', 'working': 'active', 'waiting': 'neutral'} %}
+<section{{ attributes.defaults({class: 'lp-status-box lp-status-box--' ~ kind}) }}>
+    <div class="lp-status-box__head">
+        <h2 class="lp-status-box__title">{{ title }}</h2>
+        <twig:Ds:StatusChip :modifier="chips[kind]" :dot="false" class="lp-status-box__chip"><twig:ux:icon :name="icons[kind]" class="lp-status-box__icon" aria-hidden="true" />{{ chip }}</twig:Ds:StatusChip>
+    </div>
+    <p class="lp-status-box__lead">{{ lead }}</p>
+    {% if fields|length > 0 %}
+    <dl class="lp-status-box__fields">
+        {% for field in fields %}
+        <div class="lp-status-box__field{{ field.wide ?? false ? ' lp-status-box__field--wide' }}">
+            <dt>{{ field.label }}</dt>
+            <dd>{{ field.value }}</dd>
+        </div>
+        {% endfor %}
+    </dl>
+    {% endif %}
+    {% if others|length > 0 %}
+    <div class="lp-status-box__others">
+        {% if othersTitle %}<p class="lp-status-box__others-title">{{ othersTitle }}</p>{% endif %}
+        <ul class="lp-status-box__list">
+            {% for other in others %}
+            <li class="lp-status-box__other lp-status-box__other--{{ other.kind }}">
+                <span class="lp-status-box__dot"></span>
+                <span><strong>{{ other.label }}</strong>{% if other.since %} <span class="lp-status-box__since">{{ other.since }}</span>{% endif %}<br>{{ other.lead }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</section>

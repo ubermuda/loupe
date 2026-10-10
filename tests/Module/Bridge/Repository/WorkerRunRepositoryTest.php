@@ -186,7 +186,7 @@ final class WorkerRunRepositoryTest extends KernelTestCase
         self::assertNull($runs->findWarningRowOfCard($project, $hiddenByQueued));
         self::assertNull($runs->findWarningRowOfCard($project, $hiddenInTheSameSecond));
         self::assertSame(
-            ['id' => (string) $failedLate->id, 'card_id' => (string) $keptByEarlierOpen, 'state' => WorkerRunState::Failed->value, 'output' => 'worker output'],
+            ['id' => (string) $failedLate->id, 'card_id' => (string) $keptByEarlierOpen, 'state' => WorkerRunState::Failed->value, 'output' => 'worker output', 'closed_at' => '2026-09-01 10:05:00'],
             $runs->findWarningRowOfCard($project, $keptByEarlierOpen),
         );
     }

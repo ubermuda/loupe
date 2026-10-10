@@ -62,6 +62,10 @@ class WorkflowRuleState
     #[ORM\Column(type: UuidType::NAME, nullable: true)]
     public ?Uuid $askItemId = null;
 
+    /** When the rule began to wait on an open blocker alone. Null while another condition keeps the rule false, or the rule is true. */
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $heldByBlockerSince = null;
+
     public function __construct(
         /** No foreign key, as the card may go. A Board listener deletes the row through WorkflowRowCleanup. */
         #[ORM\Column(type: UuidType::NAME)]
@@ -92,5 +96,6 @@ class WorkflowRuleState
         $this->workRequestId = null;
         $this->repaired = false;
         $this->askItemId = null;
+        $this->heldByBlockerSince = null;
     }
 }

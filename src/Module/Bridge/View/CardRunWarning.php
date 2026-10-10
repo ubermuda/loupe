@@ -13,6 +13,7 @@ final readonly class CardRunWarning
         public string $runId,
         public WorkerRunState $state,
         public string $summary,
+        public ?\DateTimeImmutable $endedAt = null,
     ) {
     }
 }

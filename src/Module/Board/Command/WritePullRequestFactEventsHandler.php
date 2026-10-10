@@ -94,6 +94,8 @@ final readonly class WritePullRequestFactEventsHandler
             || $previous->mergeability !== $current->mergeability
             || $previous->review !== $current->review
             || $previous->readyToMerge !== $current->readyToMerge
+            || $previous->baseBranch !== $current->baseBranch
+            || $previous->defaultBranch !== $current->defaultBranch
             || self::approvalIsStale($previous) !== self::approvalIsStale($current);
     }
 

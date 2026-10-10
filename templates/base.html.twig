@@ -2,6 +2,7 @@
 
 {% block page %}
         {% if app.user %}
+        <script type="application/json" data-state-age-texts>{{ card_state_age_texts()|json_encode(constant('JSON_HEX_TAG'))|raw }}</script>
         {% set project = current_project() %}
         {% set route = app.request.attributes.get('_route') %}
         <div class="lp-app" data-controller="drawer">

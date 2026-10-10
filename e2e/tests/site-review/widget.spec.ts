@@ -3687,13 +3687,10 @@ test('the corner control walks the launcher round every corner, each on screen',
         await expectInsideViewport(page, '#lp-composer');
         await expectPanelMeetsLauncher(page, corner);
 
-        // At a bottom corner the header slides down while the composer collapses,
-        // so a press and its release land on different elements and no click fires.
         await page.locator('#lp-cancel').click();
-        await expect(page.locator('#lp-composer')).toHaveCSS(
-            'max-height',
-            '0px',
-        );
+        // The composer collapses and slides the header down under the pointer, so
+        // a press mid-collapse releases off the button and fires no click.
+        await settledBox(page, '#lp-panel');
         await page.locator('#lp-move').click();
         await expect.poll(() => cornerAttribute(page)).not.toBe(corner);
     }

@@ -12,9 +12,9 @@ use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 
 /**
- * @phpstan-type AutomationSettingsSummary array{enabled: bool}
+ * @phpstan-type AutomationSettingsSummary array{enabled: bool, stuckDelayMinutes: int}
  */
-#[McpTool(name: self::NAME, description: 'Turn the workflow of the project board on or off, the same switch as the Automation page of the project settings. While it is off, the workflow moves no card and asks for no work. A setting you leave out keeps the value it has. The result gives the value of every setting after the change.')]
+#[McpTool(name: self::NAME, description: 'Turn the workflow of the project board on or off, the same switch as the Automation page of the project settings. While it is off, the workflow moves no card and asks for no work. stuckDelayMinutes is the minutes a ready pull request may wait for a merge before its card shows Stuck. A setting you leave out keeps the value it has. The result gives the value of every setting after the change.')]
 final readonly class AutomationSettingsUpdateTool
 {
     public const string NAME = 'automation_settings_update';
@@ -28,11 +28,12 @@ final readonly class AutomationSettingsUpdateTool
     }
 
     /**
-     * @param bool|null $enabled whether the workflow of the board moves the cards and asks for their work
+     * @param bool|null $enabled           whether the workflow of the board moves the cards and asks for their work
+     * @param int|null  $stuckDelayMinutes the minutes a ready pull request may wait for a merge before its card shows Stuck, from 1 to 1440
      *
      * @return AutomationSettingsSummary
      */
-    public function __invoke(?bool $enabled = null): array
+    public function __invoke(?bool $enabled = null, ?int $stuckDelayMinutes = null): array
     {
         try {
             $project = $this->subjects->requireProject();
@@ -41,10 +42,14 @@ final readonly class AutomationSettingsUpdateTool
             ($this->saveSettings)(new SaveBoardAutomationSettingsCommand(
                 project: $project,
                 enabled: $enabled ?? $current->enabled,
+                stuckDelayMinutes: $stuckDelayMinutes ?? $current->stuckDelayMinutes,
             ));
             $saved = $this->automation->settingsOf($project);
 
-            return ['enabled' => $saved->enabled];
+            return [
+                'enabled' => $saved->enabled,
+                'stuckDelayMinutes' => $saved->stuckDelayMinutes,
+            ];
         } catch (DomainErrors $e) {
             throw $this->errorMessages->forAgent($e);
         } catch (ToolCallException $e) {

@@ -12,7 +12,7 @@ use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Event\BoardColumnDeleted;
 use App\Module\Board\Event\BoardColumnTerminalChanged;
-use App\Module\Board\Event\CardBlockersRemoved;
+use App\Module\Board\Event\CardBlockersChanged;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardDocumentsChanged;
 use App\Module\Board\Event\CardMoved;
@@ -21,7 +21,7 @@ use App\Module\Board\EventListener\EvaluateCardOnCardDocumentsChanged;
 use App\Module\Board\EventListener\EvaluateCardOnWorkRequestChanged;
 use App\Module\Board\EventListener\EvaluateCardsOnBoardColumnDeleted;
 use App\Module\Board\EventListener\EvaluateCardsOnBoardColumnTerminalChanged;
-use App\Module\Board\EventListener\EvaluateCardsOnCardBlockersRemoved;
+use App\Module\Board\EventListener\EvaluateCardsOnCardBlockersChanged;
 use App\Module\Board\EventListener\EvaluateCardsOnCardMoved;
 use App\Module\Board\EventListener\EvaluateCardsOnCardParentChanged;
 use App\Module\Board\EventListener\EvaluateCardsOnDocumentStatusChanged;
@@ -122,7 +122,7 @@ final class EvaluationListenersTest extends KernelTestCase
     {
         [$one, $two] = [$this->card($this->project, 'next'), $this->card($this->project, 'next')];
 
-        new EvaluateCardsOnCardBlockersRemoved($this->trigger())(new CardBlockersRemoved($this->project, [$one, $two], Actor::Human));
+        new EvaluateCardsOnCardBlockersChanged($this->trigger())(new CardBlockersChanged($this->project, [$one, $two], Actor::Human));
 
         self::assertSame($this->ids($one, $two), $this->sent());
     }

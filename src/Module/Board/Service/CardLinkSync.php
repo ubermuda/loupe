@@ -44,7 +44,7 @@ final readonly class CardLinkSync
     /**
      * @param list<array{Card, CardLinkKind}> $wanted each other card with the kind the card reads it by
      *
-     * @return list<Card> the cards that lost a blocks row: a row removed, or given another kind or direction
+     * @return list<Card> the cards that gained or lost a blocks row: a row added or removed, or given another kind or direction
      */
     public function sync(Card $card, array $wanted): array
     {
@@ -64,7 +64,7 @@ final readonly class CardLinkSync
                 $blocked[spl_object_id($link)] = $link->target;
             }
         }
-        $unblocked = [];
+        $changed = [];
 
         foreach ($wanted as [$other, $kind]) {
             $key = (string) $other->id;
@@ -79,6 +79,9 @@ final readonly class CardLinkSync
                 ? [$other, $card, CardLinkKind::Blocks]
                 : [$card, $other, $kind];
 
+            if (CardLinkKind::Blocks === $stored) {
+                $changed[spl_object_id($target)] = $target;
+            }
             if (null === $row) {
                 $this->em->persist(new CardLink($source, $target, $stored));
                 continue;
@@ -86,7 +89,7 @@ final readonly class CardLinkSync
 
             $lost = $blocked[spl_object_id($row)] ?? null;
             if (null !== $lost) {
-                $unblocked[spl_object_id($lost)] = $lost;
+                $changed[spl_object_id($lost)] = $lost;
             }
             $row->source = $source;
             $row->target = $target;
@@ -96,13 +99,13 @@ final readonly class CardLinkSync
         foreach ($rows as $row) {
             $lost = $blocked[spl_object_id($row)] ?? null;
             if (null !== $lost) {
-                $unblocked[spl_object_id($lost)] = $lost;
+                $changed[spl_object_id($lost)] = $lost;
             }
             $this->em->remove($row);
         }
 
         $this->em->flush();
 
-        return array_values($unblocked);
+        return array_values($changed);
     }
 }
