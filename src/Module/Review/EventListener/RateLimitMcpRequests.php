@@ -44,8 +44,11 @@ final readonly class RateLimitMcpRequests
         // Per token, with no address component, the opposite of the widget
         // limiter: an MCP token is held by one agent, and an address would
         // split one roaming agent's allowance and merge two agents behind a NAT.
-        if (!$this->limiter->create($this->key->forRequest($request))->consume()->isAccepted()) {
-            throw new TooManyRequestsHttpException(message: 'Too many MCP requests. Please slow down.');
+        $limit = $this->limiter->create($this->key->forRequest($request))->consume();
+        if (!$limit->isAccepted()) {
+            $retryAfter = max(1, $limit->getRetryAfter()->getTimestamp() - time());
+
+            throw new TooManyRequestsHttpException($retryAfter, 'Too many MCP requests. Please slow down.');
         }
     }
 
