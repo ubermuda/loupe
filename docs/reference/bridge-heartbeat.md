@@ -467,7 +467,7 @@ held no such value. A server from before the context sends no `context` key.
 | `pullRequestNumber` | the number of the pull request that the rule acts on |
 | `pullRequestUrl` | the link to that pull request, as the card holds it. Only an `https` URL of at most 2000 characters is sent |
 | `headSha` | the head commit of that pull request, as 7 to 64 lower-case hex digits. A later push leaves it behind |
-| `reason` | `conflict`, `checks-failed` or `changes-requested`, from the state of that pull request |
+| `reason` | `conflict`, `checks-failed` or `changes-requested`, from the state of that pull request. A request rule can set `agent-review` or another code with its `reason` parameter |
 | `documentId` | the id of the one linked document that carries the tag of the `document` parameter of the request rule |
 
 The event and the reply never carry the claim token.

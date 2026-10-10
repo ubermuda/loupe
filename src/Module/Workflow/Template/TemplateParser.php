@@ -215,6 +215,7 @@ final readonly class TemplateParser
 
         $onWorkFailed = self::onWorkFailed($source['onWorkFailed'] ?? null, $errors);
         $epicBranch = self::epicBranch($source['epicBranch'] ?? null, $lenient, $errors);
+        $failingSeverities = self::agentReviewFailingSeverities($source['agentReviewFailingSeverities'] ?? null, $lenient, $errors);
 
         $slots = $this->slots(self::topLevelList($source, 'slots', $errors), $errors);
         $slotKeys = array_map(static fn (Slot $slot): string => $slot->key, $slots);
@@ -233,7 +234,7 @@ final readonly class TemplateParser
             throw new InvalidTemplate($errors);
         }
 
-        return new Template($key, $version, $slots, $rules, $manualMoves, $backoffMinutes, $workTimeoutMinutes, array_values($types ?? []), $defaultType, $onWorkFailed, $childChoices, $epicBranch);
+        return new Template($key, $version, $slots, $rules, $manualMoves, $backoffMinutes, $workTimeoutMinutes, array_values($types ?? []), $defaultType, $onWorkFailed, $childChoices, $epicBranch, $failingSeverities);
     }
 
     /**
@@ -1012,6 +1013,30 @@ final readonly class TemplateParser
         }
 
         return $value;
+    }
+
+    /**
+     * A template with no value fails a review on an important finding. A stored copy with a value that names no known severity does too.
+     *
+     * @param list<string> $errors
+     *
+     * @return list<string> in the order of the severities
+     */
+    private static function agentReviewFailingSeverities(mixed $value, bool $lenient, array &$errors): array
+    {
+        if (null === $value) {
+            return Template::DEFAULT_AGENT_REVIEW_FAILING_SEVERITIES;
+        }
+        $known = \is_array($value) && array_is_list($value) && [] !== $value && array_all($value, static fn (mixed $severity): bool => \in_array($severity, Template::AGENT_REVIEW_SEVERITIES, true));
+        if (!$known) {
+            if (!$lenient) {
+                $errors[] = 'agentReviewFailingSeverities: must list one or more of important, nit and pre-existing';
+            }
+
+            return Template::DEFAULT_AGENT_REVIEW_FAILING_SEVERITIES;
+        }
+
+        return array_values(array_intersect(Template::AGENT_REVIEW_SEVERITIES, $value));
     }
 
     /** @return ?list<int> */

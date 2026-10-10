@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Workflow;
 
+use App\Module\AgentReview\Entity\AgentReview;
+use App\Module\AgentReview\Entity\AgentReviewConclusion;
+use App\Module\AgentReview\Repository\AgentReviewRepository;
+use App\Module\AgentReview\Service\AgentReviewAnnotations;
+use App\Module\AgentReview\Service\AgentReviewCheckPublisher;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
@@ -309,6 +314,49 @@ final class ForgeWriteTest extends KernelTestCase
         self::assertEquals(ActionOutcome::done(), $this->write($card, 'ready', fallback: null));
 
         self::assertSame([['setDraft', $first->number, false], ['setDraft', $second->number, false]], $this->writer->calls);
+    }
+
+    public function test_review_ready_marks_only_the_open_pull_request_the_rule_acts_on(): void
+    {
+        $card = $this->card($this->project(), 'in-review');
+        $this->pullRequest($card);
+        $this->pullRequest($card, state: PullRequestState::Closed);
+        $bound = $this->pullRequest($card);
+
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'review-ready', fallback: null, facts: FactsMother::facts(pullRequest: FactsMother::pullRequest(id: $bound->id))));
+
+        self::assertSame([['setDraft', $bound->number, false]], $this->writer->calls);
+    }
+
+    public function test_review_ready_skips_a_bound_pull_request_that_is_not_open(): void
+    {
+        $card = $this->card($this->project(), 'in-review');
+        $this->pullRequest($card);
+        $closed = $this->pullRequest($card, state: PullRequestState::Closed);
+
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'review-ready', fallback: null, facts: FactsMother::facts(pullRequest: FactsMother::pullRequest(id: $closed->id))));
+
+        self::assertSame([], $this->writer->calls);
+    }
+
+    public function test_review_ready_does_nothing_while_no_pull_request_is_open(): void
+    {
+        $card = $this->card($this->project(), 'in-review');
+        $this->pullRequest($card, state: PullRequestState::Closed);
+
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'review-ready', fallback: null));
+
+        self::assertSame([], $this->writer->calls);
+        self::assertSame([], $this->liveKinds($card));
+    }
+
+    public function test_review_ready_is_refused_with_the_cause_of_a_failed_write(): void
+    {
+        $card = $this->card($this->project(), 'in-review');
+        $this->pullRequest($card);
+        $this->writer->failure = new PullRequestWriteFailed('permission', permanent: true);
+
+        self::assertEquals(ActionOutcome::refused('permission'), $this->write($card, 'review-ready', fallback: null));
     }
 
     public function test_a_state_write_on_a_card_with_no_pull_request_is_done(): void
@@ -645,6 +693,53 @@ final class ForgeWriteTest extends KernelTestCase
         self::assertSame([], $this->queuedEvaluations());
     }
 
+    public function test_agent_review_check_posts_each_unposted_review_and_is_done(): void
+    {
+        $card = $this->card($this->project(), 'in-review');
+        $pullRequest = $this->pullRequest($card, headSha: str_repeat('a', 40));
+        $review = $this->agentReview($card, $pullRequest);
+        $this->transport()->reset();
+
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'agent-review-check', fallback: null));
+
+        self::assertSame([[$pullRequest->number, 'loupe/agent-review', str_repeat('a', 40)]], array_map(static fn (array $call): array => [$call['number'], $call['name'], $call['sha']], $this->checkWriter->published));
+        self::assertSame(101, $review->checkRunId);
+        self::assertEquals([new EvaluateCard((string) $card->id)], $this->queuedEvaluations());
+    }
+
+    public function test_agent_review_check_is_refused_when_the_forge_refuses_the_check(): void
+    {
+        $card = $this->card($this->project(), 'in-review');
+        $pullRequest = $this->pullRequest($card);
+        $review = $this->agentReview($card, $pullRequest);
+        $this->checkWriter->failingNumbers = [$pullRequest->number];
+
+        self::assertEquals(ActionOutcome::refused('permission'), $this->write($card, 'agent-review-check', fallback: null));
+        self::assertNull($review->postedAt);
+    }
+
+    public function test_agent_review_check_with_no_installation_is_done_and_posts_nothing(): void
+    {
+        $card = $this->card($this->project(), 'in-review');
+        $pullRequest = $this->pullRequest($card);
+        $review = $this->agentReview($card, $pullRequest);
+        $this->checkWriter->failingNumbers = [$pullRequest->number];
+        $this->checkWriter->failureCause = 'no_installation';
+
+        self::assertEquals(ActionOutcome::done(), $this->write($card, 'agent-review-check', fallback: null));
+        self::assertSame([], $this->liveKinds($card));
+        self::assertNull($review->postedAt);
+    }
+
+    private function agentReview(Card $card, ForgePullRequest $pullRequest): AgentReview
+    {
+        $review = new AgentReview($card->project, $card, $pullRequest, $pullRequest->headSha ?? str_repeat('b', 40), 'Fine.', AgentReviewConclusion::Success, []);
+        $this->em()->persist($review);
+        $this->em()->flush();
+
+        return $review;
+    }
+
     /** @return list<EvaluateCard> */
     private function queuedEvaluations(): array
     {
@@ -709,6 +804,15 @@ final class ForgeWriteTest extends KernelTestCase
                 $this->service(SiteReviewFactProvider::class),
                 $this->service(SiteReviewCheckStateRepository::class),
                 new PullRequestCheckWriters([$this->checkWriter]),
+                $this->service(TranslatorInterface::class),
+                $this->service(EntityManagerInterface::class),
+                new MockClock('2026-10-02 12:00:00'),
+            ),
+            new AgentReviewCheckPublisher(
+                $this->service(CardPullRequestRepository::class),
+                $this->service(AgentReviewRepository::class),
+                new PullRequestCheckWriters([$this->checkWriter]),
+                new AgentReviewAnnotations(),
                 $this->service(TranslatorInterface::class),
                 $this->service(EntityManagerInterface::class),
                 new MockClock('2026-10-02 12:00:00'),

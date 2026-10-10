@@ -1155,6 +1155,17 @@ terminal column.
 the one field where an omitted list and an empty list differ. Omit it and the
 links stay. Send `[]` and every link is removed.
 
+### A check from an agent review
+
+A review worker sends its findings with the `agent_review_submit` MCP tool. Each
+finding names a file, a range of lines and a severity. Loupe posts a check named
+`loupe/agent-review` on the commit that the worker reviewed. The check puts one
+note beside the lines of each finding. An important finding shows as a failure,
+a nit as a warning, and a pre-existing finding as a notice. The check fails when
+a finding has a severity from the `agentReviewFailingSeverities` value of the
+workflow template. The Lifecycle template asks for the review. See
+[Agent review](workflows.md#agent-review).
+
 ### A person deletes a card, an agent does not
 
 The board offers no `card_delete`, and nothing on the MCP surface deletes a

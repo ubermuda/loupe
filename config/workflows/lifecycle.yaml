@@ -2,6 +2,7 @@ key: lifecycle
 version: 1
 defaultType: feature
 epicBranch: 'epic/{number}'
+agentReviewFailingSeverities: [important]
 types:
     - { key: feature, label: board.card.type.feature, tone: lime }
     - { key: bug, label: board.card.type.bug, tone: amber }
@@ -110,7 +111,7 @@ rules:
                   - A preview URL per branch, with the review widget on it
                   - The .loupe/lifecycle.md sections that the stage skills read
                   - A build command and a test command that an agent can run
-                  - A review step before a push
+                  - A draft pull request that a separate agent reviews after the push
                   - The agent pushes as its own GitHub account
 
     - id: breakdown
@@ -133,6 +134,7 @@ rules:
               - pr.checks_passed: {}
               - not: { pr.conflicting: {} }
               - not: { pr.changes_requested: {} }
+              - agent_review.passed: {}
       then: { move: { to: in-review } }
 
     - id: fix-in-implementation
@@ -157,6 +159,50 @@ rules:
                       - pr.checks_passed: {}
                       - not: { pr.conflicting: {} }
                       - not: { pr.changes_requested: {} }
+
+    - id: agent-review
+      slot: implementation
+      when:
+          all:
+              - not: { card.type: { type: epic } }
+              - pr.open: {}
+              - agent_review.due: {}
+      then:
+          request:
+              kind: review
+              checks:
+                  - A bridge work entry for the review kind
+                  - The Loupe plugin skills are installed for the agent
+
+    - id: fix-agent-review
+      slot: implementation
+      when:
+          all:
+              - pr.open: {}
+              - agent_review.failed: {}
+      then:
+          request:
+              kind: fix
+              reason: agent-review
+              limit: 10
+              checks:
+                  - The worktree of the card is still available, or the agent can make it again
+                  - The gate commands of .loupe/lifecycle.md
+                  - Read access to the CI check logs
+              refill:
+                  agent_review.passed: {}
+
+    - id: review-ready
+      slot: implementation
+      when:
+          all:
+              - not: { card.type: { type: epic } }
+              - pr.draft: {}
+              - agent_review.passed: {}
+              - pr.checks_passed: {}
+              - not: { pr.conflicting: {} }
+              - not: { pr.changes_requested: {} }
+      then: { forge-write: { write: review-ready } }
 
     - id: fix-in-review
       slot: in-review
@@ -188,6 +234,38 @@ rules:
     - id: comment-stale-approval
       when: { card.pr.approval_stale: {} }
       then: { forge-write: { write: comment, comment: stale-approval } }
+
+    - id: agent-review-in-review
+      slot: in-review
+      when:
+          all:
+              - not: { card.type: { type: epic } }
+              - pr.open: {}
+              - agent_review.due: {}
+      then:
+          request:
+              kind: review
+              checks:
+                  - A bridge work entry for the review kind
+                  - The Loupe plugin skills are installed for the agent
+
+    - id: fix-agent-review-in-review
+      slot: in-review
+      when:
+          all:
+              - pr.open: {}
+              - agent_review.failed: {}
+      then:
+          request:
+              kind: fix
+              reason: agent-review
+              limit: 10
+              checks:
+                  - The worktree of the card is still available, or the agent can make it again
+                  - The gate commands of .loupe/lifecycle.md
+                  - Read access to the CI check logs
+              refill:
+                  agent_review.passed: {}
 
     - id: back-to-draft
       slot: in-review
@@ -231,6 +309,7 @@ rules:
               - not: { pr.conflicting: {} }
               - not: { pr.changes_requested: {} }
               - not: { pr.behind: {} }
+              - agent_review.passed: {}
       then: { forge-write: { write: merge, fallback: merge } }
 
     - id: merge-ready-epic-child
@@ -246,6 +325,7 @@ rules:
               - not: { pr.changes_requested: {} }
               - not: { pr.behind: {} }
               - not: { card.parent.run.active: {} }
+              - agent_review.passed: {}
       then: { forge-write: { write: merge, fallback: merge } }
 
     - id: epic-to-review

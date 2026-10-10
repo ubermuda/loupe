@@ -285,6 +285,41 @@ final class TemplateParserTest extends TestCase
         yield 'too long' => [str_repeat('a', 250).'/{number}'];
     }
 
+    public function test_a_template_reads_its_agent_review_failing_severities_in_the_order_of_the_severities(): void
+    {
+        $template = $this->parser->parse(self::valid() + ['agentReviewFailingSeverities' => ['pre-existing', 'important', 'pre-existing']]);
+
+        self::assertSame(['important', 'pre-existing'], $template->agentReviewFailingSeverities);
+    }
+
+    public function test_a_template_with_no_agent_review_failing_severities_fails_on_an_important_finding(): void
+    {
+        self::assertSame(['important'], $this->parser->parse(self::valid())->agentReviewFailingSeverities);
+    }
+
+    #[DataProvider('invalidAgentReviewFailingSeverities')]
+    public function test_agent_review_failing_severities_that_are_not_known_severities_are_refused_and_a_stored_copy_has_the_default(mixed $value): void
+    {
+        $source = self::valid() + ['agentReviewFailingSeverities' => $value];
+
+        try {
+            $this->parser->parse($source);
+            self::fail('The template should be refused.');
+        } catch (InvalidTemplate $e) {
+            self::assertContains('agentReviewFailingSeverities: must list one or more of important, nit and pre-existing', $e->errors);
+        }
+        self::assertSame(['important'], $this->parser->parseStored($source)->agentReviewFailingSeverities);
+    }
+
+    /** @return iterable<string, array{mixed}> */
+    public static function invalidAgentReviewFailingSeverities(): iterable
+    {
+        yield 'empty' => [[]];
+        yield 'an unknown severity' => [['important', 'blocker']];
+        yield 'not a list' => ['important'];
+        yield 'not a string' => [[7]];
+    }
+
     public function test_a_template_reads_the_retry_policy_for_a_refused_request(): void
     {
         self::assertNull($this->parser->parse(self::valid())->onWorkFailed);
@@ -855,7 +890,7 @@ final class TemplateParserTest extends TestCase
             $t['rules'][2]['then']['forge-write']['write'] = 'squash';
 
             return $t;
-        }, 'rules[2] (merge) then.forge-write: parameter "write" must be one of merge, update-branch, change-base, comment, draft, ready, close, open-epic, post-review, site-review-check'];
+        }, 'rules[2] (merge) then.forge-write: parameter "write" must be one of merge, update-branch, change-base, comment, draft, ready, close, open-epic, post-review, site-review-check, agent-review-check, review-ready'];
         yield 'merge with no fallback' => [static function (array $t): array {
             unset($t['rules'][2]['then']['forge-write']['fallback']);
 

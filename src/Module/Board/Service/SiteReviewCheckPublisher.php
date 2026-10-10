@@ -79,6 +79,7 @@ final readonly class SiteReviewCheckPublisher
                     $this->title($check),
                     $this->summary($check),
                     $reusable ? $state->checkRunId : null,
+                    [],
                 );
             } catch (PullRequestCheckFailed $e) {
                 // A project with no GitHub App installation has nothing to post a check with.
@@ -133,6 +134,7 @@ final readonly class SiteReviewCheckPublisher
                 $this->translator->trans('board.site_review_check.title_off'),
                 $this->translator->trans('board.site_review_check.summary_unlinked'),
                 $runId,
+                [],
             );
         } catch (PullRequestCheckFailed $e) {
             return $e;

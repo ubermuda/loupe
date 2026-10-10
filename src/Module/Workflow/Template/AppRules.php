@@ -78,6 +78,7 @@ final class AppRules
             $template->onWorkFailed,
             $template->childChoices,
             $template->epicBranch,
+            $template->agentReviewFailingSeverities,
         );
     }
 

@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Fact;
 
+use App\Module\AgentReview\Entity\AgentReviewConclusion;
+use App\Module\AgentReview\Workflow\AgentReviewFactProvider;
+use App\Module\AgentReview\Workflow\AgentReviewFacts;
+use App\Module\AgentReview\Workflow\ReviewedHead;
 use App\Module\Board\Workflow\BlockerFactProvider;
 use App\Module\Board\Workflow\BlockerFacts;
 use App\Module\Board\Workflow\CardTypeFactProvider;
@@ -77,6 +81,7 @@ final class FactsMother
             ...self::byClass(new CardTypeFacts($card->type), new BlockerFacts($card->hasOpenBlocker), new ParentFacts($card->isChild)),
             ...self::byClass(new ChildrenFacts($card->childCount, $card->openChildCount, $card->childMergedIntoEpicBranch), new DocumentsFacts($card->documents), new ParentDocumentsFacts($card->parentDocuments)),
             ...self::byClass(new PullRequestList($pullRequests, $pullRequest)),
+            ...self::byClass(new AgentReviewFacts(self::reviewedHeads($pullRequest, $pullRequests), epic: false, unposted: false)),
             ...self::byClass(new WorkRequestFacts($run->activeWorkKinds), new RefusalFacts($run->lastRefusalCode), new WorkerRunFacts($run->activeWorkerKinds), new ParentWorkFacts($run->parentActiveKinds)),
             ...self::byClass(new FixRunFacts([]), new StaleApprovalFacts([])),
         ];
@@ -89,6 +94,9 @@ final class FactsMother
             $legacy[$provider->factsClass()] = $provider->legacyGroup();
         }
 
+        $agentReview = [...$given, ...$provided][AgentReviewFacts::class];
+        $prints[AgentReviewFacts::class] = new \ReflectionClass(AgentReviewFactProvider::class)->newInstanceWithoutConstructor()->fingerprint($agentReview);
+
         return new Facts(
             now: $now,
             slot: $card->slot,
@@ -97,6 +105,21 @@ final class FactsMother
             provided: [...$given, ...$provided],
             fingerprints: [...$prints, ...$fingerprints],
             legacyGroups: $legacy,
+        );
+    }
+
+    /**
+     * Each pull request the facts name has a passing agent review, so the review holds no rule back.
+     *
+     * @param list<PullRequestFacts> $pullRequests
+     *
+     * @return list<ReviewedHead>
+     */
+    private static function reviewedHeads(?PullRequestFacts $pullRequest, array $pullRequests): array
+    {
+        return array_map(
+            static fn (PullRequestFacts $facts): ReviewedHead => new ReviewedHead((string) $facts->id, 'reviewed-head', AgentReviewConclusion::Success),
+            null === $pullRequest ? $pullRequests : [$pullRequest, ...$pullRequests],
         );
     }
 

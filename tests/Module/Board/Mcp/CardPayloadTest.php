@@ -15,6 +15,7 @@ use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
+use App\Module\Board\Service\CardAgentReviews;
 use App\Module\Board\Service\CardPullRequestStates;
 use App\Module\Board\Service\CardStates;
 use App\Module\Board\Service\PullRequestReviewView;
@@ -48,7 +49,7 @@ final class CardPayloadTest extends KernelTestCase
         $pauses = $this->createMock(CardPauseRepository::class);
         $pauses->expects($this->never())->method('findActiveForCardIds');
 
-        $rows = new CardPayload($comments, $links, $cards, $states, $pauses, new ShippedCardTypes(), $this->cardStates(), $this->runWarnings(), $this->translator())->forCardList([$this->card()]);
+        $rows = new CardPayload($comments, $links, $cards, $states, $pauses, new ShippedCardTypes(), $this->createStub(CardAgentReviews::class), $this->cardStates(), $this->runWarnings(), $this->translator())->forCardList([$this->card()]);
 
         self::assertCount(1, $rows);
         self::assertSame(
@@ -75,7 +76,7 @@ final class CardPayloadTest extends KernelTestCase
         $pauses = $this->createMock(CardPauseRepository::class);
         $pauses->expects($this->once())->method('findActiveForCardIds')->willReturn([]);
 
-        $rows = new CardPayload($comments, $links, $cards, $this->states(), $pauses, new ShippedCardTypes(), $this->cardStates(), $this->runWarnings(), $this->translator())->forCards([$feature, $epic, $otherEpic]);
+        $rows = new CardPayload($comments, $links, $cards, $this->states(), $pauses, new ShippedCardTypes(), $this->createStub(CardAgentReviews::class), $this->cardStates(), $this->runWarnings(), $this->translator())->forCards([$feature, $epic, $otherEpic]);
 
         self::assertArrayHasKey('body', $rows[0]);
         self::assertSame([], $rows[0]['siteReviewComments']);
@@ -89,7 +90,7 @@ final class CardPayloadTest extends KernelTestCase
         $cards = $this->createMock(CardRepository::class);
         $cards->expects($this->never())->method('findChildrenOfCards');
 
-        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $cards, $this->states(), $this->createStub(CardPauseRepository::class), new ShippedCardTypes(), $this->cardStates(), $this->runWarnings(), $this->translator())->forCards([$this->card()]);
+        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $cards, $this->states(), $this->createStub(CardPauseRepository::class), new ShippedCardTypes(), $this->createStub(CardAgentReviews::class), $this->cardStates(), $this->runWarnings(), $this->translator())->forCards([$this->card()]);
 
         self::assertSame([], $rows[0]['children']);
     }
@@ -119,7 +120,7 @@ final class CardPayloadTest extends KernelTestCase
             )],
         ));
 
-        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $states, $this->createStub(CardPauseRepository::class), new ShippedCardTypes(), $this->cardStates(), $this->runWarnings(), $this->translator())->forCards([$card]);
+        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $states, $this->createStub(CardPauseRepository::class), new ShippedCardTypes(), $this->createStub(CardAgentReviews::class), $this->cardStates(), $this->runWarnings(), $this->translator())->forCards([$card]);
 
         self::assertSame([
             'state' => 'open',
@@ -153,7 +154,7 @@ final class CardPayloadTest extends KernelTestCase
             null,
         )]));
 
-        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $states, $this->createStub(CardPauseRepository::class), new ShippedCardTypes(), $this->cardStates(), $this->runWarnings(), $this->translator())->forCards([$card]);
+        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $states, $this->createStub(CardPauseRepository::class), new ShippedCardTypes(), $this->createStub(CardAgentReviews::class), $this->cardStates(), $this->runWarnings(), $this->translator())->forCards([$card]);
 
         self::assertNull($rows[0]['pullRequests'][0]['state']);
     }
@@ -170,7 +171,7 @@ final class CardPayloadTest extends KernelTestCase
         // One read for the whole page, never one per card.
         $pauses->expects($this->once())->method('findActiveForCardIds')->with([$paused->id, $free->id])->willReturn([(string) $paused->id => $pause]);
 
-        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $this->states(), $pauses, new ShippedCardTypes(), $this->cardStates(), $this->runWarnings(), $this->translator())->forCards([$paused, $free]);
+        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $this->states(), $pauses, new ShippedCardTypes(), $this->createStub(CardAgentReviews::class), $this->cardStates(), $this->runWarnings(), $this->translator())->forCards([$paused, $free]);
 
         self::assertSame([
             'pauseId' => (string) $pause->id,
@@ -181,6 +182,49 @@ final class CardPayloadTest extends KernelTestCase
         ], $rows[0]['pause']);
         self::assertArrayHasKey('pause', $rows[1]);
         self::assertNull($rows[1]['pause']);
+    }
+
+    public function test_a_pull_request_carries_a_null_agent_review_when_the_port_finds_none(): void
+    {
+        $card = $this->cardWithPullRequest();
+
+        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $this->states(), $this->createStub(CardPauseRepository::class), new ShippedCardTypes(), $this->createStub(CardAgentReviews::class), $this->cardStates(), $this->runWarnings(), $this->translator())->forCards([$card]);
+
+        self::assertArrayHasKey('agentReview', $rows[0]['pullRequests'][0]);
+        self::assertNull($rows[0]['pullRequests'][0]['agentReview']);
+    }
+
+    public function test_a_pull_request_carries_the_agent_review_the_port_returns_for_its_link(): void
+    {
+        $card = $this->cardWithPullRequest();
+        $link = $card->pullRequests->first();
+        self::assertInstanceOf(CardPullRequest::class, $link);
+        $review = [
+            'reviewId' => 'review-1',
+            'headSha' => str_repeat('a', 40),
+            'conclusion' => 'failure',
+            'summary' => 'One finding.',
+            'findings' => [['path' => 'src/Foo.php', 'startLine' => 3, 'endLine' => 5, 'severity' => 'important', 'title' => 'Null read', 'body' => 'Can be null.']],
+            'createdAt' => '2026-10-09T10:00:00+00:00',
+            'postedAt' => null,
+        ];
+        $reviews = $this->createMock(CardAgentReviews::class);
+        $reviews->expects($this->once())->method('forCards')->with([$card])->willReturn([(string) $link->id => $review]);
+
+        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $this->states(), $this->createStub(CardPauseRepository::class), new ShippedCardTypes(), $reviews, $this->cardStates(), $this->runWarnings(), $this->translator())->forCards([$card]);
+
+        self::assertSame($review, $rows[0]['pullRequests'][0]['agentReview']);
+    }
+
+    private function cardWithPullRequest(): Card
+    {
+        $card = $this->card();
+        $this->setId($card, Uuid::v7());
+        $link = new CardPullRequest($card, 'https://github.com/ubermuda/loupe/pull/7', Forge::GitHub, 'ubermuda/loupe', 7);
+        $this->setId($link, Uuid::v7());
+        $card->pullRequests->add($link);
+
+        return $card;
     }
 
     private function cardStates(): CardStates

@@ -9,6 +9,7 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\AgentReviewCheck;
 use App\Module\Board\Service\CardPullRequests;
 use App\Module\Board\Service\FixRunCommentQueue;
 use App\Module\Board\Service\SiteReviewCheckPublisher;
@@ -46,11 +47,12 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * work instead. A state write with no fallback then does nothing. The epic opening acts on an epic with no pull request:
  * it opens the pull request of the epic branch and links it to the epic, and it has no fallback.
  * A comment write queues the comment that the card's facts ask for, and it has no fallback.
+ * The review-ready write marks the open pull request the rule acts on ready, and it has no fallback.
  */
 final readonly class ForgeWrite implements Action, ChecksParameters, RefiresOnFactChange
 {
     public const string KEY = 'forge-write';
-    private const array WRITES_WITHOUT_FALLBACK = ['draft', 'ready', 'close', 'open-epic', 'post-review', 'site-review-check', 'comment'];
+    private const array WRITES_WITHOUT_FALLBACK = ['draft', 'ready', 'close', 'open-epic', 'post-review', 'site-review-check', 'agent-review-check', 'review-ready', 'comment'];
     private const array COMMENTS = ['fix-run', 'stale-approval'];
 
     public function __construct(
@@ -66,6 +68,7 @@ final readonly class ForgeWrite implements Action, ChecksParameters, RefiresOnFa
         private UrlGeneratorInterface $urlGenerator,
         private VerdictReviewSettler $reviewSettler,
         private SiteReviewCheckPublisher $checkPublisher,
+        private AgentReviewCheck $agentReviewCheck,
         private FixRunCommentQueue $fixRunComments,
         private StaleApprovalNoticeQueue $staleApprovalNotices,
         private CardEvaluations $evaluations,
@@ -152,8 +155,13 @@ final readonly class ForgeWrite implements Action, ChecksParameters, RefiresOnFa
         if (ForgeWriteKind::OpenEpic === $write) {
             return $this->openEpic($context->ruleId, $card, $pullRequests);
         }
-        if (ForgeWriteKind::PostReview === $write || ForgeWriteKind::SiteReviewCheck === $write) {
-            $result = ForgeWriteKind::PostReview === $write ? $this->reviewSettler->settle($card) : $this->checkPublisher->publish($card);
+        $result = match ($write) {
+            ForgeWriteKind::PostReview => $this->reviewSettler->settle($card),
+            ForgeWriteKind::SiteReviewCheck => $this->checkPublisher->publish($card),
+            ForgeWriteKind::AgentReviewCheck => $this->agentReviewCheck->publish($card),
+            default => null,
+        };
+        if (null !== $result) {
             // The engine keeps the truth of the facts it built before the write, so only a new evaluation resets it.
             if ($result->changed && $this->evaluations->isOn()) {
                 $this->evaluations->forCards([$card->id ?? throw new \LogicException('A stored card has an id.')]);
@@ -188,7 +196,11 @@ final readonly class ForgeWrite implements Action, ChecksParameters, RefiresOnFa
 
             return ActionOutcome::done();
         }
-        if (\in_array($write, [ForgeWriteKind::Draft, ForgeWriteKind::Ready, ForgeWriteKind::Close], true)) {
+        if (\in_array($write, [ForgeWriteKind::Draft, ForgeWriteKind::Ready, ForgeWriteKind::Close, ForgeWriteKind::ReviewReady], true)) {
+            if (ForgeWriteKind::ReviewReady === $write) {
+                $subject = $this->cardPullRequests->subjectOf(array_values(array_filter($pullRequests, static fn (ForgePullRequest $pullRequest): bool => PullRequestState::Open === $pullRequest->state)), $facts->pullRequest);
+                $pullRequests = null === $subject ? [] : [$subject];
+            }
             if ([] === $pullRequests) {
                 return ActionOutcome::done();
             }

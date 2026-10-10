@@ -16,6 +16,7 @@ use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
+use App\Module\Board\Service\CardAgentReviews;
 use App\Module\Board\Service\CardPullRequestStates;
 use App\Module\Board\Service\CardState;
 use App\Module\Board\Service\CardStateReason;
@@ -33,8 +34,10 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * The one shape every board tool returns a card in, so a card read by card_list
  * and a card read by card_get describe themselves the same way.
  *
+ * @phpstan-import-type AgentReviewSummary from CardAgentReviews
+ *
  * @phpstan-type PullRequestStateSummary array{state: string, draft: bool, checks: string, failedChecks: list<string>, mergeability: string, review: string, readyToMerge: bool, refreshedAt: string}
- * @phpstan-type CardPullRequestSummary array{pullRequestId: string, url: string, forge: string, repository: ?string, number: ?int, state: ?PullRequestStateSummary}
+ * @phpstan-type CardPullRequestSummary array{pullRequestId: string, url: string, forge: string, repository: ?string, number: ?int, state: ?PullRequestStateSummary, agentReview: ?AgentReviewSummary}
  * @phpstan-type FeedbackAnchorSummary array{selector: string, text: string, quote: ?string, quotePrefix: ?string, quoteSuffix: ?string}
  * @phpstan-type FeedbackSummary array{id: string, url: string, anchors: list<FeedbackAnchorSummary>, body: string, hasDrawing: bool, status: string, context: ?string, createdAt: string}
  * @phpstan-type CardDocumentSummary array{documentId: string, title: string, status: string}
@@ -56,6 +59,7 @@ final readonly class CardPayload
         private CardPullRequestStates $pullRequestStates,
         private CardPauseRepository $cardPauses,
         private CardTypeCatalog $catalog,
+        private CardAgentReviews $agentReviews,
         private CardStates $cardStates,
         private CardRunWarnings $runWarnings,
         private TranslatorInterface $translator,
@@ -72,7 +76,7 @@ final readonly class CardPayload
     {
         $card = $view->card;
 
-        return $this->render($card, $view->siteReviewLinks, $view->relatedCards, $view->children, $view->pullRequestStates, null === $card->id ? null : $this->cardPauses->findActiveForCard($card), $view->state);
+        return $this->render($card, $view->siteReviewLinks, $view->relatedCards, $view->children, $view->pullRequestStates, $this->agentReviews->forCards([$card]), null === $card->id ? null : $this->cardPauses->findActiveForCard($card), $view->state);
     }
 
     /**
@@ -93,6 +97,7 @@ final readonly class CardPayload
         $childrenByCard = [] === $epics ? [] : $this->cards->findChildrenOfCards($epics);
         $this->cards->loadParentsOf($cards);
         $states = $this->pullRequestStates->forCards($cards);
+        $reviews = $this->agentReviews->forCards($cards);
         $pausesByCard = $this->cardPauses->findActiveForCardIds(array_values(array_filter(array_map(static fn (Card $card): ?Uuid => $card->id, $cards))));
         $stateByCard = $this->statesOf($cards, $states, $pausesByCard);
 
@@ -106,6 +111,7 @@ final readonly class CardPayload
                 ),
                 $childrenByCard[(string) $card->id] ?? [],
                 $states,
+                $reviews,
                 $pausesByCard[(string) $card->id] ?? null,
                 $stateByCard[(string) $card->id] ?? null,
             ),
@@ -170,13 +176,14 @@ final readonly class CardPayload
     }
 
     /**
-     * @param list<CardSiteReviewComment> $links
-     * @param list<RelatedCard>           $relatedCards
-     * @param list<Card>                  $children     empty for a card whose type may not have children
+     * @param list<CardSiteReviewComment>       $links
+     * @param list<RelatedCard>                 $relatedCards
+     * @param list<Card>                        $children     empty for a card whose type may not have children
+     * @param array<string, AgentReviewSummary> $reviews      keyed by pull request link id
      *
      * @return CardSummary
      */
-    private function render(Card $card, array $links, array $relatedCards, array $children, PullRequestStates $states, ?CardPause $pause, ?CardState $state): array
+    private function render(Card $card, array $links, array $relatedCards, array $children, PullRequestStates $states, array $reviews, ?CardPause $pause, ?CardState $state): array
     {
         $progress = $this->catalog->forProject($card->project->requireId())->get($card->type)->children
             ? ['done' => \count(array_filter($children, static fn (Card $child): bool => $child->column->terminal)), 'total' => \count($children)]
@@ -203,6 +210,7 @@ final readonly class CardPayload
                     'repository' => $link->repository,
                     'number' => $link->number,
                     'state' => self::pullRequestState($states->of($link)),
+                    'agentReview' => $reviews[(string) $link->id] ?? null,
                 ],
                 array_values($card->pullRequests->toArray()),
             ),

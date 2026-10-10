@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Engine;
 
+use App\Module\AgentReview\Entity\AgentReview;
+use App\Module\AgentReview\Entity\AgentReviewConclusion;
 use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Command\ReleaseCardPauseHandler;
 use App\Module\Board\Command\SaveBoardAutomationSettingsCommand;
@@ -2236,6 +2238,9 @@ final class EngineTest extends KernelTestCase
         $child = $this->childOf($epic, 'in-review');
         $pullRequest = $this->pullRequest($child, base: 'epic/'.$epic->number);
         $pullRequest->checks = PullRequestChecks::Passed;
+        $review = new AgentReview($project, $child, $pullRequest, $pullRequest->headSha ?? '', 'Fine.', AgentReviewConclusion::Success, []);
+        $review->postedAt = new \DateTimeImmutable('2026-10-02 12:00:00');
+        $this->em()->persist($review);
         $this->em()->flush();
         $this->evaluate($child, '2026-10-02 12:05:00');
         self::assertFalse($this->ruleState($child, 'merge-ready-epic-child')->truth);

@@ -147,6 +147,19 @@ final class FixRunCommentQueueTest extends KernelTestCase
         self::assertSame('checks-failed', $rows[0]->reason);
     }
 
+    public function test_the_reason_of_the_work_request_wins_over_the_state_of_the_pull_request(): void
+    {
+        $card = $this->stackedCard();
+        $this->workerRun($card, request: $this->request($card, new WorkRequestContext(pullRequestUrl: 'https://example.com/acme/widgets/pull/5', reason: 'agent-review')));
+
+        $this->queue()->queue($card);
+
+        $rows = $this->comments();
+        self::assertCount(1, $rows);
+        self::assertSame(5, $rows[0]->number);
+        self::assertSame('agent-review', $rows[0]->reason);
+    }
+
     public function test_the_comment_goes_to_the_pull_request_whose_number_the_work_request_names_when_no_url_matches(): void
     {
         $card = $this->stackedCard();

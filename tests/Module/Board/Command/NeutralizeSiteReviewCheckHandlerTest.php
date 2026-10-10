@@ -105,7 +105,7 @@ final class NeutralizeSiteReviewCheckHandlerTest extends KernelTestCase
                 return true;
             }
 
-            public function publish(ForgePullRequest $pullRequest, string $name, string $sha, PullRequestCheckConclusion $conclusion, string $title, string $summary, ?int $runId): int
+            public function publish(ForgePullRequest $pullRequest, string $name, string $sha, PullRequestCheckConclusion $conclusion, string $title, string $summary, ?int $runId, array $annotations): int
             {
                 ($this->onPublish)();
 

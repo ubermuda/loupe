@@ -15,14 +15,20 @@ final readonly class Template
     /** A Git branch name that holds the epic number placeholder exactly once. */
     public const string EPIC_BRANCH_RULE = '/^(?!.*\{number\}.*\{number\})(?!.*\.\.)(?!.*\.lock(?:\/|$))(?=.*\{number\})(?:[A-Za-z0-9_]|\{number\})(?:[A-Za-z0-9._-]|\{number\}|\/(?![\/.-]))*(?<![.\/])$/D';
 
+    /** The severities of an agent review finding, in their order. */
+    public const array AGENT_REVIEW_SEVERITIES = ['important', 'nit', 'pre-existing'];
+
+    public const array DEFAULT_AGENT_REVIEW_FAILING_SEVERITIES = ['important'];
+
     /**
      * @param list<TemplateCardType>          $types
      * @param list<Slot>                      $slots
      * @param list<Rule>                      $rules
      * @param list<ManualMove>                $manualMoves
      * @param list<int>                       $backoffMinutes
-     * @param array<string, list<ActionCall>> $childChoices   the actions of each choice an agent states for a card it files under a parent, by `inherit` or `own`
-     * @param ?string                         $epicBranch     the branch of an epic, with the card number as the placeholder, or null when the template has no epic branches
+     * @param array<string, list<ActionCall>> $childChoices                 the actions of each choice an agent states for a card it files under a parent, by `inherit` or `own`
+     * @param ?string                         $epicBranch                   the branch of an epic, with the card number as the placeholder, or null when the template has no epic branches
+     * @param list<string>                    $agentReviewFailingSeverities the severities of a finding that fail an agent review
      */
     public function __construct(
         public string $key,
@@ -37,6 +43,7 @@ final readonly class Template
         public ?WorkFailurePolicy $onWorkFailed = null,
         public array $childChoices = [],
         public ?string $epicBranch = null,
+        public array $agentReviewFailingSeverities = self::DEFAULT_AGENT_REVIEW_FAILING_SEVERITIES,
     ) {
     }
 

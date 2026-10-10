@@ -47,7 +47,7 @@ value, and the **Likely range** around it.
 |---|---|
 | Merge rate | the merged cards over the finished cards |
 | Stop rate | the runs that ended blocked, failed, with no result or gave up, over the runs that reached an outcome |
-| Fix rounds per merged card | the fix requests of a merged card. A row for each reason follows, such as a conflict, failed checks or requested changes |
+| Fix rounds per merged card | the fix requests of a merged card. A row for each reason follows: a conflict, failed checks, requested changes or a failed agent review (`agent-review`) |
 | Cost per merged card | the cost of the experiment runs of a merged card |
 | Output tokens per merged card | the output tokens of the experiment runs of a merged card |
 | Hours from open to merge | the time from the first pull request of a merged card to the last merge |

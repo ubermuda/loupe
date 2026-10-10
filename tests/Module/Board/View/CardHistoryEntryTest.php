@@ -102,6 +102,15 @@ final class CardHistoryEntryTest extends TestCase
         ]), $entry->cause);
     }
 
+    public function test_a_fix_for_the_agent_review_gives_its_own_reason(): void
+    {
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::FixRequested, Actor::System, null, ['reason' => 'agent-review', 'pullRequest' => 42]));
+
+        self::assertEquals(new TranslatableMessage('board.card.history.reason', [
+            '%reason%' => new TranslatableMessage('board.card.history.reason.agent_review'),
+        ]), $entry->cause);
+    }
+
     public function test_a_stop_gives_the_pull_request_and_the_reason(): void
     {
         $entry = CardHistoryEntry::of($this->event(CardEventKind::Stopped, Actor::System, null, ['reason' => 'conflict', 'pullRequest' => 42]));

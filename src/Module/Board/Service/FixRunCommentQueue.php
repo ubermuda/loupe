@@ -108,7 +108,7 @@ final readonly class FixRunCommentQueue
         $repository = $tracked->repository ?? $key['repository'];
         $number = $tracked->number ?? $key['number'];
         $headSha = $tracked?->headSha;
-        $reason = null === $tracked ? null : self::reasonOf($tracked);
+        $reason = $request?->context->reason ?? (null === $tracked ? null : self::reasonOf($tracked));
         $ruleId = $request->ruleId ?? $run->ruleId;
         $fires = null === $ruleId ? null : $this->ruleBudgets->fires($cardId, $ruleId);
         // A rule whose count started again names no round.

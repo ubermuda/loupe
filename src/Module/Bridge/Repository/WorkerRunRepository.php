@@ -592,6 +592,30 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /** The newest open worker run of $workKind that the session runs on the card, or null. */
+    public function findOpenOfSessionForCard(Project $project, Uuid $sessionId, Uuid $cardId, string $workKind): ?WorkerRun
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.sessionId = :sessionId')
+            ->andWhere('r.subjectType = :cardSubject AND r.subjectId = :cardId')
+            ->andWhere('r.workKind = :workKind')
+            ->andWhere('r.kind = :kind')
+            ->andWhere('r.state IN (:openStates)')
+            ->setParameter('project', $project)
+            ->setParameter('sessionId', $sessionId, UuidType::NAME)
+            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('cardSubject', WorkSubject::CARD)
+            ->setParameter('workKind', $workKind)
+            ->setParameter('kind', WorkerRunKind::Worker->value)
+            ->setParameter('openStates', array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::openStates()))
+            ->orderBy('r.receivedAt', 'DESC')
+            ->addOrderBy('r.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     public function hasOpenWorkerOfSessionOnCard(Project $project, Uuid $sessionId, Uuid $cardId): bool
     {
         return null !== $this->createQueryBuilder('r')

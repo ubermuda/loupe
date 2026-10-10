@@ -23,16 +23,20 @@ The workflow also makes the moves that follow a pull request.
 | Backlog | `backlog` | backlog | none |
 | Product design | `product-design` | | `product-design`, `product-design-revise` |
 | Tech design | `tech-design` | | `tech-design`, `tech-design-revise` |
-| Implementation | `implementation` | | `implement`, `breakdown`, `fix` |
-| In review | `in-review` | | `fix`, `merge`, `sync`, `rebase-stacked` |
+| Implementation | `implementation` | | `implement`, `breakdown`, `review`, `fix` |
+| In review | `in-review` | | `review`, `fix`, `merge`, `sync`, `rebase-stacked` |
 | Done | `done` | terminal | `teardown` |
 
 A `repair` request belongs to no column. The workflow opens it in any column,
 when the work of a rule fails and its retries run out.
 
 The implementation worker ends when it opens the pull request, and it reports
-`waiting`. It does not wait for CI. The workflow reads the pull request after
-each push. When the required checks pass, it moves the card from
+`waiting`. It does not wait for CI. This repository runs no Codex review before
+the push, and the worker opens the pull request as a draft. The workflow reads
+the pull request after each push, and asks a separate review worker to review
+the draft. A failed review asks for a fix at once. When the review passes and
+CI is green, Loupe marks the pull request ready, and the owner sees it then.
+When the required checks pass, the workflow moves the card from
 Implementation to In review. When the pull request merges, it moves the card
 to Done. A failed check, a conflict or a request for changes asks for a fix. An
 approved pull request with green checks asks for the merge, and an approved
@@ -204,6 +208,14 @@ work:
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}), column tech-design.
       Loupe instance https://loupe.ac.
 
+  review:
+    model: opus
+    permissions: workspace
+    prompt: |
+      Use the loupe-stage-review skill.
+      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
+      Loupe instance https://loupe.ac.
+
   implement:
     permissions: full
     before:
@@ -343,7 +355,7 @@ that change from one setup to the next.
 1. The repository profile, `.loupe/lifecycle.md`, belongs to the repository. Its
    sections are `Instruction files`, `Environment`, `Gate`, `Code review`,
    `Changelog`, `Pull request`, `Board`, `Merge` and `Repair`. The profile of this repository names
-   `just cs`, the targeted checks, the Codex review, `changelog.d/`, the merge method and
+   `just cs`, the targeted checks, the draft pull request, `changelog.d/`, the merge method and
    the column slugs that a stage moves a card to or reads. The slugs live there because a stage
    skill never reads the column list, which can be missing.
 2. A harness adapter maps the steps of a worker to the tools of one agent
