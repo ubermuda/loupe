@@ -123,7 +123,7 @@ Read the card with `card_get`. Send its whole `body` back with `card_update`, pl
 
 A run that acts on a pull request posts one comment when it ends `STAGE RESULT: not ready <url>: <reason>` or `STAGE RESULT: blocked: <reason>`. The comment tells a person on the pull request why the work stopped.
 
-1. Post no comment for `waiting`. Post none for a fault that an approver cannot fix on the pull request: `no worker folder`, `codex MCP unavailable` or `preview not seeded`. `loupe MCP unavailable` is not a `blocked:` form, so it posts none either. Post none for a state that clears with no person: `not behind`, a head that moved after the event, or a check that is still pending.
+1. Post no comment for `waiting`. Post none for a fault that an approver cannot fix on the pull request: `no worker folder` or `preview not seeded`. `loupe MCP unavailable` is not a `blocked:` form, so it posts none either. Post none for a state that clears with no person: `not behind`, a head that moved after the event, or a check that is still pending.
 2. Make the reason key. Lowercase the reason, and turn each run of characters outside `a-z` and `0-9` into one hyphen. Remove a hyphen at the start or the end.
 3. Read the head commit with the forge adapter. The marker line is `<!-- loupe-refusal: <head sha> <reason key> -->`.
 4. List the top-level comments with the forge adapter. When a comment holds the same marker, post nothing. A new head or a new reason posts again.
