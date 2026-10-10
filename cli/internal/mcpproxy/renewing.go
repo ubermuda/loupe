@@ -27,8 +27,9 @@ const (
 )
 
 // handshakeTimeout bounds the replayed handshake. A new session that does not
-// answer must fail rather than hold the agent for ever.
-const handshakeTimeout = 30 * time.Second
+// answer must fail rather than hold the agent for ever. It exceeds retryBudget,
+// so a 429 during a renewal waits instead of failing the renewal.
+const handshakeTimeout = retryBudget + 30*time.Second
 
 // renewing is an mcp.Connection that opens a new session when the server
 // forgets the one it holds, and replays the handshake onto it.
