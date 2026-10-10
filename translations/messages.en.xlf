@@ -6689,16 +6689,6 @@
             <trans-unit id="board.card.link.mergeability.conflicting"><source>board.card.link.mergeability.conflicting</source><target>Conflict</target></trans-unit>
             <trans-unit id="board.card.link.mergeability.behind"><source>board.card.link.mergeability.behind</source><target>Behind base</target></trans-unit>
             <trans-unit id="board.card.link.mergeability.blocked"><source>board.card.link.mergeability.blocked</source><target>Merge blocked</target></trans-unit>
-            <trans-unit id="board.card.link.sync.waits_for_approval"><source>board.card.link.sync.waits_for_approval</source><target>Waits for an approval</target></trans-unit>
-            <trans-unit id="board.card.link.sync.conflicts"><source>board.card.link.sync.conflicts</source><target>Conflicts with the base</target></trans-unit>
-            <trans-unit id="board.card.link.sync.waits_turn"><source>board.card.link.sync.waits_turn</source><target>Waits its turn behind #%number%</target></trans-unit>
-            <trans-unit id="board.card.link.sync.synced_checks_running"><source>board.card.link.sync.synced_checks_running</source><target>Synced, checks running</target></trans-unit>
-            <trans-unit id="board.card.link.sync.sync_failed"><source>board.card.link.sync.sync_failed</source><target>Sync failed: %reason%</target></trans-unit>
-            <trans-unit id="board.card.link.sync.reason.permission"><source>board.card.link.sync.reason.permission</source><target>the app may not write to the repository</target></trans-unit>
-            <trans-unit id="board.card.link.sync.reason.refused"><source>board.card.link.sync.reason.refused</source><target>the forge refused the update</target></trans-unit>
-            <trans-unit id="board.card.link.sync.reason.timeout"><source>board.card.link.sync.reason.timeout</source><target>the update did not finish in time</target></trans-unit>
-            <trans-unit id="board.card.link.sync.reason.no_updater"><source>board.card.link.sync.reason.no_updater</source><target>Loupe cannot update a pull request on this forge</target></trans-unit>
-            <trans-unit id="board.card.link.sync.reason.retries_exhausted"><source>board.card.link.sync.reason.retries_exhausted</source><target>the forge failed each try to update the branch</target></trans-unit>
             <trans-unit id="board.card.link.review.approved"><source>board.card.link.review.approved</source><target>Approved</target></trans-unit>
             <trans-unit id="board.card.link.review.approval_outdated"><source>board.card.link.review.approval_outdated</source><target>Approval outdated</target></trans-unit>
             <trans-unit id="board.card.link.review.changes_requested"><source>board.card.link.review.changes_requested</source><target>Changes requested</target></trans-unit>
@@ -7022,7 +7012,7 @@
             </trans-unit>
             <trans-unit id="board.automation.description">
                 <source>board.automation.description</source>
-                <target>Loupe watches the pull requests of your cards. These settings control the fix and merge requests that Loupe sends to your bridge.</target>
+                <target>The workflow of the board decides each action on a pull request, and the rules of the workflow are the only switches. This setting stops the whole workflow.</target>
             </trans-unit>
             <trans-unit id="board.automation.submit">
                 <source>board.automation.submit</source>
@@ -7031,14 +7021,6 @@
             <trans-unit id="board.automation.flash.saved">
                 <source>board.automation.flash.saved</source>
                 <target>Automation settings saved.</target>
-            </trans-unit>
-            <trans-unit id="board.automation.error.agent_review_failing_severities_invalid">
-                <source>board.automation.error.agent_review_failing_severities_invalid</source>
-                <target>Select at least one severity.</target>
-            </trans-unit>
-            <trans-unit id="board.automation.error.epic_branch_pattern_invalid">
-                <source>board.automation.error.epic_branch_pattern_invalid</source>
-                <target>The pattern must be a branch name that holds {number} exactly once, or be empty.</target>
             </trans-unit>
             <trans-unit id="board.fix_run_comment.intro">
                 <source>board.fix_run_comment.intro</source>
@@ -7088,125 +7070,9 @@
                 <source>board.form.save_board_automation_settings_form.enabled.help</source>
                 <target>When this is on, the workflow of the board moves the cards and asks for their work. Loupe records the pull request facts in all cases.</target>
             </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.comment_on_fix_queued.label">
-                <source>board.form.save_board_automation_settings_form.comment_on_fix_queued.label</source>
-                <target>Comment on the pull request when a fix run is queued</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.comment_on_fix_queued.help">
-                <source>board.form.save_board_automation_settings_form.comment_on_fix_queued.help</source>
-                <target>Loupe posts a new comment on the GitHub pull request each time a bridge queues a fix run for it. The GitHub App needs "Pull requests: read and write". It needs a bridge that reports the event that queued a run. An older bridge sends none, so no comment posts.</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.comment_on_stale_approval.label">
-                <source>board.form.save_board_automation_settings_form.comment_on_stale_approval.label</source>
-                <target>Comment on a pull request when new commits follow its approval</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.comment_on_stale_approval.help">
-                <source>board.form.save_board_automation_settings_form.comment_on_stale_approval.help</source>
-                <target>An approval that does not cover the newest commit starts no merge. Loupe then posts one comment on the GitHub pull request for that commit. The GitHub App needs "Pull requests: read and write".</target>
-            </trans-unit>
             <trans-unit id="board.stale_approval_notice.body">
                 <source>board.stale_approval_notice.body</source>
                 <target>Not merged: commit `%sha%` came after your approval. Approve the new head to merge.</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.sync_behind.label">
-                <source>board.form.save_board_automation_settings_form.sync_behind.label</source>
-                <target>Sync an approved pull request that is behind</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.sync_behind.help">
-                <source>board.form.save_board_automation_settings_form.sync_behind.help</source>
-                <target>Loupe updates the branch of the next approved pull request that is behind its base, one at a time. The GitHub App needs "Contents: read and write".</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.merge_pull_requests.label">
-                <source>board.form.save_board_automation_settings_form.merge_pull_requests.label</source>
-                <target>Merge a pull request when the workflow asks</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.merge_pull_requests.help">
-                <source>board.form.save_board_automation_settings_form.merge_pull_requests.help</source>
-                <target>Loupe merges a pull request when the workflow of the board asks for it. The GitHub App needs "Contents: read and write".</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.change_base.label">
-                <source>board.form.save_board_automation_settings_form.change_base.label</source>
-                <target>Change the base of a pull request when the workflow asks</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.change_base.help">
-                <source>board.form.save_board_automation_settings_form.change_base.help</source>
-                <target>Loupe changes the base branch of a pull request when the workflow of the board asks for it. The GitHub App needs "Pull requests: read and write".</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.epic_draft_switch.label">
-                <source>board.form.save_board_automation_settings_form.epic_draft_switch.label</source>
-                <target>Switch an epic pull request between draft and ready when the workflow asks</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.epic_draft_switch.help">
-                <source>board.form.save_board_automation_settings_form.epic_draft_switch.help</source>
-                <target>Loupe marks the pull request of an epic as a draft while the epic is in implementation, and as ready when it moves to review. The GitHub App needs "Pull requests: read and write".</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.close_epic_pull_requests.label">
-                <source>board.form.save_board_automation_settings_form.close_epic_pull_requests.label</source>
-                <target>Close the pull requests of an epic when the workflow asks</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.close_epic_pull_requests.help">
-                <source>board.form.save_board_automation_settings_form.close_epic_pull_requests.help</source>
-                <target>Loupe closes the pull requests of an epic that a person moves back to the Backlog. The GitHub App needs "Pull requests: read and write".</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.open_epic_pull_requests.label">
-                <source>board.form.save_board_automation_settings_form.open_epic_pull_requests.label</source>
-                <target>Open the epic pull request</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.open_epic_pull_requests.help">
-                <source>board.form.save_board_automation_settings_form.open_epic_pull_requests.help</source>
-                <target>Loupe opens a draft pull request from the epic branch to the default branch after the first child merges, and links it to the epic. The GitHub App needs "Pull requests: read and write".</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.post_widget_reviews.label">
-                <source>board.form.save_board_automation_settings_form.post_widget_reviews.label</source>
-                <target>Post a widget verdict as a review on GitHub</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.post_widget_reviews.help">
-                <source>board.form.save_board_automation_settings_form.post_widget_reviews.help</source>
-                <target>When a reviewer sends a verdict from the site-review widget, Loupe posts it as a review on the pull requests of the card, under the reviewer's own GitHub account. The reviewer connects that account once.</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.site_review_check.label">
-                <source>board.form.save_board_automation_settings_form.site_review_check.label</source>
-                <target>Keep a "Loupe site review" check on pull requests</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.site_review_check.help">
-                <source>board.form.save_board_automation_settings_form.site_review_check.help</source>
-                <target>Loupe posts a check named "Loupe site review" on each open pull request of a managed card. It fails while open site-review notes remain. The GitHub App needs "Checks: read and write".</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.agent_review.label">
-                <source>board.form.save_board_automation_settings_form.agent_review.label</source>
-                <target>Ask an agent to review each pull request</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.agent_review.help">
-                <source>board.form.save_board_automation_settings_form.agent_review.help</source>
-                <target>Loupe asks an agent to review each pull request of a managed card. It posts a check named "loupe/agent-review" with one note for each finding. The GitHub App needs "Checks: read and write".</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.agent_review_failing_severities.label">
-                <source>board.form.save_board_automation_settings_form.agent_review_failing_severities.label</source>
-                <target>Findings that fail the agent review check</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.agent_review_failing_severities.help">
-                <source>board.form.save_board_automation_settings_form.agent_review_failing_severities.help</source>
-                <target>The check fails when the review has a finding of a selected severity. Findings of other severities show as notes only.</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.agent_review_failing_severities.choice.important">
-                <source>board.form.save_board_automation_settings_form.agent_review_failing_severities.choice.important</source>
-                <target>Important</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.agent_review_failing_severities.choice.nit">
-                <source>board.form.save_board_automation_settings_form.agent_review_failing_severities.choice.nit</source>
-                <target>Nit</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.agent_review_failing_severities.choice.pre_existing">
-                <source>board.form.save_board_automation_settings_form.agent_review_failing_severities.choice.pre_existing</source>
-                <target>Pre-existing</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.epic_branch_pattern.label">
-                <source>board.form.save_board_automation_settings_form.epic_branch_pattern.label</source>
-                <target>Epic branch pattern</target>
-            </trans-unit>
-            <trans-unit id="board.form.save_board_automation_settings_form.epic_branch_pattern.help">
-                <source>board.form.save_board_automation_settings_form.epic_branch_pattern.help</source>
-                <target>The branch that the breakdown pushes for an epic. {number} stands for the epic card number. The pattern must match the epic branch of your repository profile. Leave it empty when the project uses no epic branches.</target>
             </trans-unit>
             <trans-unit id="board.automation.comment_failure.summary">
                 <source>board.automation.comment_failure.summary</source>
@@ -7827,6 +7693,10 @@
             <trans-unit id="workflow.waiting.not.card_discovery_requested"><source>workflow.waiting.not.card_discovery_requested</source><target>Waiting: the card has a requested discovery.</target></trans-unit>
             <trans-unit id="workflow.waiting.site_review_verdict_unsent"><source>workflow.waiting.site_review_verdict_unsent</source><target>Waiting: no verdict of the card waits to be sent.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.site_review_verdict_unsent"><source>workflow.waiting.not.site_review_verdict_unsent</source><target>Waiting: a verdict of the card waits to be sent.</target></trans-unit>
+            <trans-unit id="workflow.waiting.card_fix_run_uncommented"><source>workflow.waiting.card_fix_run_uncommented</source><target>Waiting: each open or recent fix run of the card has a pull request comment.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.card_fix_run_uncommented"><source>workflow.waiting.not.card_fix_run_uncommented</source><target>Waiting: an open or recent fix run of the card has no pull request comment.</target></trans-unit>
+            <trans-unit id="workflow.waiting.card_pr_approval_stale"><source>workflow.waiting.card_pr_approval_stale</source><target>Waiting: no open pull request of the card has a stale approval without a notice.</target></trans-unit>
+            <trans-unit id="workflow.waiting.not.card_pr_approval_stale"><source>workflow.waiting.not.card_pr_approval_stale</source><target>Waiting: an open pull request of the card has a stale approval without a notice.</target></trans-unit>
             <trans-unit id="workflow.waiting.site_review_check_stale"><source>workflow.waiting.site_review_check_stale</source><target>Waiting: the site review check of each open pull request is up to date.</target></trans-unit>
             <trans-unit id="workflow.waiting.not.site_review_check_stale"><source>workflow.waiting.not.site_review_check_stale</source><target>Waiting: the site review check of an open pull request is out of date.</target></trans-unit>
             <trans-unit id="workflow.waiting.agent_review_due"><source>workflow.waiting.agent_review_due</source><target>Waiting: no open pull request head needs an agent review.</target></trans-unit>
@@ -8103,11 +7973,11 @@
             <trans-unit id="readiness.discovery.reason.no_taker"><source>readiness.discovery.reason.no_taker</source><target>No bridge took the work.</target></trans-unit>
             <trans-unit id="readiness.discovery.reason.card_moved"><source>readiness.discovery.reason.card_moved</source><target>The discovery card left Backlog before the work ended.</target></trans-unit>
             <trans-unit id="board.verdict.action.post_review"><source>board.verdict.action.post_review</source><target>Posts your verdict as a review on the pull requests you pick.</target></trans-unit>
-            <trans-unit id="board.verdict.review.fallback_body"><source>board.verdict.review.fallback_body</source><target>Reviewed in the Loupe site review.</target></trans-unit>
+            <trans-unit id="board.verdict.review.source"><source>board.verdict.review.source</source><target>Sent from the Loupe site review of card %number%. [Open the notes in Loupe](%card_url%)</target></trans-unit>
+            <trans-unit id="board.verdict.review.preview"><source>board.verdict.review.preview</source><target>· [Open the preview](%preview_url%)</target></trans-unit>
             <trans-unit id="board.site_review_check.title"><source>board.site_review_check.title</source><target>{0} No open site review notes|{1} One site review note is open|]1,Inf[ %count% site review notes are open</target></trans-unit>
             <trans-unit id="board.site_review_check.summary_clear"><source>board.site_review_check.summary_clear</source><target>Every site review note of this card is closed.</target></trans-unit>
             <trans-unit id="board.site_review_check.title_off"><source>board.site_review_check.title_off</source><target>Loupe no longer keeps this check</target></trans-unit>
-            <trans-unit id="board.site_review_check.summary_off"><source>board.site_review_check.summary_off</source><target>The site review check is off for this project, so this check does not block the pull request.</target></trans-unit>
             <trans-unit id="board.site_review_check.summary_unlinked"><source>board.site_review_check.summary_unlinked</source><target>No card links this pull request any more, so this check does not block it.</target></trans-unit>
             <trans-unit id="agent_review.check.title"><source>agent_review.check.title</source><target>Agent review: %findings%</target></trans-unit>
             <trans-unit id="agent_review.check.title_clear"><source>agent_review.check.title_clear</source><target>Agent review: no findings</target></trans-unit>

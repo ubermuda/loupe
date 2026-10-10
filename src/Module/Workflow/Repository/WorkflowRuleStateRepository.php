@@ -74,12 +74,6 @@ class WorkflowRuleStateRepository extends ServiceEntityRepository
         return $states;
     }
 
-    /** @return list<WorkflowRuleState> */
-    public function findRefusedInProjectId(Uuid $projectId, string $refusal): array
-    {
-        return $this->findBy(['project' => $projectId, 'lastRefusal' => $refusal]);
-    }
-
     /**
      * The cards with a retry due at $now or before, the longest overdue first. A paused or held card
      * waits for its release, and its due time stays.

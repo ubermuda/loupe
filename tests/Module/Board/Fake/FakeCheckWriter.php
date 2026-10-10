@@ -25,6 +25,9 @@ final class FakeCheckWriter implements PullRequestCheckWriter
     /** A check with more annotations than this fails once the run holds this many of them. */
     public ?int $failsAfterAnnotations = null;
 
+    /** The cause a failing check reports, in place of the default for its kind. */
+    public ?string $failureCause = null;
+
     private int $runs = 0;
 
     #[\Override]
@@ -38,7 +41,7 @@ final class FakeCheckWriter implements PullRequestCheckWriter
     {
         $this->published[] = ['number' => $pullRequest->number, 'name' => $name, 'sha' => $sha, 'conclusion' => $conclusion, 'title' => $title, 'summary' => $summary, 'runId' => $runId, 'annotations' => $annotations];
         if (\in_array($pullRequest->number, $this->failingNumbers, true)) {
-            throw new PullRequestCheckFailed($this->failsForGood ? 'permission' : 'server_error', $this->failsForGood);
+            throw new PullRequestCheckFailed($this->failureCause ?? ($this->failsForGood ? 'permission' : 'server_error'), $this->failsForGood);
         }
 
         $id = $runId ?? 100 + ++$this->runs;

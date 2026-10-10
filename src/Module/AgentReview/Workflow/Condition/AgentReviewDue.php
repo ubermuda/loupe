@@ -10,7 +10,7 @@ use App\Module\Workflow\Contract\EngineFact;
 use App\Module\Workflow\Contract\Facts;
 use Symfony\Component\Translation\TranslatableMessage;
 
-/** The project asks for agent reviews, and the head of the pull request the rule acts on has none. */
+/** The head of the pull request the rule acts on has no agent review, and the card is not an epic. */
 final readonly class AgentReviewDue implements Condition
 {
     #[\Override]
@@ -44,7 +44,7 @@ final readonly class AgentReviewDue implements Condition
 
         $head = $review->boundHead($facts);
 
-        return $review->enabled && !$review->epic && null !== $head && '' !== $head->headSha && null === $head->conclusion;
+        return !$review->epic && null !== $head && '' !== $head->headSha && null === $head->conclusion;
     }
 
     #[\Override]

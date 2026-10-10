@@ -46,19 +46,6 @@ final class EditBoardAutomationSettingsController extends AppController
                 ($this->saveSettings)(new SaveBoardAutomationSettingsCommand(
                     project: $project,
                     enabled: $data->enabled,
-                    commentOnFixQueued: $data->commentOnFixQueued,
-                    commentOnStaleApproval: $data->commentOnStaleApproval,
-                    syncBehind: $data->syncBehind,
-                    mergePullRequests: $data->mergePullRequests,
-                    changeBase: $data->changeBase,
-                    postWidgetReviews: $data->postWidgetReviews,
-                    siteReviewCheck: $data->siteReviewCheck,
-                    epicDraftSwitch: $data->epicDraftSwitch,
-                    closeEpicPullRequests: $data->closeEpicPullRequests,
-                    openEpicPullRequests: $data->openEpicPullRequests,
-                    epicBranchPattern: $data->epicBranchPattern,
-                    agentReview: $data->agentReview,
-                    agentReviewFailingSeverities: $data->agentReviewFailingSeverities,
                 ));
                 $this->addFlash('success', $this->translator->trans('board.automation.flash.saved'));
 

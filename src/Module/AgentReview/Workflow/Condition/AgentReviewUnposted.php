@@ -9,7 +9,7 @@ use App\Module\Workflow\Contract\Condition;
 use App\Module\Workflow\Contract\Facts;
 use Symfony\Component\Translation\TranslatableMessage;
 
-/** The project asks for agent reviews, and a review of the card has no check on the forge yet. */
+/** A review of the card has no check on the forge yet. */
 final readonly class AgentReviewUnposted implements Condition
 {
     #[\Override]
@@ -41,7 +41,7 @@ final readonly class AgentReviewUnposted implements Condition
     {
         $review = $facts->get(AgentReviewFacts::class);
 
-        return $review->enabled && $review->unposted;
+        return $review->unposted;
     }
 
     #[\Override]

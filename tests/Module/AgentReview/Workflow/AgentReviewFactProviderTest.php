@@ -8,7 +8,6 @@ use App\Module\AgentReview\Entity\AgentReviewConclusion;
 use App\Module\AgentReview\Workflow\AgentReviewFactProvider;
 use App\Module\AgentReview\Workflow\AgentReviewFacts;
 use App\Module\AgentReview\Workflow\ReviewedHead;
-use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
@@ -46,29 +45,26 @@ final class AgentReviewFactProviderTest extends KernelTestCase
         self::assertSame('Agent review', $translator->trans($this->provider()->source()));
     }
 
-    public function test_a_card_with_no_pull_request_has_no_heads_and_the_switch_off_by_default(): void
+    public function test_a_card_with_no_pull_request_has_no_heads(): void
     {
         $card = $this->card($this->project);
         $this->em->flush();
 
-        self::assertEquals(new AgentReviewFacts([], false, false, false), $this->build($card));
+        self::assertEquals(new AgentReviewFacts([], false, false), $this->build($card));
     }
 
     public function test_an_open_pull_request_head_without_a_review_has_no_conclusion(): void
     {
-        $this->switchOn();
         $card = $this->card($this->project);
         $pullRequest = $this->linked($card, 7);
 
         $facts = $this->build($card);
 
-        self::assertTrue($facts->enabled);
         self::assertEquals([new ReviewedHead((string) $pullRequest->id, str_repeat('a', 40), null)], $facts->heads);
     }
 
     public function test_the_head_carries_the_conclusion_of_its_newest_review(): void
     {
-        $this->switchOn();
         $card = $this->card($this->project);
         $pullRequest = $this->linked($card, 7);
         $this->review($card, $pullRequest);
@@ -78,7 +74,6 @@ final class AgentReviewFactProviderTest extends KernelTestCase
 
     public function test_a_review_of_an_older_head_does_not_count(): void
     {
-        $this->switchOn();
         $card = $this->card($this->project);
         $pullRequest = $this->linked($card, 7);
         $this->review($card, $pullRequest);
@@ -89,7 +84,6 @@ final class AgentReviewFactProviderTest extends KernelTestCase
 
     public function test_every_open_pull_request_is_listed_and_one_without_a_head_has_none(): void
     {
-        $this->switchOn();
         $card = $this->card($this->project);
         $open = $this->linked($card, 7);
         $this->linked($card, 8, PullRequestState::Merged);
@@ -100,15 +94,13 @@ final class AgentReviewFactProviderTest extends KernelTestCase
         self::assertSame('', $heads[1]->headSha);
     }
 
-    public function test_a_review_that_no_check_shows_is_unposted_only_with_the_switch_on(): void
+    public function test_a_review_that_no_check_shows_is_unposted(): void
     {
         $card = $this->card($this->project);
         $pullRequest = $this->linked($card, 7);
-        $this->review($card, $pullRequest);
-
         self::assertFalse($this->build($card)->unposted);
 
-        $this->switchOn();
+        $this->review($card, $pullRequest);
         self::assertTrue($this->build($card)->unposted);
 
         $this->em->getConnection()->executeStatement('UPDATE agent_reviews SET posted_at = NOW()');
@@ -125,27 +117,18 @@ final class AgentReviewFactProviderTest extends KernelTestCase
         self::assertFalse($this->build($this->card($this->project, 4))->epic);
     }
 
-    public function test_the_fingerprint_changes_with_the_switch_the_head_and_the_conclusion(): void
+    public function test_the_fingerprint_changes_with_the_head_and_the_conclusion(): void
     {
         $card = $this->card($this->project);
         $pullRequest = $this->linked($card, 7);
-        $off = $this->fingerprint($card);
-
-        $this->switchOn();
         $unreviewed = $this->fingerprint($card);
         $this->review($card, $pullRequest);
         $reviewed = $this->fingerprint($card);
         $pullRequest->headSha = str_repeat('f', 40);
         $moved = $this->fingerprint($card);
 
-        self::assertCount(4, array_unique(array_map(serialize(...), [$off, $unreviewed, $reviewed, $moved])));
+        self::assertCount(3, array_unique(array_map(serialize(...), [$unreviewed, $reviewed, $moved])));
         self::assertSame($moved, $this->fingerprint($card));
-    }
-
-    private function switchOn(): void
-    {
-        $this->em->persist(new BoardAutomationSettings($this->project, agentReview: true));
-        $this->em->flush();
     }
 
     private function linked(Card $card, int $number, PullRequestState $state = PullRequestState::Open, ?string $headSha = 'default'): ForgePullRequest

@@ -7,6 +7,8 @@ namespace App\Tests\Module\Workflow\Template;
 use App\Module\AgentReview\Entity\AgentReviewConclusion;
 use App\Module\AgentReview\Workflow\AgentReviewFacts;
 use App\Module\AgentReview\Workflow\ReviewedHead;
+use App\Module\Board\Workflow\FixRunFacts;
+use App\Module\Board\Workflow\StaleApprovalFacts;
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Contract\ChecksState;
 use App\Module\Workflow\Contract\DocumentFacts;
@@ -193,7 +195,7 @@ final class ShippedTemplatesTest extends KernelTestCase
             provided: [AgentReviewFacts::class => new AgentReviewFacts([
                 new ReviewedHead((string) $passed->id, str_repeat('a', 40), AgentReviewConclusion::Success),
                 new ReviewedHead((string) $needing->id, str_repeat('b', 40), $conclusion),
-            ], enabled: true, epic: false, unposted: false)],
+            ], epic: false, unposted: false)],
         );
         $rule = array_find($this->lifecycle()->rulesFor('implementation'), static fn ($rule): bool => $ruleId === $rule->id);
         self::assertNotNull($rule);
@@ -247,7 +249,7 @@ final class ShippedTemplatesTest extends KernelTestCase
         return FactsMother::facts(
             card: FactsMother::card(slot: $slot, type: $epic ? 'epic' : 'feature'),
             pullRequest: FactsMother::pullRequest(draft: $draft, checks: ChecksState::Passed, approvalsCoveringHead: $approvals, changesRequested: $changesRequested, baseIsMergeTarget: !$epicBranch, baseIsEpicBranch: $epicBranch, id: $id),
-            provided: [AgentReviewFacts::class => new AgentReviewFacts($heads, enabled: true, epic: $epic, unposted: false)],
+            provided: [AgentReviewFacts::class => new AgentReviewFacts($heads, epic: $epic, unposted: false)],
         );
     }
 
@@ -276,6 +278,25 @@ final class ShippedTemplatesTest extends KernelTestCase
             pullRequest: FactsMother::pullRequest(checks: ChecksState::Passed),
         );
         self::assertNotContainsEquals($merge, $this->actions($unapproved));
+    }
+
+    public function test_an_uncommented_fix_run_or_a_stale_approval_asks_for_its_comment_in_any_column(): void
+    {
+        $fixRun = $this->call('forge-write', ['write' => 'comment', 'comment' => 'fix-run']);
+        $stale = $this->call('forge-write', ['write' => 'comment', 'comment' => 'stale-approval']);
+        $quiet = FactsMother::facts(card: FactsMother::card(slot: 'in-review'));
+        self::assertNotContainsEquals($fixRun, $this->actions($quiet));
+        self::assertNotContainsEquals($stale, $this->actions($quiet));
+
+        foreach (['implementation', 'in-review'] as $slot) {
+            $facts = FactsMother::facts(card: FactsMother::card(slot: $slot), provided: [
+                FixRunFacts::class => new FixRunFacts(['run-1']),
+                StaleApprovalFacts::class => new StaleApprovalFacts(['pull-request-1' => 'head1']),
+            ]);
+
+            self::assertContainsEquals($fixRun, $this->actions($facts), $slot);
+            self::assertContainsEquals($stale, $this->actions($facts), $slot);
+        }
     }
 
     public function test_an_epic_with_finished_children_moves_to_review_with_a_draft_pull_request(): void

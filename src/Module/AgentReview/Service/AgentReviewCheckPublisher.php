@@ -11,7 +11,6 @@ use App\Module\AgentReview\Repository\AgentReviewRepository;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Service\AgentReviewCheck;
-use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\SiteReviewWriteResult;
 use App\Module\Forge\Service\PullRequestCheckConclusion;
 use App\Module\Forge\Service\PullRequestCheckFailed;
@@ -39,7 +38,6 @@ final readonly class AgentReviewCheckPublisher implements AgentReviewCheck
     public function __construct(
         private CardPullRequestRepository $cardPullRequests,
         private AgentReviewRepository $agentReviews,
-        private BoardAutomation $boardAutomation,
         private PullRequestCheckWriters $writers,
         private AgentReviewAnnotations $annotations,
         private TranslatorInterface $translator,
@@ -52,10 +50,6 @@ final readonly class AgentReviewCheckPublisher implements AgentReviewCheck
     #[\Override]
     public function publish(Card $card): SiteReviewWriteResult
     {
-        if (!$this->boardAutomation->settingsOf($card->project)->agentReview) {
-            return new SiteReviewWriteResult(null, false);
-        }
-
         $failure = null;
         $changed = false;
         foreach ($this->agentReviews->findUnpostedOfCard($card, $this->cardPullRequests->findOpenGitHubForCard($card)) as $review) {
@@ -76,7 +70,10 @@ final readonly class AgentReviewCheckPublisher implements AgentReviewCheck
                     \array_slice($annotations, $review->annotationsPosted),
                 );
             } catch (PullRequestCheckFailed $e) {
-                $failure ??= $e->cause;
+                // A project with no GitHub App installation has nothing to post a check with.
+                if ('no_installation' !== $e->cause) {
+                    $failure ??= $e->cause;
+                }
                 if (null !== $e->runId) {
                     $review->checkRunId = $e->runId;
                     $review->annotationsPosted += $e->annotationsSent;

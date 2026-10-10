@@ -6,7 +6,6 @@ namespace App\Module\Board\Workflow;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardPullRequests;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
@@ -16,6 +15,7 @@ use App\Module\Forge\Entity\PullRequestState as ForgePullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Workflow\Contract\CardSnapshot;
 use App\Module\Workflow\Contract\ChecksState;
+use App\Module\Workflow\Contract\EpicBranches;
 use App\Module\Workflow\Contract\FingerprintValue;
 use App\Module\Workflow\Contract\PullRequestFacts;
 use App\Module\Workflow\Contract\PullRequestList;
@@ -28,7 +28,7 @@ final readonly class PullRequestListFactProvider extends BoardFactProvider
         private CardRepository $cards,
         private CardPullRequests $cardPullRequests,
         private ForgePullRequestRepository $forgePullRequests,
-        private BoardAutomation $boardAutomation,
+        private EpicBranches $epicBranches,
     ) {
     }
 
@@ -48,7 +48,7 @@ final readonly class PullRequestListFactProvider extends BoardFactProvider
     public function build(CardSnapshot $card): object
     {
         $stored = $this->cards->find($card->id) ?? throw new \LogicException('A stored card has an id.');
-        $parentEpicBranch = null === $stored->parent ? null : $this->boardAutomation->settingsOf($stored->project)->epicBranchOf($stored->parent->number);
+        $parentEpicBranch = null === $stored->parent ? null : $this->epicBranches->of($stored->project->requireId(), $stored->parent->number);
 
         $pullRequests = $this->cardPullRequests->forCard($stored);
         $epicRepositories = $this->epicRepositories($stored, $parentEpicBranch);

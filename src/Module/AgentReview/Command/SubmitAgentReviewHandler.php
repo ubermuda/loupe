@@ -10,11 +10,11 @@ use App\Module\AgentReview\Entity\AgentReviewConclusion;
 use App\Module\AgentReview\Entity\AgentReviewFinding;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Repository\CardPullRequestRepository;
-use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardPullRequests;
 use App\Module\Board\Service\PullRequestUrlResolver;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
+use App\Module\Workflow\Contract\AgentReviewFailingSeverities;
 use App\Module\Workflow\Contract\CardEvaluations;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
@@ -36,7 +36,7 @@ final readonly class SubmitAgentReviewHandler
         private CardPullRequests $trackedPullRequests,
         private CardPullRequestRepository $cardPullRequests,
         private ForgePullRequestRepository $forgePullRequests,
-        private BoardAutomation $boardAutomation,
+        private AgentReviewFailingSeverities $failingSeverities,
         private EntityManagerInterface $em,
         private CardEvaluations $evaluations,
         private Auditor $auditor,
@@ -63,7 +63,7 @@ final readonly class SubmitAgentReviewHandler
             throw new DomainErrors(['pullRequestUrl' => self::NOT_TRACKED]);
         }
 
-        $failing = $this->boardAutomation->settingsOf($card->project)->agentReviewFailingSeverities;
+        $failing = $this->failingSeverities->of($projectId);
         $fails = array_any($command->findings, static fn (AgentReviewFinding $finding): bool => \in_array($finding->severity->value, $failing, true));
 
         $review = new AgentReview(

@@ -47,6 +47,28 @@ final class LifecycleAgentReviewMigrationTest extends KernelTestCase
         self::assertEquals($simpleBefore, $this->definition($connection, $simpleId));
     }
 
+    public function test_each_lifecycle_binding_keeps_its_own_epic_branch_or_none(): void
+    {
+        self::bootKernel();
+        $custom = $this->workflowProject('migration-agent-review-custom-epic');
+        $this->bindLifecycle($custom);
+        $none = $this->workflowProject('migration-agent-review-no-epic');
+        $this->bindLifecycle($none);
+        $customId = ($custom->id ?? throw new \LogicException('The project is not flushed.'))->toRfc4122();
+        $noneId = ($none->id ?? throw new \LogicException('The project is not flushed.'))->toRfc4122();
+        $connection = $this->em()->getConnection();
+        $connection->executeStatement("UPDATE workflow_bindings SET definition = jsonb_set(definition, '{epicBranch}', '\"feature/epic-{number}\"') WHERE project_id = ?", [$customId]);
+        $connection->executeStatement("UPDATE workflow_bindings SET definition = definition - 'epicBranch' WHERE project_id = ?", [$noneId]);
+
+        $this->migrate($connection);
+
+        $shipped = $this->service(ShippedTemplates::class)->source('lifecycle');
+        self::assertEquals([...$shipped, 'epicBranch' => 'feature/epic-{number}'], $this->definition($connection, $customId));
+        $withoutEpicBranch = $shipped;
+        unset($withoutEpicBranch['epicBranch']);
+        self::assertEquals($withoutEpicBranch, $this->definition($connection, $noneId));
+    }
+
     private function migrate(Connection $connection): void
     {
         $migration = new Version20261009183807($connection, new NullLogger());

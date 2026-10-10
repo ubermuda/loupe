@@ -11,13 +11,11 @@ use App\Module\AgentReview\Entity\AgentReviewSeverity;
 use App\Module\AgentReview\Repository\AgentReviewRepository;
 use App\Module\AgentReview\Service\AgentReviewAnnotations;
 use App\Module\AgentReview\Service\AgentReviewCheckPublisher;
-use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Service\AgentReviewCheck;
-use App\Module\Board\Service\BoardAutomation;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Service\PullRequestCheckAnnotation;
@@ -38,7 +36,6 @@ final class AgentReviewCheckPublisherTest extends KernelTestCase
 
     private EntityManagerInterface $em;
     private Project $project;
-    private BoardAutomationSettings $settings;
     private FakeCheckWriter $writer;
     private int $stored = 0;
 
@@ -49,9 +46,6 @@ final class AgentReviewCheckPublisherTest extends KernelTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
         $this->project = $this->makeProject('agent-review-check');
-        $this->settings = new BoardAutomationSettings($this->project, agentReview: true);
-        $this->em->persist($this->settings);
-        $this->em->flush();
         $this->writer = new FakeCheckWriter();
     }
 
@@ -158,14 +152,17 @@ final class AgentReviewCheckPublisherTest extends KernelTestCase
         self::assertSame([], $this->writer->published);
     }
 
-    public function test_nothing_goes_out_while_the_switch_is_off(): void
+    public function test_a_project_with_no_installation_posts_nothing_and_reports_no_failure(): void
     {
-        $this->settings->agentReview = false;
         $card = $this->card($this->project);
         $review = $this->stored($card, $this->linked($card, 7), str_repeat('a', 40), []);
+        $this->writer->failingNumbers = [7];
+        $this->writer->failureCause = 'no_installation';
 
-        self::assertFalse($this->publisher()->publish($card)->changed);
-        self::assertSame([], $this->writer->published);
+        $result = $this->publisher()->publish($card);
+
+        self::assertNull($result->failure);
+        self::assertFalse($result->changed);
         self::assertNull($review->postedAt);
     }
 
@@ -234,15 +231,12 @@ final class AgentReviewCheckPublisherTest extends KernelTestCase
         self::assertInstanceOf(AgentReviewRepository::class, $reviews);
         $cardPullRequests = self::getContainer()->get(CardPullRequestRepository::class);
         self::assertInstanceOf(CardPullRequestRepository::class, $cardPullRequests);
-        $automation = self::getContainer()->get(BoardAutomation::class);
-        self::assertInstanceOf(BoardAutomation::class, $automation);
         $translator = self::getContainer()->get(TranslatorInterface::class);
         self::assertInstanceOf(TranslatorInterface::class, $translator);
 
         return new AgentReviewCheckPublisher(
             $cardPullRequests,
             $reviews,
-            $automation,
             new PullRequestCheckWriters([$this->writer]),
             new AgentReviewAnnotations(),
             $translator,

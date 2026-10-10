@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Module\Inbox\Service\Dev;
 
 use App\Module\Account\Entity\User;
-use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
@@ -15,7 +14,6 @@ use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Entity\CardSource;
 use App\Module\Board\Entity\CardSourceKind;
-use App\Module\Board\Repository\BoardAutomationSettingsRepository;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardRepository;
@@ -88,15 +86,11 @@ final readonly class ProjectShowcaseSeeder
         private InboxAvailability $inbox,
         private DocumentTagApplier $tagApplier,
         private CardEventRepository $cardEvents,
-        private BoardAutomationSettingsRepository $boardAutomationSettings,
     ) {
     }
 
     /** The card in Tech design whose tech design in review gives the showcase its wait item. */
     public const string WAITING_CARD_TITLE = 'Board onboarding';
-
-    /** The title that says this project already holds the sync line cards. */
-    public const string SYNC_MARKER_TITLE = 'Faster search indexing';
 
     /** The title of the card whose approval covers an older head. */
     public const string OUTDATED_APPROVAL_TITLE = 'Retry a declined payment';
@@ -121,13 +115,6 @@ final readonly class ProjectShowcaseSeeder
             $waitingCard = $this->cards->findOneBy(['project' => $project, 'title' => self::WAITING_CARD_TITLE]);
         }
 
-        // Its own marker lets a project that already holds the showcase gain these cards.
-        $syncCards = [];
-        if (!$this->cards->findOneBy(['project' => $project, 'title' => self::SYNC_MARKER_TITLE]) instanceof Card) {
-            $cards = $this->seedSyncLine($project);
-            $this->em->flush();
-            $syncCards = array_map(static fn (Card $card): string => '/projects/'.$project->id.'/board/cards/'.$card->id, $cards);
-        }
         $outdatedCard = null;
         if (!$this->cards->findOneBy(['project' => $project, 'title' => self::OUTDATED_APPROVAL_TITLE]) instanceof Card) {
             $card = $this->seedOutdatedApproval($project);
@@ -137,7 +124,7 @@ final readonly class ProjectShowcaseSeeder
 
         $enabled = $this->inbox->isEnabled();
         if (!$waitingCard instanceof Card) {
-            return new ShowcaseSeeding($written, false, $enabled, 0, $syncCards, $outdatedCard);
+            return new ShowcaseSeeding($written, false, $enabled, 0, $outdatedCard);
         }
         $cardId = $waitingCard->id ?? throw new \LogicException('A stored card has an id.');
         $this->cardWaits->reconcile($project, null);
@@ -147,42 +134,8 @@ final readonly class ProjectShowcaseSeeder
             [] !== $this->inboxCardWatches->findOpenForCards($project, [$cardId]),
             $enabled,
             \count($this->inboxCardWatches->findOpenCardIds($project)),
-            $syncCards,
             $outdatedCard,
         );
-    }
-
-    /**
-     * Turns the automation and the sync of a behind pull request on, and links one pull request
-     * per sync status. The holder keeps the line busy, so no sync pass picks
-     * a pull request of this showcase.
-     *
-     * @return list<Card>
-     */
-    private function seedSyncLine(Project $project): array
-    {
-        $settings = $this->boardAutomationSettings->findOneByProject($project) ?? new BoardAutomationSettings($project);
-        // The card page shows no sync status while the automation is off.
-        $settings->enabled = true;
-        $settings->syncBehind = true;
-        $this->em->persist($settings);
-
-        $column = $this->reviewColumn($project);
-        $number = $this->cards->nextNumber($project);
-        $cards = [];
-        foreach ([self::SYNC_MARKER_TITLE, 'Retry a failed webhook', 'Paginate the activity feed', 'Cache the board columns', 'Rename the export archive'] as $offset => $title) {
-            $cards[] = $card = new Card(project: $project, column: $column, title: $title, body: '', number: $number + $offset, type: 'feature');
-            $this->em->persist($card);
-        }
-
-        $this->syncRow($cards[0], 452, PullRequestMergeability::Behind, null);
-        $this->syncRow($cards[1], 453, PullRequestMergeability::Conflicting, '-3 hours');
-        $this->syncRow($cards[2], 454, PullRequestMergeability::Behind, '-2 hours');
-        $holder = $this->syncRow($cards[3], 455, PullRequestMergeability::Mergeable, '-4 hours');
-        $holder->syncedSha = $holder->headSha;
-        $this->syncRow($cards[4], 456, PullRequestMergeability::Behind, '-1 hour')->syncFailedReason = 'permission';
-
-        return $cards;
     }
 
     /** A pull request that passes every check, with an approval of a head before the last push. */
@@ -191,7 +144,7 @@ final readonly class ProjectShowcaseSeeder
         $card = new Card(project: $project, column: $this->reviewColumn($project), title: self::OUTDATED_APPROVAL_TITLE, body: '', number: $this->cards->nextNumber($project), type: 'feature');
         $this->em->persist($card);
 
-        $state = $this->syncRow($card, 457, PullRequestMergeability::Mergeable, '-3 hours');
+        $state = $this->pullRequestRow($card, 457, PullRequestMergeability::Mergeable, '-3 hours');
         $state->checks = PullRequestChecks::Passed;
         $state->approvalSha = $state->coveredSha = hash('sha1', 'atlas-457-old');
         $state->uncoveredSha = $state->headSha;
@@ -211,7 +164,7 @@ final readonly class ProjectShowcaseSeeder
     }
 
     /** A pull request whose base is the default branch, approved on its head when $approvedAt is set. */
-    private function syncRow(Card $card, int $number, PullRequestMergeability $mergeability, ?string $approvedAt): ForgePullRequest
+    private function pullRequestRow(Card $card, int $number, PullRequestMergeability $mergeability, ?string $approvedAt): ForgePullRequest
     {
         [, $state] = $this->link($card, $number);
         $state->headSha = hash('sha1', 'atlas-'.$number);

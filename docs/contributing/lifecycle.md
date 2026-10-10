@@ -147,8 +147,8 @@ The workflow makes three moves on its own:
 3. When a done epic gets an open child again, the epic moves back to
    Implementation.
 
-A child pull request merges into the epic branch, `epic/<number>`. The board
-setting **Epic branch pattern** must name that branch. After the first child
+A child pull request merges into the epic branch, `epic/<number>`. The
+`epicBranch` value of the workflow template of the project names that branch. After the first child
 merge, the app opens a draft epic pull request from the epic branch to the
 default branch, and links it to the epic. The board setting **Open the epic
 pull request** turns this on. After each child merge, the workflow asks for

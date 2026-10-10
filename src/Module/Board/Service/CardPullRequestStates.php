@@ -18,11 +18,8 @@ readonly class CardPullRequestStates
     ) {
     }
 
-    /**
-     * @param list<Card> $cards    all of one project
-     * @param ?SyncLine  $syncLine the sync line of that project, to add a sync status to each state
-     */
-    public function forCards(array $cards, ?SyncLine $syncLine = null): PullRequestStates
+    /** @param list<Card> $cards all of one project */
+    public function forCards(array $cards): PullRequestStates
     {
         if ([] === $cards) {
             return new PullRequestStates();
@@ -47,7 +44,7 @@ readonly class CardPullRequestStates
 
         $byPullRequest = [];
         foreach ($this->forgePullRequests->findByKeys($projectId, array_values($keys)) as $row) {
-            $view = PullRequestStateView::of($row, $syncLine?->statusOf($row));
+            $view = PullRequestStateView::of($row);
             foreach ($linksByKey[self::key($row->forge, $row->repository, $row->number)] ?? [] as $link) {
                 $byPullRequest[(string) $link->id] = $view;
             }

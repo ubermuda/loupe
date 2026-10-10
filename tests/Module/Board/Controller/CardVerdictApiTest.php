@@ -6,11 +6,11 @@ namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardVerdict;
 use App\Module\Board\Entity\CardVerdictDelivery;
 use App\Module\Board\Entity\CardVerdictDeliveryState;
 use App\Module\Board\Repository\CardVerdictDeliveryRepository;
 use App\Module\Board\Repository\CardVerdictRepository;
-use App\Module\Board\Service\BoardAutomation;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\GitHub\Entity\GitHubUserConnection;
 use App\Module\Project\Entity\Project;
@@ -55,13 +55,12 @@ final class CardVerdictApiTest extends WebTestCase
         self::assertNull($data['latestVerdict']);
     }
 
-    public function test_the_panel_previews_the_review_write_for_every_kind_while_the_workflow_and_the_opt_in_are_on(): void
+    public function test_the_panel_previews_the_review_write_for_every_kind_while_the_workflow_is_on(): void
     {
         $client = static::createClient();
         [$raw, $project] = $this->projectWithToken($client, 'verdict-api-preview@example.com', 'verdict-api-preview');
         $card = $this->card($project);
         $this->service(BindWorkflowTemplateHandler::class)(new BindWorkflowTemplateCommand($project, 'simple', []));
-        $this->service(BoardAutomation::class)->settingsForUpdate($project)->postWidgetReviews = true;
         $this->em->flush();
 
         $data = $this->call($client, Request::METHOD_GET, $this->panelPath($card), $raw);
@@ -157,7 +156,29 @@ final class CardVerdictApiTest extends WebTestCase
         self::assertTrue($data['pullRequests'][0]['ownPullRequest']);
     }
 
-    public function test_a_message_is_required_for_request_changes_and_comment(): void
+    public function test_a_pending_note_lets_request_changes_and_comment_go_without_a_message(): void
+    {
+        $client = static::createClient();
+        [$raw, $project] = $this->projectWithToken($client, 'verdict-api-note-only@example.com');
+        $card = $this->card($project);
+        $this->note($card, 'The footer overlaps the launcher.');
+        $this->em->flush();
+
+        foreach (['request-changes' => '0198a2c0-0000-7000-8000-0000000000ab', 'comment' => '0198a2c0-0000-7000-8000-0000000000ac'] as $kind => $submissionId) {
+            $sent = $this->call($client, Request::METHOD_POST, $this->sendPath($card), $raw, ['kind' => $kind, 'message' => '  ', 'submissionId' => $submissionId]);
+            self::assertResponseStatusCodeSame(201);
+            self::assertSame($kind, $sent['kind']);
+            self::assertSame(1, $sent['noteCount']);
+        }
+
+        $this->em->clear();
+        self::assertSame(['', ''], array_map(
+            static fn (CardVerdict $verdict): string => $verdict->message,
+            $this->service(CardVerdictRepository::class)->findAll(),
+        ));
+    }
+
+    public function test_a_message_is_required_for_request_changes_and_comment_with_no_pending_note(): void
     {
         $client = static::createClient();
         [$raw, $project] = $this->projectWithToken($client, 'verdict-api-empty@example.com');

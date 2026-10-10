@@ -48,9 +48,9 @@ result as the check `loupe/agent-review`, with each finding beside its line.
   the head commit from `card_get`, in `agentReview`.
 - When the review passes and CI is green, Loupe marks the pull request ready.
   The card then moves to In review. Never run `gh pr ready` for it yourself.
-- The project must have **Ask an agent to review each pull request** on in the
-  Automation tab. With it off, Loupe marks nothing ready and the draft stays a
-  draft. Tell the owner in the body when you open a draft in such a project.
+- The workflow of the project must hold the agent review rules, as Lifecycle
+  does. Without them, Loupe marks nothing ready and the draft stays a draft.
+  Tell the owner in the body when you open a draft in such a project.
 - Review the diff against `origin/<base>`, never `main`. A worktree's local
   `main` is often stale, so a review against it reports findings for
   already-merged code.
@@ -200,7 +200,7 @@ pull request ready, and the owner then sees it. Do not run `gh pr ready`, and do
 not wait for the owner's review to un-draft it.
 
 A draft that stays a draft after a passed review and green checks is a fault of
-the setup. The usual cause is the review switch off in the Automation tab, or a
+the setup. The usual cause is a workflow with no agent review rules, or a
 bridge with no `review` work entry. Say so in the body. Ready does not mean
 merged: `main` still needs one approving review, and you never approve your own
 work.

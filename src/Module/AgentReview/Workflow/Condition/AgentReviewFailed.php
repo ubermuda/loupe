@@ -43,7 +43,7 @@ final readonly class AgentReviewFailed implements Condition
     {
         $review = $facts->get(AgentReviewFacts::class);
 
-        return $review->enabled && AgentReviewConclusion::Failure === $review->boundHead($facts)?->conclusion;
+        return AgentReviewConclusion::Failure === $review->boundHead($facts)?->conclusion;
     }
 
     #[\Override]

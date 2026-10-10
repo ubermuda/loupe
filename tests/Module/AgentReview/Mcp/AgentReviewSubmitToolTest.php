@@ -10,13 +10,11 @@ use App\Module\AgentReview\Entity\AgentReview;
 use App\Module\AgentReview\Entity\AgentReviewSeverity;
 use App\Module\AgentReview\Mcp\AgentReviewSubmitTool;
 use App\Module\AgentReview\Repository\AgentReviewRepository;
-use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Mcp\AgentRunCause;
 use App\Module\Board\Repository\CardPullRequestRepository;
-use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardPullRequests;
 use App\Module\Board\Service\PullRequestUrlResolver;
 use App\Module\Bridge\Entity\WorkerRun;
@@ -26,6 +24,9 @@ use App\Module\Bridge\ValueObject\WorkSubject;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Project\Entity\Project;
+use App\Module\Workflow\Command\BindWorkflowTemplateCommand;
+use App\Module\Workflow\Command\BindWorkflowTemplateHandler;
+use App\Module\Workflow\Contract\AgentReviewFailingSeverities;
 use App\Module\Workflow\Contract\CardEvaluations;
 use App\Tests\Module\AgentReview\AgentReviewScenario;
 use App\Tests\Support\McpTokenScenario;
@@ -119,7 +120,7 @@ final class AgentReviewSubmitToolTest extends KernelTestCase
             $container->get(CardPullRequests::class),
             $container->get(CardPullRequestRepository::class),
             $container->get(ForgePullRequestRepository::class),
-            $container->get(BoardAutomation::class),
+            $container->get(AgentReviewFailingSeverities::class),
             $this->em,
             $evaluations,
             $container->get(Auditor::class),
@@ -140,9 +141,13 @@ final class AgentReviewSubmitToolTest extends KernelTestCase
         self::assertSame('success', $this->submit([$this->finding('nit'), $this->finding('pre-existing')])['conclusion']);
     }
 
-    public function test_a_nit_fails_when_the_project_counts_nits_as_failing(): void
+    public function test_a_nit_fails_when_the_workflow_of_the_project_counts_nits_as_failing(): void
     {
-        $this->em->persist(new BoardAutomationSettings($this->project, agentReviewFailingSeverities: ['important', 'nit']));
+        $bind = self::getContainer()->get(BindWorkflowTemplateHandler::class);
+        self::assertInstanceOf(BindWorkflowTemplateHandler::class, $bind);
+        $binding = $bind(new BindWorkflowTemplateCommand($this->project, 'simple', []));
+        $binding->definition = [...$binding->definition, 'agentReviewFailingSeverities' => ['important', 'nit']];
+        $this->em->flush();
         $this->reviewRun();
         $this->sendSession($this->sessionId);
 

@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Module\Board\Service;
 
 use App\Module\Board\Entity\PullRequestComment;
+use App\Module\Bridge\Repository\WorkerRunRepository;
+use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Workflow\Contract\RuleBudgets;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Uid\Uuid;
@@ -17,7 +20,9 @@ final readonly class FixRunCommentBody
     private const array REASONS = ['checks-failed', 'conflict', 'changes-requested', 'agent-review'];
 
     public function __construct(
-        private BoardAutomation $boardAutomation,
+        private WorkerRunRepository $workerRuns,
+        private WorkRequestRepository $workRequests,
+        private RuleBudgets $ruleBudgets,
         private UrlGeneratorInterface $urls,
         private TranslatorInterface $translator,
 
@@ -41,11 +46,9 @@ final readonly class FixRunCommentBody
             $facts[] = $this->trans('board.fix_run_comment.failed_checks', ['%checks%' => implode(', ', $names)]);
         }
 
-        if (null !== $comment->fixRound) {
-            $facts[] = $this->trans('board.fix_run_comment.round', [
-                '%round%' => $comment->fixRound,
-                '%limit%' => $this->boardAutomation->settingsOf($comment->project)->loopLimit,
-            ]);
+        $limit = null === $comment->fixRound ? null : $this->limitOf($comment);
+        if (null !== $comment->fixRound && null !== $limit) {
+            $facts[] = $this->trans('board.fix_run_comment.round', ['%round%' => $comment->fixRound, '%limit%' => $limit]);
         }
 
         $link = $this->trans('board.fix_run_comment.card_link', [
@@ -59,6 +62,19 @@ final readonly class FixRunCommentBody
     public static function marker(Uuid $runId): string
     {
         return '<!-- loupe-fix-run:'.$runId->toRfc4122().' -->';
+    }
+
+    /** The limit of the rule that opened the work request of the run. */
+    private function limitOf(PullRequestComment $comment): ?int
+    {
+        $run = $this->workerRuns->find($comment->runId);
+        if (null === $run) {
+            return null;
+        }
+        $request = null === $run->workRequestId ? null : $this->workRequests->findOneOfSubject($run->workRequestId, $run->project, $run->subject());
+        $ruleId = $request->ruleId ?? $run->ruleId;
+
+        return null === $ruleId ? null : $this->ruleBudgets->limit($comment->project->id ?? throw new \LogicException('A stored comment has a project id.'), $ruleId);
     }
 
     /** @param array<string, string|int> $parameters */

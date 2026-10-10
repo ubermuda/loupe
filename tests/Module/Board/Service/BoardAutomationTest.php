@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Service;
 
-use App\Module\Board\Entity\BoardFixStrategy;
-use App\Module\Board\Entity\BoardMergeStrategy;
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
 use App\Module\Board\Repository\PullRequestCommentRepository;
 use App\Module\Board\Service\BoardAutomation;
@@ -44,9 +42,7 @@ final class BoardAutomationTest extends KernelTestCase
         $this->em->flush();
 
         self::assertTrue($settings->enabled);
-        self::assertSame(BoardMergeStrategy::Worker, $settings->mergeStrategy);
-        self::assertSame(BoardFixStrategy::Fresh, $settings->fixStrategy);
-        self::assertSame(3, $settings->loopLimit);
+        self::assertSame(3, $settings->terminalWindowDays);
         self::assertNull($settings->id);
         self::assertSame(0, $this->rowCount((string) $project->id));
     }
@@ -56,18 +52,14 @@ final class BoardAutomationTest extends KernelTestCase
         $project = $this->makeProject('automation-stored');
         $stored = $this->automation->settingsForUpdate($project);
         $stored->enabled = false;
-        $stored->mergeStrategy = BoardMergeStrategy::Off;
-        $stored->fixStrategy = BoardFixStrategy::Resume;
-        $stored->loopLimit = 7;
+        $stored->terminalWindowDays = 7;
         $this->em->flush();
         $this->em->clear();
 
         $settings = $this->automation->settingsOf($this->reloadProject($project));
 
         self::assertFalse($settings->enabled);
-        self::assertSame(BoardMergeStrategy::Off, $settings->mergeStrategy);
-        self::assertSame(BoardFixStrategy::Resume, $settings->fixStrategy);
-        self::assertSame(7, $settings->loopLimit);
+        self::assertSame(7, $settings->terminalWindowDays);
     }
 
     public function test_settings_for_update_creates_one_row_and_then_reuses_it(): void

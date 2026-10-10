@@ -7,19 +7,18 @@ namespace App\Module\Board\Workflow;
 use App\Exception\DomainErrors;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
-use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\AgentReviewCheck;
-use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardPullRequests;
+use App\Module\Board\Service\FixRunCommentQueue;
 use App\Module\Board\Service\SiteReviewCheckPublisher;
+use App\Module\Board\Service\StaleApprovalNoticeQueue;
 use App\Module\Board\Service\VerdictReviewSettler;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Forge\Service\ForgePullRequestWrites;
-use App\Module\Forge\Service\PullRequestBranchUpdaters;
 use App\Module\Forge\Service\PullRequestOpeners;
 use App\Module\Forge\Service\PullRequestStateWriters;
 use App\Module\Forge\Service\PullRequestSyncFailed;
@@ -34,33 +33,34 @@ use App\Module\Workflow\Contract\CardEvaluations;
 use App\Module\Workflow\Contract\CardEventCause;
 use App\Module\Workflow\Contract\CardTypeCatalog;
 use App\Module\Workflow\Contract\ChecksParameters;
+use App\Module\Workflow\Contract\EpicBranches;
 use App\Module\Workflow\Contract\Parameter;
 use App\Module\Workflow\Contract\ParameterType;
-use App\Module\Workflow\Contract\WorkflowRefusal;
+use App\Module\Workflow\Contract\RefiresOnFactChange;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * Writes to the pull request the rule acts on through the forge. A state write goes to each
- * pull request of the card. A write the project did not opt into, or that no writer of the forge supports, opens the fallback
- * work instead. A state write with no fallback then does nothing. The review-ready write marks the open pull requests ready
- * when the agent review is on. The epic opening acts on an epic with no pull request:
+ * pull request of the card. A write that no writer of the forge supports opens the fallback
+ * work instead. A state write with no fallback then does nothing. The epic opening acts on an epic with no pull request:
  * it opens the pull request of the epic branch and links it to the epic, and it has no fallback.
+ * A comment write queues the comment that the card's facts ask for, and it has no fallback.
+ * The review-ready write marks the open pull request the rule acts on ready, and it has no fallback.
  */
-final readonly class ForgeWrite implements Action, ChecksParameters
+final readonly class ForgeWrite implements Action, ChecksParameters, RefiresOnFactChange
 {
-    public const string OPEN_EPIC_OFF = WorkflowRefusal::OPEN_EPIC_OFF;
-
     public const string KEY = 'forge-write';
-    private const array WRITES_WITHOUT_FALLBACK = ['draft', 'ready', 'close', 'open-epic', 'post-review', 'site-review-check', 'agent-review-check', 'review-ready'];
+    private const array WRITES_WITHOUT_FALLBACK = ['draft', 'ready', 'close', 'open-epic', 'post-review', 'site-review-check', 'agent-review-check', 'review-ready', 'comment'];
+    private const array COMMENTS = ['fix-run', 'stale-approval'];
 
     public function __construct(
         private CardRepository $cards,
         private CardPullRequests $cardPullRequests,
-        private BoardAutomation $boardAutomation,
+        private EpicBranches $epicBranches,
         private ForgePullRequestWrites $forgePullRequestWrites,
         private ForgePullRequestRepository $forgePullRequests,
-        private PullRequestBranchUpdaters $branchUpdaters,
         private PullRequestStateWriters $stateWriters,
         private PullRequestOpeners $pullRequestOpeners,
         private WorkRequestOpener $opener,
@@ -69,8 +69,11 @@ final readonly class ForgeWrite implements Action, ChecksParameters
         private VerdictReviewSettler $reviewSettler,
         private SiteReviewCheckPublisher $checkPublisher,
         private AgentReviewCheck $agentReviewCheck,
+        private FixRunCommentQueue $fixRunComments,
+        private StaleApprovalNoticeQueue $staleApprovalNotices,
         private CardEvaluations $evaluations,
         private CardTypeCatalog $catalog,
+        private LoggerInterface $logger,
 
         #[Autowire(param: 'app.workflow.merge_method')]
         private string $mergeMethod,
@@ -95,15 +98,27 @@ final readonly class ForgeWrite implements Action, ChecksParameters
         return [
             new Parameter('write', ParameterType::String, choices: array_map(static fn (ForgeWriteKind $kind): string => $kind->value, ForgeWriteKind::cases())),
             new Parameter('fallback', ParameterType::String, required: false),
+            new Parameter('comment', ParameterType::String, required: false, choices: self::COMMENTS),
         ];
     }
 
     #[\Override]
     public static function check(array $params): array
     {
-        $needsFallback = !\in_array($params['write'] ?? null, self::WRITES_WITHOUT_FALLBACK, true);
+        $write = $params['write'] ?? null;
+        if (ForgeWriteKind::Comment->value === $write && !\array_key_exists('comment', $params)) {
+            return ['missing parameter "comment"'];
+        }
+        $needsFallback = !\in_array($write, self::WRITES_WITHOUT_FALLBACK, true);
 
         return $needsFallback && !\array_key_exists('fallback', $params) ? ['missing parameter "fallback"'] : [];
+    }
+
+    /** A comment write skips the rows it already stored, so a new item while the rule stays true posts its own comment. */
+    #[\Override]
+    public static function refiresOnFactChange(array $params): bool
+    {
+        return ForgeWriteKind::Comment->value === ($params['write'] ?? null);
     }
 
     #[\Override]
@@ -115,7 +130,9 @@ final readonly class ForgeWrite implements Action, ChecksParameters
     #[\Override]
     public function describe(array $params): ActionDescription
     {
-        return new ActionDescription('workflow.settings.action.forge_write', 'workflow.panel.action.forge_write', panelParams: ['%write%' => (string) $params['write']], settingsDetail: (string) $params['write']);
+        $write = isset($params['comment']) ? $params['write'].' '.$params['comment'] : (string) $params['write'];
+
+        return new ActionDescription('workflow.settings.action.forge_write', 'workflow.panel.action.forge_write', panelParams: ['%write%' => $write], settingsDetail: $write);
     }
 
     #[\Override]
@@ -152,6 +169,33 @@ final readonly class ForgeWrite implements Action, ChecksParameters
 
             return null === $result->failure ? ActionOutcome::done() : ActionOutcome::refused($result->failure);
         }
+        if (ForgeWriteKind::Comment === $write) {
+            $comment = $context->string('comment');
+            if (!\in_array($comment, self::COMMENTS, true)) {
+                throw new \LogicException(\sprintf('The rule "%s" names an unknown comment.', $context->ruleId));
+            }
+            // The queue runs in a savepoint, so a failure leaves the evaluation usable for the later rules.
+            // The rule stays true, and the next change of its facts tries again.
+            try {
+                $queued = 'fix-run' === $comment ? $this->fixRunComments->queue($card) : $this->staleApprovalNotices->queue($card);
+            } catch (\Throwable $e) {
+                $this->logger->error('fix-run' === $comment ? 'board.fix_run_comment_queue_failed' : 'board.pull_request_notice_queue_failed', [
+                    'cardId' => (string) $card->id,
+                    'ruleId' => $context->ruleId,
+                    'comment' => $comment,
+                    'error' => $e->getMessage(),
+                    'exception' => $e,
+                ]);
+
+                return ActionOutcome::done();
+            }
+            // The stored row turns the condition false, and only a new evaluation reads it.
+            if ($queued && $this->evaluations->isOn()) {
+                $this->evaluations->forCards([$card->id ?? throw new \LogicException('A stored card has an id.')]);
+            }
+
+            return ActionOutcome::done();
+        }
         if (\in_array($write, [ForgeWriteKind::Draft, ForgeWriteKind::Ready, ForgeWriteKind::Close, ForgeWriteKind::ReviewReady], true)) {
             if (ForgeWriteKind::ReviewReady === $write) {
                 $subject = $this->cardPullRequests->subjectOf(array_values(array_filter($pullRequests, static fn (ForgePullRequest $pullRequest): bool => PullRequestState::Open === $pullRequest->state)), $facts->pullRequest);
@@ -161,47 +205,22 @@ final readonly class ForgeWrite implements Action, ChecksParameters
                 return ActionOutcome::done();
             }
 
-            return self::optedIn($write, $this->boardAutomation->settingsOf($card->project))
-                ? $this->writeStates($pullRequests, $write, $fallback)
-                : $fallback();
+            return $this->writeStates($pullRequests, $write, $fallback);
         }
 
         $pullRequest = $this->cardPullRequests->subjectOf($pullRequests, $facts->pullRequest);
         if (null === $pullRequest) {
             return ActionOutcome::refused('no-pull-request');
         }
-        if (ForgeWriteKind::Comment === $write) {
-            return ActionOutcome::refused('unsupported-write');
-        }
-        if (!self::optedIn($write, $this->boardAutomation->settingsOf($card->project))) {
-            return $fallback();
-        }
-
         try {
             return match ($write) {
                 ForgeWriteKind::Merge => $this->forgeWrite(fn () => $this->forgePullRequestWrites->merge($pullRequest, $this->mergeMethod), $fallback),
                 ForgeWriteKind::ChangeBase => $this->changeBase($pullRequest, $fallback),
-                ForgeWriteKind::UpdateBranch => $this->updateBranch($pullRequest, $fallback),
+                ForgeWriteKind::UpdateBranch => $this->forgeWrite(fn () => $this->forgePullRequestWrites->updateBranch($pullRequest), $fallback),
             };
         } catch (PullRequestWriteFailed|PullRequestSyncFailed $e) {
             return ActionOutcome::refused($e->cause);
         }
-    }
-
-    private static function optedIn(ForgeWriteKind $write, BoardAutomationSettings $settings): bool
-    {
-        return match ($write) {
-            ForgeWriteKind::Merge => $settings->mergePullRequests,
-            ForgeWriteKind::ChangeBase => $settings->changeBase,
-            ForgeWriteKind::UpdateBranch => $settings->syncBehind,
-            ForgeWriteKind::Draft, ForgeWriteKind::Ready => $settings->epicDraftSwitch,
-            ForgeWriteKind::Close => $settings->closeEpicPullRequests,
-            ForgeWriteKind::OpenEpic => $settings->openEpicPullRequests,
-            ForgeWriteKind::PostReview => $settings->postWidgetReviews,
-            ForgeWriteKind::SiteReviewCheck => $settings->siteReviewCheck,
-            ForgeWriteKind::AgentReviewCheck, ForgeWriteKind::ReviewReady => $settings->agentReview,
-            ForgeWriteKind::Comment => false,
-        };
     }
 
     /**
@@ -211,14 +230,9 @@ final readonly class ForgeWrite implements Action, ChecksParameters
      */
     private function openEpic(string $ruleId, Card $card, array $pullRequests): ActionOutcome
     {
-        $settings = $this->boardAutomation->settingsOf($card->project);
-        $epicBranch = $settings->epicBranchOf($card->number);
+        $epicBranch = $this->epicBranches->of($card->project->requireId(), $card->number);
         if (!$this->catalog->forProject($card->project->requireId())->get($card->type)->children || null === $epicBranch) {
             return ActionOutcome::done();
-        }
-        // A refusal waits, and turning the write on re-arms it. A done rule never fires again.
-        if (!self::optedIn(ForgeWriteKind::OpenEpic, $settings)) {
-            return ActionOutcome::refused(self::OPEN_EPIC_OFF);
         }
         foreach ($pullRequests as $pullRequest) {
             if (PullRequestState::Open === $pullRequest->state && $epicBranch === $pullRequest->headBranch) {
@@ -276,8 +290,8 @@ final readonly class ForgeWrite implements Action, ChecksParameters
     {
         try {
             $write();
-        } catch (PullRequestWriteFailed $e) {
-            if ('no_writer' === $e->cause) {
+        } catch (PullRequestWriteFailed|PullRequestSyncFailed $e) {
+            if (self::lacksWriter($e->cause)) {
                 return $fallback();
             }
 
@@ -285,6 +299,12 @@ final readonly class ForgeWrite implements Action, ChecksParameters
         }
 
         return ActionOutcome::done();
+    }
+
+    /** A project with no GitHub App installation has no writer for its pull requests, so a bridge does the work. */
+    private static function lacksWriter(string $cause): bool
+    {
+        return 'no_writer' === $cause || 'no_installation' === $cause;
     }
 
     /** @param \Closure(): ActionOutcome $fallback */
@@ -319,21 +339,6 @@ final readonly class ForgeWrite implements Action, ChecksParameters
         return $parent?->baseBranch;
     }
 
-    /** @param \Closure(): ActionOutcome $fallback */
-    private function updateBranch(ForgePullRequest $pullRequest, \Closure $fallback): ActionOutcome
-    {
-        $updater = $this->branchUpdaters->for($pullRequest->forge);
-        if (null === $updater) {
-            return $fallback();
-        }
-        if (null === $pullRequest->headSha) {
-            return ActionOutcome::refused('no-head');
-        }
-        $updater->update($pullRequest, $pullRequest->headSha);
-
-        return ActionOutcome::done();
-    }
-
     /**
      * Writes every pull request that a writer supports, so a failure on one does not hold back the
      * others. The first failure refuses the action, and its retry writes each one again, which a writer allows.
@@ -344,13 +349,14 @@ final readonly class ForgeWrite implements Action, ChecksParameters
     private function writeStates(array $pullRequests, ForgeWriteKind $write, \Closure $fallback): ActionOutcome
     {
         $failure = null;
-        $written = false;
+        $skipped = false;
         foreach ($pullRequests as $pullRequest) {
             $writer = $this->stateWriters->for($pullRequest->forge);
             if (null === $writer) {
+                $skipped = true;
+
                 continue;
             }
-            $written = true;
             try {
                 if (ForgeWriteKind::Close === $write) {
                     $writer->close($pullRequest);
@@ -358,14 +364,19 @@ final readonly class ForgeWrite implements Action, ChecksParameters
                     $writer->setDraft($pullRequest, ForgeWriteKind::Draft === $write);
                 }
             } catch (PullRequestWriteFailed $e) {
+                if (self::lacksWriter($e->cause)) {
+                    $skipped = true;
+
+                    continue;
+                }
                 $failure ??= $e;
             }
         }
 
-        if (!$written) {
-            return $fallback();
+        if (null !== $failure) {
+            return ActionOutcome::refused($failure->cause);
         }
 
-        return null === $failure ? ActionOutcome::done() : ActionOutcome::refused($failure->cause);
+        return $skipped ? $fallback() : ActionOutcome::done();
     }
 }

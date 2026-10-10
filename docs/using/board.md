@@ -336,12 +336,6 @@ A merge from the base after the approval keeps it covered, as
 [Pull request waits](inbox.md#pull-request-waits) describes. A new approval of
 the newest commit shows **Approved** again.
 
-When the project syncs an approved pull request that is behind, each open pull
-request whose base is the default branch also shows one line about its sync. It shows
-**Waits for an approval**, **Conflicts with the base**, **Waits its turn behind
-#N**, **Synced, checks running** or **Sync failed** with the cause. A pull
-request with nothing to wait for shows no line. See [Automation](#automation).
-
 When an approval did not move the card because a blocker is open, the Workflow
 panel says what the card waits for.
 
@@ -609,7 +603,7 @@ When each linked pull request is closed and none merged, the epic does not
 close when its last child finishes. It stays where it is, as for any card.
 
 For a repository connected through the GitHub App, Loupe also changes the
-pull request, when the epic writes are on in [Automation](#automation):
+pull request, when the workflow has the rules for it:
 
 - When the epic enters `in-review`, Loupe marks its linked pull requests ready
   for review.
@@ -626,6 +620,11 @@ A repository profile can give each epic its own branch. Its `.loupe/lifecycle.md
 file then holds an `Epics` section. Under that profile, the breakdown of epic
 number n pushes a branch `epic/<n>` from `main`. It pushes the branch only when
 no child of the epic links a pull request yet.
+
+The workflow template of the project names the branch in its top-level
+`epicBranch` value, such as `epic/{number}`. `{number}` stands for the epic card
+number. Both shipped templates carry `epic/{number}`. A template with no
+`epicBranch` value has no epic branches.
 
 Each child of the epic starts from `epic/<n>`, and its pull request targets
 `epic/<n>`. A child that waits on blockers starts when they are done, so its
@@ -782,35 +781,27 @@ or have your agent move it with `card_update`.
 
 ### Automation
 
-The owner sets how the workflow acts on pull requests on the **Automation** tab
-of the project settings, beside **Board columns**. Only a repository connected
-through the GitHub App gets a write from Loupe. Each write is off until the owner
-turns it on. With a write off, the workflow asks a bridge for the work instead,
-as its template says.
+The **Automation** tab of the project settings, beside **Board columns**, has
+one setting. The rules of the workflow decide every write to a pull request. A
+write that a rule names happens when the rule fires, and no other switch gates
+it. Only a repository connected through the GitHub App gets a write from Loupe.
+When the project has no GitHub App installation, the workflow asks a bridge for
+the work instead, as its template says.
 
 | Setting | Default | Does |
 |---|---|---|
 | **Run the workflow of the board** | on | When off, the workflow moves no card and asks for no work on this board. Loupe still records the pull request facts |
-| **Comment on the pull request when a fix run is queued** | off | When on, Loupe posts a comment on the pull request each time a bridge queues a fix run for it |
-| **Comment on a pull request when new commits follow its approval** | off | When on, Loupe posts one comment for each new head that the approval does not cover |
-| **Sync an approved pull request that is behind** | off | When on, Loupe updates the branch of an approved pull request that is behind its base. The GitHub App needs "Contents: read and write" |
-| **Merge a pull request when the workflow asks** | off | When on, Loupe merges a pull request when the workflow of the board asks for it. The GitHub App needs "Contents: read and write" |
-| **Change the base of a pull request when the workflow asks** | off | When on, Loupe changes the base branch of a pull request when the workflow of the board asks for it. The GitHub App needs "Pull requests: read and write" |
-| **Switch an epic pull request between draft and ready when the workflow asks** | off | When on, Loupe marks the pull request of an epic as a draft in implementation, and as ready in review. The GitHub App needs "Pull requests: read and write" |
-| **Close the pull requests of an epic when the workflow asks** | off | When on, Loupe closes the pull requests of an epic that moves back to the Backlog. The GitHub App needs "Pull requests: read and write" |
-| **Open the epic pull request** | off | When on, Loupe opens a draft pull request from the epic branch to the default branch after the first child merges into the epic branch, and links it to the epic. The GitHub App needs "Pull requests: read and write" |
-| **Post a widget verdict as a review on GitHub** | off | When on, a verdict that a reviewer sends from the site-review widget becomes a review on the pull requests of the card, under the reviewer's own GitHub account. Loupe stores the verdict and its notes with this setting off or on |
-| **Keep a "Loupe site review" check on pull requests** | off | When on, Loupe posts a check named "Loupe site review" on each open pull request of a managed card. The check fails while open site-review notes remain on any card of the project that links the pull request. The GitHub App needs "Checks: read and write" |
-| **Ask an agent to review each pull request** | off | When on, Loupe posts the check `loupe/agent-review` for each review that a review worker sends. Each finding shows as a note on its lines. No workflow rule asks for the review yet. The GitHub App needs "Checks: read and write" |
-| **Findings that fail the agent review check** | Important | The finding severities that make the agent review check fail. Select one or more of Important, Nit and Pre-existing. Findings of other severities show as notes only |
-| **Epic branch pattern** | `epic/{number}` | The branch that the breakdown pushes for an epic. `{number}` stands for the epic card number. A child pull request into this branch merges into the epic. Leave it empty when the project uses no epic branches |
 
-The draft and ready switch and the close write were on for each board whose automation was on before the
-workflow engine, so the epic flow kept working.
+The epic branch pattern, the loop limit of the fix rules and the comments are
+part of the workflow template. The `epicBranch` value of the template names the
+epic branch, such as `epic/{number}`. The `limit` of a fix rule sets the
+number of fix rounds.
 
-The comment gives the reason for the fix and the failed checks. It also gives
-a link to the card. The card page lists the runs. A comment that fails never
-holds the run.
+In the Lifecycle template, Loupe posts a comment on the pull request each time
+a bridge queues a fix run for it. The comment gives the reason for the fix and
+the failed checks. It gives the round of the fix out of the `limit` of the fix
+rule, such as 2 of 3. It also gives a link to the card. The card page lists the
+runs. A comment that fails never holds the run.
 
 Loupe retries a comment 3 times when it fails for a passing reason, such as a
 GitHub server error. When GitHub limits the rate, Loupe waits as long as
@@ -819,25 +810,24 @@ not retry a comment that GitHub refuses, such as for a missing permission. Fix
 the cause, and the next queued fix run posts a new comment.
 
 After the last failure, the tab shows the failure, its pull request and its
-cause. The tab hides it when a later comment posts, or when you turn the
-setting off. The GitHub App must
+cause. The tab hides it when a later comment posts. The GitHub App must
 have Pull requests: read and write. The comment needs a bridge that reports
-the event that queued a run. An older bridge sends none, so no comment posts.
+a run when it is queued. An older bridge reports a run only after it ends, so
+no comment posts.
 
 An approval that does not cover the newest commit starts no merge. GitHub says
-which commit the approval covers. When the approval comment setting is on, Loupe posts
+which commit the approval covers. In the Lifecycle template, Loupe posts
 one comment on the pull request, such as "Not merged: commit `abc1234` came
 after your approval. Approve the new head to merge." Each head gets one
-comment at most. A push of another commit gets a new comment. The setting needs
+comment at most. A push of another commit gets a new comment. The rule needs
 **Run the workflow of the board** on, and the GitHub App must have Pull requests:
 read and write. A comment that fails retries like a fix run comment. The tab
 does not show its failure.
 
-The sync setting keeps approved work up to date with its base, so it can merge.
-Loupe syncs one pull request of the project at a time. It picks the pull
-request with the oldest approval, and the lower number breaks a tie. While an
-approved pull request is up to date, or a sync of it runs, no other pull request
-syncs. A sync that does not finish in ten minutes counts as failed.
+The `update-behind` rule of the Lifecycle template keeps approved work up to
+date with its base, so it can merge. It updates each approved pull request that
+is behind at once. It also updates a pull request into an epic branch that is
+behind, with no approval. Each sync restarts the checks of that pull request.
 
 Loupe syncs only a pull request that it reads as behind its base. That happens
 only when the rules of the base branch require a branch to be up to date before
@@ -848,10 +838,10 @@ A pull request counts as approved when a person with write access approved its
 current head. An approval of a head that Loupe synced still counts, so a sync
 needs no new review. The exception is a base branch whose rules dismiss stale
 approvals on a push. GitHub then removes the approval when Loupe syncs, and the
-pull request shows **Waits for an approval** until a person approves it again.
-A request for changes removes the pull request from
-the line. Loupe only updates the branch, and it never merges. The GitHub App
-must have Contents: read and write. See
+pull request then needs a new approval before it merges. A request for
+changes stops the sync of a pull request into the default branch. A sync only
+updates the branch, and it never merges. The GitHub App must have Contents:
+read and write. See
 [Forge webhooks](../extending/forge-webhooks.md).
 
 The Lifecycle template asks for a fix when the required checks fail, when the
@@ -879,7 +869,7 @@ An agent drives the board through the MCP endpoint. See
 | `column_update` | `slug` is required. `label` and `terminal` are optional. |
 | `column_reorder` | `order` is required: the slugs of every column except Backlog, in the new order. |
 | `column_delete` | `slug` is required. `targetColumn` is required when the column holds cards. |
-| `automation_settings_update` | Every argument is optional. Each one is a setting of **Automation**, such as `enabled`, `syncBehind`, `openEpicPullRequests` or `epicBranchPattern`. |
+| `automation_settings_update` | Every argument is optional. `enabled` turns the workflow of the board on or off. |
 
 `board_columns` lists the columns of the board in board order. Each entry
 carries `slug`, `label`, `terminal`, `default` and `backlog`. The Backlog row
@@ -893,9 +883,7 @@ template does not declare is refused.
 `column_create`, `column_update`, `column_reorder` and `column_delete` change
 the columns, as **Board settings** does. They refuse the changes that Board
 settings refuses, and the error says what the agent can fix. A setting that
-`automation_settings_update` omits keeps its value. An empty `epicBranchPattern`
-turns epic branches off. The call refuses a pattern that is not a branch name
-with `{number}` exactly once, and then it saves nothing.
+`automation_settings_update` omits keeps its value.
 
 `card_run_open` and `card_run_close` record an interactive session on a card.
 See [Interactive sessions](worker-runs.md#interactive-sessions).
@@ -1111,21 +1099,18 @@ the reviewer.
 
 A verdict changes nothing on GitHub by itself. The
 [rules the app adds](workflows.md#rules-the-app-adds) write to the pull
-requests, and only while the matching setting on the **Automation** tab is on:
+requests, as soon as the rule fires:
 
-- With **Post a widget verdict as a review on GitHub** on, the verdict becomes
-  a review under the reviewer's own GitHub account. On the reviewer's own pull
-  request it becomes a comment. With the setting off, the verdict stays on the
-  card and no review goes out.
-- With **Keep a "Loupe site review" check on pull requests** on, the check
-  fails while a pending note that a verdict carried remains. The check also
-  runs when nobody sends a verdict. It is green until a verdict carries a note.
-  When two cards link one pull request, the check counts the pending notes of
-  both cards. When you switch the setting off, Loupe turns each failed check on
-  an open pull request to neutral, so it no longer blocks a merge.
+- The verdict becomes a review under the reviewer's own GitHub account. On the
+  reviewer's own pull request it becomes a comment. Each review opens with a
+  line that names the Loupe site review and links to the card.
+- The check fails while a pending note that a verdict carried remains. The check
+  also runs when nobody sends a verdict. It is green until a verdict carries a
+  note. When two cards link one pull request, the check counts the pending notes
+  of both cards.
 
 Before the reviewer sends, the widget lists the writes that the verdict will
-start. The list follows the rules and the settings of the project. It does not
+start. The list follows the rules of the project. It does not
 list the fix round that a request for changes on GitHub starts later.
 
 The widget shows the state of each pull request after the send. When the
@@ -1141,13 +1126,13 @@ links stay. Send `[]` and every link is removed.
 ### A check from an agent review
 
 A review worker sends its findings with the `agent_review_submit` MCP tool. Each
-finding names a file, a range of lines and a severity. With **Ask an agent to
-review each pull request** on, Loupe posts a check named `loupe/agent-review` on
-the commit that the worker reviewed. The check puts one note beside the lines of
-each finding. An important finding shows as a failure, a nit as a warning, and a
-pre-existing finding as a notice. The check fails when a finding has a severity
-from **Findings that fail the agent review check**. The Lifecycle template asks
-for the review. See [Agent review](workflows.md#agent-review).
+finding names a file, a range of lines and a severity. Loupe posts a check named
+`loupe/agent-review` on the commit that the worker reviewed. The check puts one
+note beside the lines of each finding. An important finding shows as a failure,
+a nit as a warning, and a pre-existing finding as a notice. The check fails when
+a finding has a severity from the `agentReviewFailingSeverities` value of the
+workflow template. The Lifecycle template asks for the review. See
+[Agent review](workflows.md#agent-review).
 
 ### A person deletes a card, an agent does not
 

@@ -7,7 +7,6 @@ namespace App\Module\AgentReview\Workflow;
 use App\Module\AgentReview\Repository\AgentReviewRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardPullRequests;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
@@ -22,7 +21,6 @@ final readonly class AgentReviewFactProvider implements FactProvider
         private CardPullRequests $trackedPullRequests,
         private CardPullRequestRepository $cardPullRequests,
         private AgentReviewRepository $agentReviews,
-        private BoardAutomation $boardAutomation,
         private CardTypeCatalog $catalog,
     ) {
     }
@@ -43,7 +41,6 @@ final readonly class AgentReviewFactProvider implements FactProvider
     public function build(CardSnapshot $snapshot): object
     {
         $card = $this->cards->find($snapshot->id) ?? throw new \LogicException('The card of the facts exists.');
-        $enabled = $this->boardAutomation->settingsOf($card->project)->agentReview;
         $epic = $this->catalog->forProject($snapshot->projectId)->get($snapshot->type)->children;
 
         $open = array_values(array_filter(
@@ -58,9 +55,8 @@ final readonly class AgentReviewFactProvider implements FactProvider
 
         return new AgentReviewFacts(
             $heads,
-            $enabled,
             $epic,
-            $enabled && [] !== $this->agentReviews->findUnpostedOfCard($card, $this->cardPullRequests->findOpenGitHubForCard($card)),
+            [] !== $this->agentReviews->findUnpostedOfCard($card, $this->cardPullRequests->findOpenGitHubForCard($card)),
         );
     }
 
@@ -72,7 +68,6 @@ final readonly class AgentReviewFactProvider implements FactProvider
         }
 
         return [
-            $facts->enabled,
             $facts->epic,
             $facts->unposted,
             array_map(static fn (ReviewedHead $head): array => [$head->pullRequestId, $head->headSha, $head->conclusion?->value], $facts->heads),

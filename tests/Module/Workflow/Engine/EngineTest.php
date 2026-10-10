@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Workflow\Engine;
 
+use App\Module\AgentReview\Entity\AgentReview;
+use App\Module\AgentReview\Entity\AgentReviewConclusion;
 use App\Module\Board\Command\PauseCardHandler;
 use App\Module\Board\Command\ReleaseCardPauseHandler;
 use App\Module\Board\Command\SaveBoardAutomationSettingsCommand;
@@ -15,13 +17,17 @@ use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPause;
+use App\Module\Board\Entity\PullRequestComment;
+use App\Module\Board\Entity\PullRequestNotice;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardPauseRepository;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Board\Service\BoardAutomation;
+use App\Module\Board\Repository\PullRequestCommentRepository;
+use App\Module\Board\Repository\PullRequestNoticeRepository;
 use App\Module\Board\Service\CardPullRequests;
+use App\Module\Board\Service\StaleApprovalNoticeBody;
 use App\Module\Board\Workflow\BoardCardPauses;
 use App\Module\Board\Workflow\CardTypeFacts;
 use App\Module\Board\Workflow\ForgeWrite;
@@ -2228,6 +2234,9 @@ final class EngineTest extends KernelTestCase
         $child = $this->childOf($epic, 'in-review');
         $pullRequest = $this->pullRequest($child, base: 'epic/'.$epic->number);
         $pullRequest->checks = PullRequestChecks::Passed;
+        $review = new AgentReview($project, $child, $pullRequest, $pullRequest->headSha ?? '', 'Fine.', AgentReviewConclusion::Success, []);
+        $review->postedAt = new \DateTimeImmutable('2026-10-02 12:00:00');
+        $this->em()->persist($review);
         $this->em()->flush();
         $this->evaluate($child, '2026-10-02 12:05:00');
         self::assertFalse($this->ruleState($child, 'merge-ready-epic-child')->truth);
@@ -2473,7 +2482,7 @@ final class EngineTest extends KernelTestCase
 
         self::assertSame('in-progress', $epic->column->slug);
         $state = $this->ruleState($epic, 'epic-open-pull-request');
-        self::assertSame('open-epic-off', $state->lastRefusal);
+        self::assertSame('no-installation', $state->lastRefusal);
         self::assertNotNull($state->dueAt);
     }
 
@@ -2995,6 +3004,73 @@ final class EngineTest extends KernelTestCase
         self::assertSame([], $this->asks->opened);
     }
 
+    public function test_a_true_rule_whose_action_refires_fires_again_when_its_facts_change(): void
+    {
+        $card = $this->boundCard([['id' => 'comment', 'when' => self::PROVIDED_READY, 'then' => ['forge-write' => ['write' => 'comment', 'comment' => 'fix-run']]]]);
+        $this->provider()->facts = new ProvidedFacts(ready: true);
+
+        $this->evaluate($card);
+        $this->evaluate($card, '2026-10-02 12:01:00');
+        self::assertSame(1, $this->ruleState($card, 'comment')->fires);
+
+        $this->provider()->facts = new ProvidedFacts(ready: true, version: 2);
+        $this->evaluate($card, '2026-10-02 12:02:00');
+
+        self::assertSame(2, $this->ruleState($card, 'comment')->fires);
+    }
+
+    public function test_a_true_rule_whose_action_does_not_refire_waits_for_a_new_edge_when_its_facts_change(): void
+    {
+        $card = $this->boundCard([['id' => 'draft', 'when' => self::PROVIDED_READY, 'then' => ['forge-write' => ['write' => 'draft']]]]);
+        $this->provider()->facts = new ProvidedFacts(ready: true);
+        $this->evaluate($card);
+        self::assertSame(1, $this->ruleState($card, 'draft')->fires);
+
+        $this->provider()->facts = new ProvidedFacts(ready: true, version: 2);
+        $this->evaluate($card, '2026-10-02 12:02:00');
+
+        self::assertSame(1, $this->ruleState($card, 'draft')->fires);
+    }
+
+    public function test_a_new_head_pushed_before_the_next_evaluation_gets_its_own_stale_approval_notice(): void
+    {
+        $card = $this->boundCard([['id' => 'comment-stale-approval', 'when' => ['card.pr.approval_stale' => []], 'then' => ['forge-write' => ['write' => 'comment', 'comment' => 'stale-approval']]]]);
+        $pullRequest = $this->pullRequest($card, headSha: 'head1');
+        $pullRequest->approvalId = 'review-1';
+        $pullRequest->coveredSha = 'approved';
+        $pullRequest->uncoveredSha = 'head1';
+        $this->em()->flush();
+
+        $this->evaluate($card);
+        self::assertCount(1, $this->service(PullRequestNoticeRepository::class)->findBy(['forgePullRequestId' => $pullRequest->id]));
+
+        $pullRequest->headSha = $pullRequest->uncoveredSha = 'head2';
+        $this->em()->flush();
+        $this->evaluate($card, '2026-10-02 12:01:00');
+
+        $keys = array_map(static fn (PullRequestNotice $notice): string => $notice->noticeKey, $this->service(PullRequestNoticeRepository::class)->findBy(['forgePullRequestId' => $pullRequest->id], ['noticeKey' => 'ASC']));
+        self::assertSame([StaleApprovalNoticeBody::key('head1'), StaleApprovalNoticeBody::key('head2')], $keys);
+    }
+
+    public function test_a_second_fix_run_queued_before_the_next_evaluation_gets_its_own_comment(): void
+    {
+        $card = $this->boundCard([['id' => 'comment-fix-run', 'when' => ['card.fix_run.uncommented' => []], 'then' => ['forge-write' => ['write' => 'comment', 'comment' => 'fix-run']]]]);
+        $this->pullRequest($card);
+        $first = $this->workerRun($card, 'fix', WorkerRunState::Queued);
+
+        $this->evaluate($card);
+        self::assertCount(1, $this->service(PullRequestCommentRepository::class)->findBy(['cardId' => $card->id]));
+
+        $second = $this->workerRun($card, 'fix', WorkerRunState::Queued);
+        $this->evaluate($card, '2026-10-02 12:01:00');
+
+        $runIds = array_map(static fn (PullRequestComment $comment): string => (string) $comment->runId, $this->service(PullRequestCommentRepository::class)->findBy(['cardId' => $card->id]));
+        sort($runIds);
+        $expected = [(string) $first->id, (string) $second->id];
+        sort($expected);
+        self::assertSame($expected, $runIds);
+    }
+
     /**
      * Binds a template whose slot "one" is the column "next", "two" is "in-progress" and "three" has no column.
      *
@@ -3302,17 +3378,9 @@ final class EngineTest extends KernelTestCase
 
     private function saveAutomation(Card $card, bool $enabled): void
     {
-        $settings = $this->service(BoardAutomation::class)->settingsOf($card->project);
         $this->service(SaveBoardAutomationSettingsHandler::class)(new SaveBoardAutomationSettingsCommand(
             $card->project,
             $enabled,
-            $settings->commentOnFixQueued,
-            $settings->commentOnStaleApproval,
-            $settings->syncBehind,
-            $settings->mergePullRequests,
-            $settings->changeBase,
-            $settings->postWidgetReviews,
-            $settings->siteReviewCheck,
         ));
     }
 

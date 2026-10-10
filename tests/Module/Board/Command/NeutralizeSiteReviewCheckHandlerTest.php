@@ -185,7 +185,6 @@ final class NeutralizeSiteReviewCheckHandlerTest extends KernelTestCase
                 $container->get(CardPullRequestRepository::class),
                 $container->get(SiteReviewFactProvider::class),
                 $container->get(SiteReviewCheckStateRepository::class),
-                $automation,
                 new PullRequestCheckWriters([$writer ?? $this->writer]),
                 $translator,
                 $em,

@@ -6,7 +6,6 @@ namespace App\Tests\Module\Board\EventListener;
 
 use App\Module\Board\Command\SaveBoardAutomationSettingsCommand;
 use App\Module\Board\Command\SaveBoardAutomationSettingsHandler;
-use App\Module\Board\Service\BoardAutomation;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Workflow\Action\ActionScenario;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -46,17 +45,9 @@ final class BaselineCardsOnBoardAutomationTurnedOnTest extends KernelTestCase
 
     private function save(Project $project, bool $enabled): void
     {
-        $settings = $this->service(BoardAutomation::class)->settingsOf($project);
         $this->service(SaveBoardAutomationSettingsHandler::class)(new SaveBoardAutomationSettingsCommand(
             $project,
             $enabled,
-            $settings->commentOnFixQueued,
-            $settings->commentOnStaleApproval,
-            $settings->syncBehind,
-            $settings->mergePullRequests,
-            $settings->changeBase,
-            $settings->postWidgetReviews,
-            $settings->siteReviewCheck,
         ));
     }
 

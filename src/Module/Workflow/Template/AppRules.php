@@ -77,6 +77,8 @@ final class AppRules
             $template->defaultType,
             $template->onWorkFailed,
             $template->childChoices,
+            $template->epicBranch,
+            $template->agentReviewFailingSeverities,
         );
     }
 

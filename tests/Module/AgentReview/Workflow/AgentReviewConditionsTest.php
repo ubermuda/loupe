@@ -32,20 +32,17 @@ final class AgentReviewConditionsTest extends TestCase
         $failure = self::head(AgentReviewConclusion::Failure);
         $headless = new ReviewedHead(self::BOUND, '', null);
 
-        yield 'due: switch off' => [new AgentReviewDue(), self::review([$none], enabled: false), false];
         yield 'due: epic' => [new AgentReviewDue(), self::review([$none], epic: true), false];
         yield 'due: no pull request head' => [new AgentReviewDue(), self::review([]), false];
         yield 'due: bound head without review' => [new AgentReviewDue(), self::review([self::head(AgentReviewConclusion::Success, self::OTHER), $none]), true];
         yield 'due: bound head reviewed, another head without review' => [new AgentReviewDue(), self::review([$success, self::head(null, self::OTHER)]), false];
         yield 'due: every head reviewed' => [new AgentReviewDue(), self::review([$success, $failure]), false];
 
-        yield 'failed: switch off' => [new AgentReviewFailed(), self::review([$failure], enabled: false), false];
         yield 'failed: head without review' => [new AgentReviewFailed(), self::review([$none]), false];
         yield 'failed: every head passed' => [new AgentReviewFailed(), self::review([$success]), false];
         yield 'failed: bound head failed' => [new AgentReviewFailed(), self::review([self::head(AgentReviewConclusion::Success, self::OTHER), $failure]), true];
         yield 'failed: bound head passed, another head failed' => [new AgentReviewFailed(), self::review([$success, self::head(AgentReviewConclusion::Failure, self::OTHER)]), false];
 
-        yield 'passed: switch off' => [new AgentReviewPassed(), self::review([$none], enabled: false), true];
         yield 'passed: epic' => [new AgentReviewPassed(), self::review([], epic: true), true];
         yield 'passed: no pull request head' => [new AgentReviewPassed(), self::review([]), false];
         yield 'passed: head without review' => [new AgentReviewPassed(), self::review([$success, $none]), false];
@@ -54,7 +51,6 @@ final class AgentReviewConditionsTest extends TestCase
         yield 'passed: one head failed' => [new AgentReviewPassed(), self::review([$success, $failure]), false];
         yield 'passed: every head passed' => [new AgentReviewPassed(), self::review([$success, self::head(AgentReviewConclusion::Success, self::OTHER)]), true];
 
-        yield 'unposted: switch off' => [new AgentReviewUnposted(), self::review([], enabled: false, unposted: true), false];
         yield 'unposted: all posted' => [new AgentReviewUnposted(), self::review([$success]), false];
         yield 'unposted: a review waits' => [new AgentReviewUnposted(), self::review([$success], unposted: true), true];
     }
@@ -96,9 +92,9 @@ final class AgentReviewConditionsTest extends TestCase
     }
 
     /** @param list<ReviewedHead> $heads */
-    private static function review(array $heads, bool $enabled = true, bool $epic = false, bool $unposted = false): AgentReviewFacts
+    private static function review(array $heads, bool $epic = false, bool $unposted = false): AgentReviewFacts
     {
-        return new AgentReviewFacts($heads, $enabled, $epic, $unposted);
+        return new AgentReviewFacts($heads, $epic, $unposted);
     }
 
     private static function facts(AgentReviewFacts $review): Facts
