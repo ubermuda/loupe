@@ -42,6 +42,7 @@ final readonly class InboxRuleAsks implements RuleAsks
         private InboxItemCloser $closer,
         private InboxSearchIndexer $searchIndexer,
         private InboxOpenCountPublisher $openCount,
+        private InboxCardTileRefresher $cardTiles,
     ) {
     }
 
@@ -87,6 +88,7 @@ final readonly class InboxRuleAsks implements RuleAsks
         });
 
         $this->openCount->countChanged($project);
+        $this->cardTiles->refresh($item);
 
         return $item->id ?? throw new \LogicException('A stored item has an id.');
     }
@@ -123,6 +125,7 @@ final readonly class InboxRuleAsks implements RuleAsks
 
             if ($closed) {
                 $this->openCount->countChanged($item->project);
+                $this->cardTiles->refresh($item);
             }
         }
     }

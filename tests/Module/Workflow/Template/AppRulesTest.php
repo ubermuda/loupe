@@ -28,11 +28,11 @@ final class AppRulesTest extends KernelTestCase
         parent::tearDown();
     }
 
-    public function test_the_shipped_file_holds_the_discovery_and_site_review_rules(): void
+    public function test_the_shipped_file_holds_the_discovery_site_review_and_agent_review_rules(): void
     {
         $rules = $this->shippedAppRules()->rules();
 
-        self::assertSame(['discovery', 'post-widget-review', 'sync-site-review-check'], array_map(static fn (Rule $rule): string => $rule->id, $rules));
+        self::assertSame(['discovery', 'post-widget-review', 'sync-site-review-check', 'sync-agent-review-check'], array_map(static fn (Rule $rule): string => $rule->id, $rules));
         self::assertSame(RuleOrigin::App, $rules[0]->origin);
         self::assertSame('@backlog', $rules[0]->slot);
         self::assertSame(['kind' => 'discovery', 'onTimeout' => 'expire', 'prompt' => 'discovery'], $rules[0]->then->params);
@@ -40,6 +40,8 @@ final class AppRulesTest extends KernelTestCase
         self::assertSame(['write' => 'post-review'], $rules[1]->then->params);
         self::assertNull($rules[2]->slot);
         self::assertSame(['write' => 'site-review-check'], $rules[2]->then->params);
+        self::assertNull($rules[3]->slot);
+        self::assertSame(['write' => 'agent-review-check'], $rules[3]->then->params);
         self::assertSame(file_get_contents(\dirname(__DIR__, 4).'/config/workflows/app/prompts/discovery.md'), $this->shippedAppRules()->prompt('discovery'));
     }
 

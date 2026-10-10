@@ -11,10 +11,12 @@ use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\RenameDocumentCommand;
 use App\Module\Review\Command\RenameDocumentHandler;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Event\DocumentRenamed;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -69,6 +71,23 @@ final class RenameDocumentHandlerTest extends KernelTestCase
         self::assertInstanceOf(Document::class, $fresh);
         self::assertSame('Post 5 — Rate limiting', $fresh->title);
         self::assertCount(1, $fresh->versions);
+    }
+
+    public function test_a_rename_announces_the_document(): void
+    {
+        $document = $this->document('rename-event@example.com', 'Old title');
+        $dispatcher = self::getContainer()->get('event_dispatcher');
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+        $events = [];
+        $dispatcher->addListener(DocumentRenamed::class, static function (DocumentRenamed $event) use (&$events): void {
+            $events[] = $event;
+        });
+
+        ($this->handler)(new RenameDocumentCommand($document, 'New title'));
+
+        self::assertCount(1, $events);
+        self::assertSame((string) $document->id, (string) $events[0]->documentId);
+        self::assertSame((string) $document->project->id, (string) $events[0]->projectId);
     }
 
     public function test_a_blank_title_is_rejected(): void

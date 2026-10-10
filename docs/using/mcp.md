@@ -287,11 +287,12 @@ Roughly in the order an agent uses them:
 | `series_rename` | Rename a series; every document in it keeps its position |
 | `feedback_list` | The project's site-review feedback, each item with the card it belongs to (off with the board, see below) |
 | `feedback_mark_addressed` | Mark feedback items acted on, so the next `feedback_list` skips them (off with the board, see below) |
+| `agent_review_submit` | Submit the review of a pull request of a card, with findings on file lines. Only a running `review` worker of the card can call it. Loupe stores the review against the commit it names, and the `agent-review-check` forge write shows it as a check on the pull request. The result field `current` says whether that commit matches the last head commit that Loupe read from the forge |
 | `card_create` | Put a card on the project board (off with the board, see below) |
 | `card_list` | Read a page of the board, filtered by status, type, reporter or parent, with the board's columns |
 | `board_columns` | List the board's columns, each with its slug, label, terminal flag, default flag and backlog flag, and the card types of the project |
 | `card_search` | Search every card's title and body by words, finished ones included |
-| `card_get` | Read one card, with the pull requests and their stored state, and the feedback linked to it |
+| `card_get` | Read one card, with the pull requests and their stored state, the latest agent review of each pull request as `agentReview`, and the feedback linked to it |
 | `card_get_history` | Read a page of one card's history, newest first: its creation, its moves and the automation's actions |
 | `card_update` | Change a card, or move it to another column |
 | `card_run_open` | Record an open interactive session on a card, and optionally move the card in the same step |
@@ -300,7 +301,7 @@ Roughly in the order an agent uses them:
 | `column_update` | Rename a column, or set whether it is terminal |
 | `column_reorder` | Put the columns in a new order; Backlog stays first |
 | `column_delete` | Delete a column, and move its cards to `targetColumn` |
-| `automation_settings_update` | Change the board's Automation settings, the epic branch pattern included |
+| `automation_settings_update` | Change the board's Automation settings |
 | `inbox_ask` | Hand questions and to-dos to the project owner (off by default, see below) |
 | `inbox_search` | Search every inbox item's title and body by words, closed ones included |
 | `inbox_join` | Add an open item that is already in the inbox to the session's own ask |
@@ -499,12 +500,8 @@ slug.
 the columns, as **Board settings** does. They refuse the changes that Board
 settings refuses, and the error says what the agent can fix. For example, a
 delete of a column that holds cards needs `targetColumn`.
-`automation_settings_update` changes the **Automation** settings, and a setting
-that the call omits keeps its value. `openEpicPullRequests` turns the opening of
-epic pull requests on or off. `epicBranchPattern` sets the branch that the
-breakdown pushes for an epic, such as `epic/{number}`. An empty
-`epicBranchPattern` turns epic branches off, and an omitted one keeps the
-pattern.
+`automation_settings_update` turns the workflow of the board on or off with
+`enabled`, as the **Automation** tab does. A call that omits it keeps the value.
 
 The board has no delete tool. An agent moves a card to a terminal column; only a
 person removes one. `card_update` also refuses to change `reporter`, because
@@ -520,9 +517,12 @@ after it. Two projects each have a card 1. `card_get` and `card_update` take
 either `cardId` or `number`, never both. A number resolves only inside the
 project that the connection is bound to. The other tools take no number.
 
-A `card_list` or `card_search` row is a summary with eight fields: `cardId`,
-`number`, `title`, `type`, `status`, `reporter`, `parentCardId` and
-`updatedAt`. `parentCardId` is null for a card with no parent.
+A `card_list` or `card_search` row is a summary with nine fields: `cardId`,
+`number`, `title`, `type`, `status`, `reporter`, `parentCardId`, `updatedAt` and
+`state`. `parentCardId` is null for a card with no parent. `state` is null, or
+holds `kind`, `code` and `since`: what the card needs now on the board, which is
+`stuck`, `needs-you`, `working` or `waiting`. The full card adds `reason` and
+`others` to `state`. [The board](board.md#the-mcp-tools) lists the codes.
 
 A card has a `type`. The workflow template of the project declares the types,
 so each project can have its own. `board_columns` returns them in `types`, and

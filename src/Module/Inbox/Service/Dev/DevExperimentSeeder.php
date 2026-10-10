@@ -45,7 +45,7 @@ final readonly class DevExperimentSeeder
         ['Show the run cost on a card', 'opus', 'feature', 'done', true, ['conflict'], [['3.100000', 26], ['2.000000', 14]]],
         ['Retry a lost webhook', 'opus', 'bug', 'done', true, [], [['4.600000', 35]]],
         ['Sort the inbox by due date', 'opus', 'feature', 'done', true, [], [['3.900000', 30]]],
-        ['Link a document to a card', 'opus', 'feature', 'done', true, [], [['4.400000', 38]]],
+        ['Link a document to a card', 'opus', 'feature', 'done', true, ['agent-review'], [['4.400000', 38]]],
         ['Archive a finished epic', 'opus', 'feature', 'in-progress', false, [], [['4.000000', 31]]],
         ['Paginate the audit log', 'sonnet', 'feature', 'done', true, [], [['1.600000', 41]]],
         ['Fix a stale badge count', 'sonnet', 'bug', 'done', true, ['checks-failed'], [['1.200000', 33], ['0.700000', 18]]],

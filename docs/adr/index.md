@@ -9,7 +9,7 @@ Each record is a file `NNNN-short-name.md` in `docs/adr/`. The number counts fro
 
 A record has these sections:
 
-- Status: Proposed, Accepted, or Superseded by a later record.
+- Status: Proposed, Accepted, or Superseded by a later record. A record that a later record clarifies keeps its decision, and its status names that record.
 - Context: the problem, and the facts that force a decision.
 - Decision: what we do, in one or two sentences, then the rule in detail.
 - Rejected options: the options we did not choose, and why.
@@ -22,3 +22,4 @@ A record has these sections:
 - [0001: Let the app do mechanical work, not a bridge worker](0001-app-over-worker.md)
 - [0002: Keep the stage skills generic, and let bridge rules set up the environment](0002-generic-stage-skills.md)
 - [0003: Replace the old shape when a requirement changes it, and keep no legacy path](0003-replace-dont-keep.md)
+- [0004: Keep workflow decisions in the workflow template, not in app code](0004-workflow-concerns-stay-in-workflow.md)

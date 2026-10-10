@@ -214,6 +214,8 @@ final readonly class TemplateParser
         }
 
         $onWorkFailed = self::onWorkFailed($source['onWorkFailed'] ?? null, $errors);
+        $epicBranch = self::epicBranch($source['epicBranch'] ?? null, $lenient, $errors);
+        $failingSeverities = self::agentReviewFailingSeverities($source['agentReviewFailingSeverities'] ?? null, $lenient, $errors);
 
         $slots = $this->slots(self::topLevelList($source, 'slots', $errors), $errors);
         $slotKeys = array_map(static fn (Slot $slot): string => $slot->key, $slots);
@@ -232,7 +234,7 @@ final readonly class TemplateParser
             throw new InvalidTemplate($errors);
         }
 
-        return new Template($key, $version, $slots, $rules, $manualMoves, $backoffMinutes, $workTimeoutMinutes, array_values($types ?? []), $defaultType, $onWorkFailed, $childChoices);
+        return new Template($key, $version, $slots, $rules, $manualMoves, $backoffMinutes, $workTimeoutMinutes, array_values($types ?? []), $defaultType, $onWorkFailed, $childChoices, $epicBranch, $failingSeverities);
     }
 
     /**
@@ -990,6 +992,51 @@ final readonly class TemplateParser
         }
 
         return new WorkFailurePolicy($retryOn, $retries, $backoffMinutes, $repairKind);
+    }
+
+    /**
+     * A template with no value has no epic branches. A stored copy with a value that is not a branch name has none either.
+     *
+     * @param list<string> $errors
+     */
+    private static function epicBranch(mixed $value, bool $lenient, array &$errors): ?string
+    {
+        if (null === $value) {
+            return null;
+        }
+        if (!\is_string($value) || \strlen($value) > Template::EPIC_BRANCH_MAX_LENGTH || 1 !== preg_match(Template::EPIC_BRANCH_RULE, $value)) {
+            if (!$lenient) {
+                $errors[] = 'epicBranch: must be a Git branch name that holds the placeholder {number} exactly once';
+            }
+
+            return null;
+        }
+
+        return $value;
+    }
+
+    /**
+     * A template with no value fails a review on an important finding. A stored copy with a value that names no known severity does too.
+     *
+     * @param list<string> $errors
+     *
+     * @return list<string> in the order of the severities
+     */
+    private static function agentReviewFailingSeverities(mixed $value, bool $lenient, array &$errors): array
+    {
+        if (null === $value) {
+            return Template::DEFAULT_AGENT_REVIEW_FAILING_SEVERITIES;
+        }
+        $known = \is_array($value) && array_is_list($value) && [] !== $value && array_all($value, static fn (mixed $severity): bool => \in_array($severity, Template::AGENT_REVIEW_SEVERITIES, true));
+        if (!$known) {
+            if (!$lenient) {
+                $errors[] = 'agentReviewFailingSeverities: must list one or more of important, nit and pre-existing';
+            }
+
+            return Template::DEFAULT_AGENT_REVIEW_FAILING_SEVERITIES;
+        }
+
+        return array_values(array_intersect(Template::AGENT_REVIEW_SEVERITIES, $value));
     }
 
     /** @return ?list<int> */

@@ -29,6 +29,7 @@ use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Service\BoardColumnTonePicker;
 use App\Module\Board\Service\CardBadge;
 use App\Module\Board\Service\CardDigest;
+use App\Module\Board\Service\CardState;
 use App\Module\Bridge\View\CardRunWarning;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
@@ -128,9 +129,9 @@ final class BoardExtension extends AbstractExtension
     }
 
     /** @param list<CardBadge> $badges */
-    public function cardDigest(Card $card, int $pendingComments, int $documentCount, ?CardProgress $progress, ?CardRunWarning $runWarning, array $badges): string
+    public function cardDigest(Card $card, int $pendingComments, int $documentCount, ?CardProgress $progress, ?CardRunWarning $runWarning, array $badges, ?CardState $state = null): string
     {
-        return $this->digest->forCard($card, $pendingComments, $documentCount, $card->pullRequests->count(), $progress, $runWarning, $badges);
+        return $this->digest->forCard($card, $pendingComments, $documentCount, $card->pullRequests->count(), $progress, $runWarning, $badges, $state);
     }
 
     /** @return list<CardDocument> */

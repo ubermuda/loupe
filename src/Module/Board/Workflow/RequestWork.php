@@ -55,6 +55,7 @@ final readonly class RequestWork implements Action
         return [
             new Parameter('kind', ParameterType::String),
             new Parameter('capability', ParameterType::String, required: false),
+            new Parameter('reason', ParameterType::String, required: false),
             new Parameter('limit', ParameterType::Int, required: false, min: 1),
             new Parameter('refill', ParameterType::Expression, required: false, needs: 'limit'),
             new Parameter('onTimeout', ParameterType::String, required: false, choices: ['pause', 'expire']),
@@ -92,17 +93,18 @@ final readonly class RequestWork implements Action
         }
 
         $kind = $context->string('kind');
-        $outcome = $this->opener->open($context, $kind, $context->optionalString('capability'));
+        $reason = $context->optionalString('reason');
+        $outcome = $this->opener->open($context, $kind, $context->optionalString('capability'), $reason);
         if (self::FIX_KIND === $kind && ActionOutcomeKind::Done === $outcome->kind && !$outcome->alreadyLive) {
-            $this->recordFixRequested($card, $context->facts);
+            $this->recordFixRequested($card, $context->facts, $reason);
         }
 
         return $outcome;
     }
 
-    private function recordFixRequested(Card $card, Facts $facts): void
+    private function recordFixRequested(Card $card, Facts $facts, ?string $reason): void
     {
-        $detail = ['reason' => $facts->pullRequest?->fixReason() ?? 'unknown'];
+        $detail = ['reason' => $reason ?? $facts->pullRequest?->fixReason() ?? 'unknown'];
         $number = $this->cardPullRequests->subjectOf($this->cardPullRequests->forCard($card), $facts->pullRequest)?->number;
         if (null !== $number) {
             $detail['pullRequest'] = $number;

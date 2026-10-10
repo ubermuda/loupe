@@ -98,6 +98,7 @@ final class ShowWorkflowSettingsHandlerTest extends KernelTestCase
             new WorkflowRuleView('discovery', 'workflow.settings.where.backlog', 'workflow.settings.action.request', null, 'discovery', [new WorkflowConditionGroupView('workflow.source.readiness', [new WorkflowConditionView('card.discovery.requested', false, '')])], [], [], []),
             new WorkflowRuleView('post-widget-review', 'workflow.settings.where.any', 'workflow.settings.action.forge_write', null, 'post-review', [new WorkflowConditionGroupView('workflow.source.board', [new WorkflowConditionView('card.site_review.verdict_unsent', false, '')])], [], [], []),
             new WorkflowRuleView('sync-site-review-check', 'workflow.settings.where.any', 'workflow.settings.action.forge_write', null, 'site-review-check', [new WorkflowConditionGroupView('workflow.source.board', [new WorkflowConditionView('card.site_review.check_stale', false, '')])], [], [], []),
+            new WorkflowRuleView('sync-agent-review-check', 'workflow.settings.where.any', 'workflow.settings.action.forge_write', null, 'agent-review-check', [new WorkflowConditionGroupView('workflow.source.agent_review', [new WorkflowConditionView('agent_review.unposted', false, '')])], [], [], []),
         ], $template->appRules);
         self::assertEquals(new WorkflowManualMoveView('workflow.settings.where.backlog', 'workflow.slot.next', 'workflow.settings.moves.by.anyone'), $template->manualMoves[0]);
         self::assertCount(7, $template->manualMoves);

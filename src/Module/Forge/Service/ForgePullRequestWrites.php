@@ -10,7 +10,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 
 /**
- * Asks the forge to merge a pull request or to change its base. A marker on
+ * Asks the forge to merge a pull request, to change its base or to update its branch. A marker on
  * the row first says that a write by Loupe is in flight, and blocks a second write of its kind.
  * A read that shows any such change settles it. The forge call holds no lock. A permanent
  * failure clears the marker, and a transient one keeps it, because the write may have landed.
@@ -23,6 +23,7 @@ final readonly class ForgePullRequestWrites
     public function __construct(
         private PullRequestMergers $mergers,
         private PullRequestBaseChangers $baseChangers,
+        private PullRequestBranchUpdaters $branchUpdaters,
         private ForgePullRequestRepository $forgePullRequests,
         private EntityManagerInterface $em,
         private ClockInterface $clock,
@@ -115,6 +116,55 @@ final readonly class ForgePullRequestWrites
                     if (null !== $row && $row->baseChangeRequestedTo === $base) {
                         $row->baseChangeRequestedTo = null;
                         $row->baseChangeRequestedAt = null;
+                    }
+                });
+            }
+
+            throw $e;
+        }
+    }
+
+    /**
+     * The marker names the head Loupe asked to update, so a read of its merge commit carries the approval over.
+     *
+     * @throws PullRequestWriteFailed when the pull request cannot take an update now
+     * @throws PullRequestSyncFailed  when the forge refuses the update
+     */
+    public function updateBranch(ForgePullRequest $pullRequest): void
+    {
+        $updater = $this->branchUpdaters->for($pullRequest->forge) ?? throw new PullRequestWriteFailed('no_writer', permanent: true);
+        $id = $pullRequest->id ?? throw new \LogicException('A stored pull request has an id.');
+
+        $sha = $this->em->wrapInTransaction(function () use ($id): string|PullRequestWriteFailed {
+            $row = $this->forgePullRequests->findForUpdate($id);
+            if (null === $row) {
+                return new PullRequestWriteFailed('not_found', permanent: true);
+            }
+            $now = $this->clock->now();
+            if (null !== $row->syncFromSha && self::fresh($row->syncRequestedAt, $now)) {
+                return new PullRequestWriteFailed('in_flight', permanent: false);
+            }
+            if (null === $row->headSha) {
+                return new PullRequestWriteFailed('no_head', permanent: true);
+            }
+            $row->syncFromSha = $row->headSha;
+            $row->syncRequestedAt = $now;
+
+            return $row->headSha;
+        });
+        if ($sha instanceof PullRequestWriteFailed) {
+            throw $sha;
+        }
+
+        try {
+            $updater->update($pullRequest, $sha);
+        } catch (PullRequestSyncFailed $e) {
+            if ($e->permanent) {
+                $this->em->wrapInTransaction(function () use ($id, $sha): void {
+                    $row = $this->forgePullRequests->findForUpdate($id);
+                    if (null !== $row && $row->syncFromSha === $sha) {
+                        $row->syncFromSha = null;
+                        $row->syncRequestedAt = null;
                     }
                 });
             }

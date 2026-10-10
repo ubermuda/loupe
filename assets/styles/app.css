@@ -8,6 +8,8 @@
 @import './components/empty-state.css';
 @import './components/flash.css';
 @import './components/status-chip.css';
+@import './components/state-mark.css';
+@import './components/status-box.css';
 @import './components/tag.css';
 @import './components/dialog.css';
 @import './components/pagination.css';
@@ -7239,7 +7241,7 @@
         grid-template-rows: 1fr;
     }
     .lp-board-lane--collapsed.lp-board-lane--revealed .lp-board-lane__cells {
-        @apply visible overflow-visible opacity-100 translate-y-0;
+        @apply visible overflow-visible opacity-100 translate-none;
     }
     /* Only a click animates, so a lane restored from storage on load does not.
        The lane controller glides the number, title and progress itself. */
@@ -7294,6 +7296,9 @@
     .lp-board-card--dragging {
         @apply fixed z-50 pointer-events-none shadow-lg opacity-90;
     }
+    .lp-board-card--dragging .lp-tooltip {
+        @apply hidden;
+    }
     /* A card whose live placement failed. The shape shows it, not the colour. */
     .lp-board-card--stale {
         @apply outline-2 outline-offset-2 outline-dashed outline-line-strong opacity-75;
@@ -7327,16 +7332,6 @@
     }
     .lp-card-number {
         @apply font-mono align-middle text-2xl font-semibold text-fg-dim;
-    }
-    .lp-board-card__warning-summary {
-        @apply m-0 line-clamp-3 text-sm leading-relaxed text-fg-mute break-words;
-    }
-    /* A worker run that gave up or is blocked, linked to its run history. */
-    .lp-board-card__warning {
-        @apply flex flex-col items-start gap-1 no-underline;
-    }
-    .lp-board-card__warning .lp-status-chip {
-        @apply ml-0;
     }
     .lp-board-card__meta {
         @apply flex flex-wrap items-center gap-2;
@@ -8957,7 +8952,7 @@
     .lp-styleguide__tooltip-anchor {
         @apply relative inline-block pb-16 text-sm font-semibold text-ink;
     }
-    .lp-styleguide__tooltip-anchor .lp-tooltip {
+    .lp-styleguide__tooltip-anchor .lp-tooltip:not(.lp-tooltip--interactive) {
         @apply visible opacity-100;
     }
     .lp-styleguide__empty {

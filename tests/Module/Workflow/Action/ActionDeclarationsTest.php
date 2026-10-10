@@ -113,10 +113,12 @@ final class ActionDeclarationsTest extends TestCase
     {
         self::assertSame(['missing parameter "fallback"'], ForgeWrite::check(['write' => 'merge']));
         self::assertSame([], ForgeWrite::check(['write' => 'merge', 'fallback' => 'merge']));
-        foreach (['draft', 'ready', 'close', 'open-epic'] as $write) {
+        foreach (['draft', 'ready', 'close', 'open-epic', 'post-review', 'site-review-check'] as $write) {
             self::assertSame([], ForgeWrite::check(['write' => $write]), $write);
         }
         self::assertSame(['missing parameter "fallback"'], ForgeWrite::check([]));
+        self::assertSame(['missing parameter "comment"'], ForgeWrite::check(['write' => 'comment']));
+        self::assertSame([], ForgeWrite::check(['write' => 'comment', 'comment' => 'fix-run']));
     }
 
     /**

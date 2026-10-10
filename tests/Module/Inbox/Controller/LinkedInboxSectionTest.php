@@ -208,7 +208,8 @@ final class LinkedInboxSectionTest extends WebTestCase
         $collector = $profile->getCollector('db');
         self::assertInstanceOf(DoctrineDataCollector::class, $collector);
         // The holder also kept the fixture inserts, so only reads count. The
-        // sidebar pill adds one count of open items beside the section's query.
+        // sidebar pill adds one count of open items, and the Status box one
+        // read of the card's open asks, beside the section's query.
         $inboxReads = array_values(array_map(
             static fn (array $query): string => (string) $query['sql'],
             array_filter(
@@ -216,8 +217,9 @@ final class LinkedInboxSectionTest extends WebTestCase
                 static fn (array $query): bool => str_starts_with((string) $query['sql'], 'SELECT') && str_contains((string) $query['sql'], 'inbox_'),
             ),
         ));
-        self::assertCount(2, $inboxReads, implode("\n", $inboxReads));
+        self::assertCount(3, $inboxReads, implode("\n", $inboxReads));
         self::assertCount(1, array_filter($inboxReads, static fn (string $sql): bool => str_contains($sql, 'COUNT(')));
+        self::assertCount(1, array_filter($inboxReads, static fn (string $sql): bool => str_contains($sql, 'FROM inbox_item_cards ic')));
     }
 
     public function test_an_answer_from_the_card_page_returns_to_the_card_page(): void

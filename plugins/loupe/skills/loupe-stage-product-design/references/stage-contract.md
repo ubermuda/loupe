@@ -63,7 +63,7 @@ When the harness asks for a structured result, put the same sentence in `summary
 
 | `STAGE RESULT:` form | `status` |
 |---|---|
-| `merged`, `preview refreshed`, `breakdown`, `created`, `revised`, `comments answered`, `unchanged`, `nothing to fix`, `no open pull request`, `already approved`, `card left`, `repaired` | `finished` |
+| `merged`, `preview refreshed`, `breakdown`, `created`, `revised`, `comments answered`, `unchanged`, `nothing to fix`, `no open pull request`, `already approved`, `card left`, `repaired`, `reviewed` | `finished` |
 | `blocked:`, `loupe MCP unavailable`, `not approved`, `no approved tech design`, `no product document`, `no linked`, `open pull request exists`, `no fix round for column` | `blocked` |
 | `waiting` or `not ready`, because the work waits on the forge, such as checks on a pushed pull request | `waiting` |
 | No form yet, because work still runs or remains | `unfinished` |
@@ -72,9 +72,9 @@ Set the reason code from the `STAGE RESULT:` form. A form takes the code of the 
 
 | Reason code | `STAGE RESULT:` forms |
 |---|---|
-| `done` | `merged`, `preview refreshed <url>`, `breakdown`, `created`, `revised`, `comments answered`, `unchanged`, `nothing to fix`, `already approved`, `repaired <what>` |
+| `done` | `merged`, `preview refreshed <url>`, `breakdown`, `created`, `revised`, `comments answered`, `unchanged`, `nothing to fix`, `already approved`, `repaired <what>`, `reviewed <url>: <conclusion>` |
 | `card-left` | `card left <column>`, `no fix round for column` |
-| `waiting-checks` | `waiting <pr url>`, and a `not ready` item for a failed or pending check, or for a head that moved after the event |
+| `waiting-checks` | `waiting <pr url>`, and a `not ready` item for a failed or pending check, or for a head that moved after the event or during a review request |
 | `not-approved` | `not ready: not approved`, `product document not approved` |
 | `approval-stale` | `not ready: commits after approval`, `not ready: conflict resolution after approval` |
 | `stacked` | `not ready: stacked on <base>` |

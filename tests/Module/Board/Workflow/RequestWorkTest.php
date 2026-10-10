@@ -141,6 +141,21 @@ final class RequestWorkTest extends KernelTestCase
         self::assertSame([['reason' => $reason, 'pullRequest' => $pullRequest->number]], $this->fixEvents($card));
     }
 
+    public function test_a_reason_parameter_replaces_the_fix_reason_of_the_pull_request(): void
+    {
+        self::bootKernel();
+        $card = $this->card($this->workflowProject('request-reason'), 'in-progress');
+        $pullRequest = $this->pullRequest($card);
+        $facts = FactsMother::facts(pullRequest: FactsMother::pullRequest(checks: ChecksState::Failed));
+        $rule = $this->rule('request', ['kind' => 'fix', 'reason' => 'agent-review']);
+
+        $this->runAction($this->action(), $rule, $card->snapshot(), $facts, $this->state($card));
+        $this->em()->flush();
+
+        self::assertSame([['reason' => 'agent-review', 'pullRequest' => $pullRequest->number]], $this->fixEvents($card));
+        self::assertSame('agent-review', $this->liveRequest($card)->context->reason);
+    }
+
     public function test_a_live_fix_request_and_another_kind_record_no_fix_event(): void
     {
         self::bootKernel();

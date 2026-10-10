@@ -29,19 +29,18 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 3. Run `just phpstan`, `just arkitect` and `just gamache`. These check the whole project.
 4. Run PHPUnit on the tests for what changed: `just phpunit tests/<path>` or `just phpunit --filter <name>`. A hook refuses `just ci` and a full PHPUnit run.
 5. Run `just js-test` when JavaScript changed, and `just cli-test` when `cli/` or `hooks/` changed.
-6. CI's required checks are the full gate. After the Codex review, push, then read them on the pull request. The board `checks-failed` fix round covers a failed one.
+6. CI's required checks are the full gate. Run no Codex review. Push, then read them on the pull request. The board `checks-failed` fix round covers a failed one.
 7. Never run the full e2e suite on this machine, and a hook refuses it. The eight `e2e-*` CI checks gate it: `e2e-chromium`, `e2e-chromium-2` to `e2e-chromium-6`, `e2e-rest` and `e2e-global-flags`. One named spec is still fine while you debug it.
-8. Run `bin/agents/design-system-changed origin/<base>` after the Codex review. When it prints a path, follow `working-with-prs` "The Claude Design rebuild".
+8. Run `bin/agents/design-system-changed origin/<base>` after the checks above, before the push. When it prints a path, follow `working-with-prs` "The Claude Design rebuild".
 9. Fix every failure, including one that pre-dates the branch.
 10. The required checks come from the ruleset command in `working-with-prs` "What the ruleset actually requires".
 
 ## Code review
 
-1. Before a push, run `mcp__codex-cli__review` with `model: "gpt-6-sol"`. When the tool is missing, stop with `STAGE RESULT: blocked: codex MCP unavailable`.
-2. Follow the pass and scope rules of `working-with-prs` "The gate, before you open anything": two clean passes in a row, and a commit scope once the branch has more than one commit.
-3. Alternate the scope: one pass with `base: "origin/<base>"`, the next with `commit: "<sha>"` for the newest commit that carries work.
-4. Count a pass as clean only against the current tree. Check that each summary covers the largest change.
-5. Before you act on a finding, read the file at HEAD, and dismiss a finding that HEAD already fixes. Run `git status` after each pass.
+1. Run no Codex review before the push. A separate review worker reviews the draft pull request after the push, as `working-with-prs` "The agent review" says.
+2. The gate has no review step to pass. The review worker posts the check `loupe/agent-review`, and a fix round answers its findings.
+3. The reviewers that a plan task dispatches inside the implementation run stay.
+4. Read the largest change of the diff yourself before you push, because no reviewer has read it yet.
 
 ## Changelog
 
@@ -50,13 +49,14 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 
 ## Pull request
 
-1. Open it ready, never draft, against the base branch of the `Gate` section. Never open a stacked pull request against `main`.
+1. Open it as a draft with `gh pr create --draft`, against the base branch of the `Gate` section. Never open a stacked pull request against `main`.
 2. Write the title as `<type>(<area>): <summary>`.
 3. Keep the body and the `## Preview` section to the rules of `working-with-prs` "Keep the body brief" and "Make the branch testable, not just reviewable".
 4. A branch that changes a page seeds one state per preview link, before the pull request is ready. "The tests cover it", "the seed holds no X" and "it shows after a bridge reports data" are excuses, and no substitute for the seed.
 5. Prove each link with `working-with-prs` "Prove each preview link shows its state". Write the marker you found on the line of each link. When you cannot seed a state, or a marker is missing, stop with `STAGE RESULT: blocked: preview not seeded`. Do not move the card.
 6. A child of an epic also writes a `State:` text on each Preview line, as `working-with-prs` "A child of an epic targets the epic branch" says. The merge stage seeds the epic preview from that text alone. A line with no `State:` text is not ready, so stop with `STAGE RESULT: blocked: preview not seeded`.
-7. Only the merge stage merges it, as the `Merge` section says. Never use `--admin` or `--no-verify`.
+7. Never run `gh pr ready`. The workflow marks the pull request ready when the agent review passed and the checks are green.
+8. Only the merge stage merges it, as the `Merge` section says. Never use `--admin` or `--no-verify`.
 
 ## Board
 
@@ -69,11 +69,11 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 
 ## Epics
 
-1. The epic branch of epic card `<n>` is `epic/<n>`. The breakdown pushes it from `origin/main`. The board automation setting "Epic branch pattern" must be `epic/{number}`. Otherwise the app does not know the epic branch, and no child merges into it.
+1. The epic branch of epic card `<n>` is `epic/<n>`. The breakdown pushes it from `origin/main`. The `epicBranch` value of the workflow template of the project must be `epic/{number}`. Otherwise the app does not know the epic branch, and no child merges into it.
 2. A child of an epic whose `epic/<n>` branch exists cuts its worktree from `origin/epic/<n>`, and its pull request targets `epic/<n>`. An epic with no such branch keeps the flow of `main` for its children.
 3. A child merges into `epic/<n>` with `squash` and no approval, once its required checks pass.
 4. No ruleset covers `refs/heads/epic/*`. The merge stage checks a child by name against the required checks of `main`. The epic pull request syncs by a merge of `main`, through `gh pr update-branch` or the app sync. A fix round pushes to `epic/<n>` directly. Nothing force-pushes `epic/<n>`.
-5. The epic pull request goes from `epic/<n>` to `main`, and merges as the `Merge` section says. The app opens it as a draft after the first child merge, when the board automation setting "Open the epic pull request" is on. After each child merge, an `epic-preview` work request asks the merge stage to refresh the epic preview.
+5. The epic pull request goes from `epic/<n>` to `main`, and merges as the `Merge` section says. The app opens it as a draft after the first child merge, through the `epic-open-pull-request` rule of the workflow. After each child merge, an `epic-preview` work request asks the merge stage to refresh the epic preview.
 6. The epic preview is the worktree `.worktrees/epic-<n>`, detached at `origin/epic/<n>`. It serves `https://epic-<n>.loupe.dev.localhost`. Run its commands from the main checkout, and wrap a command that needs the preview as its working directory in a subshell: `( cd .worktrees/epic-<n> && <command> )`. Never commit in it. The `teardown` rule removes it when the epic card reaches `done`.
 7. `<epicId>` is the `parent.cardId` of the merged child in `card_get`. Never derive it from a branch name, a worktree name or a card number.
 8. Create the epic preview when `git worktree list --porcelain` has no line `worktree <main checkout>/.worktrees/epic-<n>`. Run `git fetch origin`, then `git worktree add --detach .worktrees/epic-<n> origin/epic/<n>`, then `just worktree-up epic-<n> card:<epicId>`. When the worktree add fails because the worktree exists, refresh it as the next item says.

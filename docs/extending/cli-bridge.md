@@ -1192,6 +1192,9 @@ work:
   product-design:
     action: interactive
     prompt: /loupe:product-design {cardNumber}
+  review:
+    model: opus
+    prompt: Run the loupe-stage-review skill for card {cardNumber} in project {project}.
   teardown:
     action: command
     run: ["bin/teardown.sh", "{cardNumber}"]
@@ -1231,6 +1234,17 @@ Both shipped workflow templates
 request `teardown` each time a card reaches a terminal column. A `teardown`
 request that no bridge takes expires after the work timeout, and the card does
 not pause.
+
+The `review` kind runs the `loupe-stage-review` skill of the Loupe plugin. The
+worker reads the change of the pull request at its head commit, and sends its
+findings with the `agent_review_submit` tool. It changes no file. Give the entry
+its own `model`, because the reviewer should not be the model that wrote the
+code. Use a `workerPool` apart from the `implement` entry, so a review does not
+wait for a long implementation run. The entry needs a worktree only for the git
+objects, so a `before` command is optional. A bridge with `appPrompts` alone runs
+no review: the review rules belong to the Lifecycle template, which carries no
+app prompt. When a `fix` request starts for an agent review, the `fix` entry runs
+the `loupe-stage-fix-round` skill, which reads the findings from `card_get`.
 
 The file needs `work:`, or `appPrompts: true`. The bridge reports the
 `work-requests` capability when the map has an entry or `appPrompts` is on,

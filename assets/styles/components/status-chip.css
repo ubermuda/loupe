@@ -40,6 +40,13 @@
     .lp-status-chip--failed .lp-status-chip__dot {
         @apply bg-status-danger;
     }
+    /* Purple chip for work in flight, such as a worker that runs on a card. */
+    .lp-status-chip--active {
+        @apply bg-status-active-bg text-status-active border-status-active;
+    }
+    .lp-status-chip--active .lp-status-chip__dot {
+        @apply bg-status-active;
+    }
     /* Grey chip for a state that is neither good nor bad, such as a hook that has not run. */
     .lp-status-chip--neutral {
         @apply bg-tint text-fg-dim border-line;

@@ -234,6 +234,9 @@ describe('confirm panel', () => {
             press(name);
             await settle();
 
+            expect(
+                panelRoot().getElementById('lp-verdict-message').placeholder,
+            ).toBe('Message');
             expect(sendButton().disabled).toBe(true);
             await write('   ');
             expect(sendButton().disabled).toBe(true);
@@ -242,7 +245,10 @@ describe('confirm panel', () => {
         },
     );
 
-    it('keeps Send off for a review with an open note and no message', async () => {
+    it.each([
+        ['Request changes', 'request-changes'],
+        ['Comment', 'comment'],
+    ])('lets %s go with an open note and no message', async (name, kind) => {
         const notes = [
             {
                 id: 'n1',
@@ -251,17 +257,59 @@ describe('confirm panel', () => {
                 anchorCount: 1,
             },
         ];
-        boot({ verdict: verdictAnswer({ notes }) });
+        const fetchMock = boot({ verdict: verdictAnswer({ notes }) });
         await settle();
         openPanel();
-        press('Request changes');
+        press(name);
         await settle();
 
         expect(form().textContent).toContain('1 note goes with this review');
         expect(form().textContent).toContain('Heading is cut off');
-        expect(sendButton().disabled).toBe(true);
-        await write('See the notes');
+        expect(
+            panelRoot().getElementById('lp-verdict-message').placeholder,
+        ).toBe('Message (optional)');
         expect(sendButton().disabled).toBe(false);
+        sendButton().click();
+        await settle();
+
+        expect(sent(fetchMock)).toEqual([
+            {
+                kind,
+                pullRequestIds: [PR_A],
+                message: '',
+                submissionId: expect.stringMatching(UUID),
+            },
+        ]);
+    });
+
+    it('reads the verdict again when the server asks for a message', async () => {
+        const notes = [
+            { id: 'n1', url: 'https://x.test/', body: 'One', anchorCount: 0 },
+        ];
+        let reads = 0;
+        boot({
+            verdict: () => {
+                reads += 1;
+                return verdictAnswer({ notes: reads <= 2 ? notes : [] });
+            },
+            post: () => rejected(422, { error: 'message_required' }),
+        });
+        await settle();
+        openPanel();
+        press('Request changes');
+        await settle();
+        expect(reads).toBe(2);
+        sendButton().click();
+        await settle();
+
+        expect(reads).toBe(3);
+        expect(form().textContent).toContain(
+            'Write a message before you send.',
+        );
+        expect(sendButton().disabled).toBe(true);
+        expect(
+            panelRoot().getElementById('lp-verdict-message').placeholder,
+        ).toBe('Message');
     });
 
     it('counts the notes still open on an approval and still lets it go', async () => {

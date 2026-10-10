@@ -34,6 +34,12 @@ final readonly class Not extends Expression
     }
 
     #[\Override]
+    public function countAgainst(Facts $facts, bool $wanted): int
+    {
+        return $this->inner->countAgainst($facts, !$wanted);
+    }
+
+    #[\Override]
     public function reads(): array
     {
         return $this->inner->reads();

@@ -112,7 +112,7 @@ final class CardDocumentRepository extends ServiceEntityRepository
      *
      * @param list<Uuid> $cardIds
      *
-     * @return list<array{link: CardDocument, versionNumber: int}>
+     * @return list<array{link: CardDocument, versionNumber: int, versionAt: ?\DateTimeImmutable}>
      */
     public function findInReviewForCards(Project $project, array $cardIds): array
     {
@@ -120,12 +120,13 @@ final class CardDocumentRepository extends ServiceEntityRepository
             return [];
         }
 
-        /** @var list<array{0: CardDocument, versionNumber: int|string}> $rows */
+        /** @var list<array{0: CardDocument, versionNumber: int|string, versionAt: ?string}> $rows */
         $rows = $this->inReview($project)
             ->join('card.column', 'cardColumn')
             ->leftJoin('document.tags', 'tag')
             ->addSelect('card', 'cardColumn', 'document', 'tag')
             ->addSelect(\sprintf('(SELECT MAX(version.versionNumber) FROM %s version WHERE version.document = document) AS versionNumber', DocumentVersion::class))
+            ->addSelect(\sprintf('(SELECT MAX(newest.createdAt) FROM %s newest WHERE newest.document = document) AS versionAt', DocumentVersion::class))
             ->andWhere('card.id IN (:cards)')
             ->setParameter('cards', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $cardIds))
             ->orderBy('link.linkedAt', 'ASC')
@@ -133,7 +134,7 @@ final class CardDocumentRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
 
-        return array_map(static fn (array $row): array => ['link' => $row[0], 'versionNumber' => (int) $row['versionNumber']], $rows);
+        return array_map(static fn (array $row): array => ['link' => $row[0], 'versionNumber' => (int) $row['versionNumber'], 'versionAt' => null === $row['versionAt'] ? null : new \DateTimeImmutable($row['versionAt'])], $rows);
     }
 
     /** @return list<string> the ids of the cards linked to a document in review and not archived */
