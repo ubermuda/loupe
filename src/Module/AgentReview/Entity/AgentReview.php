@@ -25,7 +25,7 @@ class AgentReview
     #[ORM\Id]
     public private(set) ?Uuid $id = null;
 
-    /** @var list<array{path: string, startLine: int, endLine: int, severity: string, title: string, body: string}> */
+    /** @var list<array{path: ?string, startLine: ?int, endLine: ?int, severity: string, title: string, body: string, category?: string}> */
     #[ORM\Column(type: Types::JSON)]
     public array $findings;
 

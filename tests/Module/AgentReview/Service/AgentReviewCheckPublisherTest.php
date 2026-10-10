@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\AgentReview\Service;
 
 use App\Module\AgentReview\Entity\AgentReview;
+use App\Module\AgentReview\Entity\AgentReviewCategory;
 use App\Module\AgentReview\Entity\AgentReviewConclusion;
 use App\Module\AgentReview\Entity\AgentReviewFinding;
 use App\Module\AgentReview\Entity\AgentReviewSeverity;
@@ -206,6 +207,28 @@ final class AgentReviewCheckPublisherTest extends KernelTestCase
         self::assertStringEndsWith('...', $lines[4]);
         self::assertSame(300, mb_strlen($lines[4]) - mb_strlen('- [nit] lib/bar.php:9 Long: '));
         self::assertSame(['Agent review: no findings', 'Summary of the review.'], [$passed['title'], $passed['summary']]);
+    }
+
+    public function test_spec_findings_come_first_under_their_own_heading_and_a_finding_with_no_path_has_no_note(): void
+    {
+        $card = $this->card($this->project);
+        $this->stored($card, $this->linked($card, 7), str_repeat('a', 40), [
+            $this->finding(AgentReviewSeverity::Nit),
+            new AgentReviewFinding(null, null, null, AgentReviewSeverity::Important, 'Requirement not built', 'No size limit.', AgentReviewCategory::Spec),
+        ]);
+
+        $this->publisher()->publish($card);
+
+        self::assertSame([
+            'Summary of the review.',
+            '',
+            'Spec: the change against the approved design',
+            '- [important] Requirement not built: No size limit.',
+            '',
+            'Code',
+            '- [nit] src/Foo.php:3-5 Null read: The value can be null here.',
+        ], explode("\n", $this->writer->published[0]['summary']));
+        self::assertCount(1, $this->writer->published[0]['annotations']);
     }
 
     public function test_the_summary_lists_the_first_findings_and_counts_the_rest(): void

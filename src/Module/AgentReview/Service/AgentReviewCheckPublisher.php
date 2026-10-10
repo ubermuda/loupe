@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Module\AgentReview\Service;
 
 use App\Module\AgentReview\Entity\AgentReview;
+use App\Module\AgentReview\Entity\AgentReviewCategory;
 use App\Module\AgentReview\Entity\AgentReviewConclusion;
+use App\Module\AgentReview\Entity\AgentReviewFinding;
 use App\Module\AgentReview\Entity\AgentReviewSeverity;
 use App\Module\AgentReview\Repository\AgentReviewRepository;
 use App\Module\Board\Entity\Card;
@@ -116,19 +118,37 @@ final readonly class AgentReviewCheckPublisher implements AgentReviewCheck
     {
         $lines = [$review->summary];
         $findings = $review->findings();
-        if ([] !== $findings) {
-            $lines[] = '';
-        }
-        foreach (\array_slice($findings, 0, self::MAX_LISTED_FINDINGS) as $finding) {
-            $range = $finding->startLine === $finding->endLine ? (string) $finding->startLine : $finding->startLine.'-'.$finding->endLine;
-            $line = \sprintf('- [%s] %s:%s %s', $finding->severity->value, $finding->path, $range, $finding->title);
-            $body = mb_strimwidth(trim(preg_replace('/\s+/', ' ', $finding->body) ?? ''), 0, self::MAX_BODY_WIDTH, '...');
-            $lines[] = '' === $body ? $line : $line.': '.$body;
+        usort($findings, static fn (AgentReviewFinding $a, AgentReviewFinding $b): int => (AgentReviewCategory::Spec === $b->category) <=> (AgentReviewCategory::Spec === $a->category));
+        $listed = \array_slice($findings, 0, self::MAX_LISTED_FINDINGS);
+        $headed = array_any($findings, static fn (AgentReviewFinding $finding): bool => AgentReviewCategory::Spec === $finding->category);
+        $heading = null;
+        foreach ($listed as $finding) {
+            if ($finding->category !== $heading) {
+                $heading = $finding->category;
+                $lines[] = '';
+                if ($headed) {
+                    $lines[] = $this->translator->trans('agent_review.check.heading.'.$finding->category->value);
+                }
+            }
+            $lines[] = $this->line($finding);
         }
         if (\count($findings) > self::MAX_LISTED_FINDINGS) {
             $lines[] = $this->translator->trans('agent_review.check.summary_more', ['%count%' => \count($findings) - self::MAX_LISTED_FINDINGS]);
         }
 
         return implode("\n", $lines);
+    }
+
+    private function line(AgentReviewFinding $finding): string
+    {
+        $place = '';
+        if (null !== $finding->path) {
+            $range = $finding->startLine === $finding->endLine ? (string) $finding->startLine : $finding->startLine.'-'.$finding->endLine;
+            $place = $finding->path.':'.$range.' ';
+        }
+        $line = \sprintf('- [%s] %s%s', $finding->severity->value, $place, $finding->title);
+        $body = mb_strimwidth(trim(preg_replace('/\s+/', ' ', $finding->body) ?? ''), 0, self::MAX_BODY_WIDTH, '...');
+
+        return '' === $body ? $line : $line.': '.$body;
     }
 }
