@@ -189,8 +189,8 @@ func TestAWorkOfferClaimsRunsAndSettles(t *testing.T) {
 	}
 }
 
-// The result of a run follows how it ended. A refusal carries the reason of
-// the structured result when Loupe takes it, and a fallback word otherwise.
+// The result of a run follows how it ended. A result carries the reason of
+// the structured result when Loupe takes it. A refusal falls back to a word.
 func TestAWorkResultFollowsHowTheRunEnded(t *testing.T) {
 	for name, tc := range map[string]struct {
 		kind   string
@@ -198,17 +198,20 @@ func TestAWorkResultFollowsHowTheRunEnded(t *testing.T) {
 		cmd    procResult
 		want   string
 	}{
-		"finished":                  {"implement", workerResult{hasResult: true, status: "finished"}, procResult{}, "done"},
-		"waiting":                   {"implement", workerResult{hasResult: true, status: "waiting"}, procResult{}, "done"},
-		"blocked with a reason":     {"implement", workerResult{hasResult: true, status: "blocked", reason: "needs-design"}, procResult{}, "refused needs-design"},
-		"blocked with a bad reason": {"implement", workerResult{hasResult: true, status: "blocked", reason: "Needs Design"}, procResult{}, "refused blocked"},
-		"unfinished":                {"implement", workerResult{hasResult: true, status: "unfinished"}, procResult{}, "refused unfinished"},
-		"failed":                    {"implement", workerResult{exitCode: 2}, procResult{}, "refused failed"},
-		"no result":                 {"implement", workerResult{}, procResult{}, "refused failed"},
-		"not started":               {"implement", workerResult{err: errors.New("fork/exec claude: permission denied")}, procResult{}, "refused failed"},
-		"command passed":            {"check", workerResult{}, procResult{}, "done"},
-		"command failed":            {"check", workerResult{}, procResult{exitCode: 1}, "refused failed"},
-		"command timed out":         {"check", workerResult{}, procResult{exitCode: -1, timedOut: true}, "refused timeout"},
+		"finished":                   {"implement", workerResult{hasResult: true, status: "finished"}, procResult{}, "done"},
+		"finished with a reason":     {"implement", workerResult{hasResult: true, status: "finished", reason: "nothing-to-build"}, procResult{}, "done nothing-to-build"},
+		"finished with a bad reason": {"implement", workerResult{hasResult: true, status: "finished", reason: "Nothing To Build"}, procResult{}, "done"},
+		"waiting with a reason":      {"implement", workerResult{hasResult: true, status: "waiting", reason: "waiting-checks"}, procResult{}, "done waiting-checks"},
+		"waiting":                    {"implement", workerResult{hasResult: true, status: "waiting"}, procResult{}, "done"},
+		"blocked with a reason":      {"implement", workerResult{hasResult: true, status: "blocked", reason: "needs-design"}, procResult{}, "refused needs-design"},
+		"blocked with a bad reason":  {"implement", workerResult{hasResult: true, status: "blocked", reason: "Needs Design"}, procResult{}, "refused blocked"},
+		"unfinished":                 {"implement", workerResult{hasResult: true, status: "unfinished"}, procResult{}, "refused unfinished"},
+		"failed":                     {"implement", workerResult{exitCode: 2}, procResult{}, "refused failed"},
+		"no result":                  {"implement", workerResult{}, procResult{}, "refused failed"},
+		"not started":                {"implement", workerResult{err: errors.New("fork/exec claude: permission denied")}, procResult{}, "refused failed"},
+		"command passed":             {"check", workerResult{}, procResult{}, "done"},
+		"command failed":             {"check", workerResult{}, procResult{exitCode: 1}, "refused failed"},
+		"command timed out":          {"check", workerResult{}, procResult{exitCode: -1, timedOut: true}, "refused timeout"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			h := newHarnessWith(t, workRules, rules.Defaults{})
