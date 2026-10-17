@@ -47,6 +47,29 @@ final class InboxGetToolTest extends KernelTestCase
         $this->tool = $tool;
     }
 
+    public function test_a_start_session_prompt_reads_back_and_an_old_suggestion_has_none(): void
+    {
+        $this->enableInbox();
+        $this->actAsMcpTokenBoundTo($this->makeProject('inbox-get-prompt'));
+        $ask = self::getContainer()->get(InboxAskTool::class);
+        self::assertInstanceOf(InboxAskTool::class, $ask);
+
+        $asked = $ask((string) Uuid::v4(), [[
+            'kind' => 'todo',
+            'title' => 'Rebuild it',
+            'suggestedActions' => [['action' => 'start-session', 'reason' => 'Talk it through', 'prompt' => ' Use the skill. ']],
+        ]]);
+
+        $item = ($this->tool)($asked['items'][0]['itemId']);
+        self::assertSame('Use the skill.', $item['suggestedActions'][0]['prompt'] ?? null);
+
+        $stored = $this->em->find(InboxItem::class, Uuid::fromString($asked['items'][0]['itemId']));
+        self::assertInstanceOf(InboxItem::class, $stored);
+        $stored->suggestedActions = [['action' => 'start-session', 'reason' => 'Talk it through', 'recommended' => false, 'cardId' => null]];
+        $this->em->flush();
+        self::assertArrayNotHasKey('prompt', ($this->tool)($asked['items'][0]['itemId'])['suggestedActions'][0]);
+    }
+
     public function test_the_tool_refuses_while_the_flag_is_off(): void
     {
         $this->actAsMcpTokenBoundTo($this->makeProject('inbox-get-flag-off'));

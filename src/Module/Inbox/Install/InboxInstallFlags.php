@@ -7,6 +7,7 @@ namespace App\Module\Inbox\Install;
 use App\Module\Account\Command\SeedInstallFlagsCommand;
 use App\Module\Account\Install\InstallFlagDefault;
 use App\Module\Account\Install\InstallFlagDefaultsInterface;
+use App\Module\Inbox\Service\SessionPromptLimit;
 use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
 
 final readonly class InboxInstallFlags implements InstallFlagDefaultsInterface
@@ -18,5 +19,6 @@ final readonly class InboxInstallFlags implements InstallFlagDefaultsInterface
     {
         // Off: the operator opts in to agents that hand questions to a person.
         yield new InstallFlagDefault(self::FLAG_INBOX_ENABLED, FeatureFlagType::Bool, false);
+        yield new InstallFlagDefault(SessionPromptLimit::FLAG, FeatureFlagType::Int, SessionPromptLimit::DEFAULT);
     }
 }

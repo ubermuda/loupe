@@ -29,6 +29,8 @@ class RunInboxActionRequest
         /** The digest of the run list the confirm dialog showed. */
         #[Assert\Length(max: 64)]
         public ?string $runDigest = null,
+        /** The prompt of a start-session action, as the owner left it in the field. The handler checks its length against the flag. */
+        public ?string $sessionPrompt = null,
     ) {
     }
 }

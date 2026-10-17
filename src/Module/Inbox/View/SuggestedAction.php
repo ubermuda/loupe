@@ -16,6 +16,8 @@ final readonly class SuggestedAction
         public bool $recommended = false,
         public ?array $command = null,
         public ?string $proposedEntry = null,
+        /** The instruction a start-session suggestion starts the session with. */
+        public ?string $prompt = null,
     ) {
     }
 }

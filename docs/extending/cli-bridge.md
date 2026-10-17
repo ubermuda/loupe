@@ -1864,6 +1864,12 @@ of the card. The prompt of the session names the inbox item by its number and
 its id. It tells the agent to read your note with the `inbox_get` tool, and the
 earlier report of the run with `worker_run_get`. The request holds no note text.
 
+When the owner started the session from a suggestion with a prompt, the bridge
+appends that text as the last part of the first message. It comes after the
+prompt of the `session` entry and the inbox line. The text is what the owner
+left in the field. An older bridge ignores it. The agent can still read the
+suggestion with `inbox_get`.
+
 A `session` request that no bridge claims expires after 2 minutes, and the
 card does not pause. Loupe disables the action while no online bridge of the
 project owner reports `session`.

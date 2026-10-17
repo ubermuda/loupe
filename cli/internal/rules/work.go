@@ -432,6 +432,9 @@ func (s *Set) MatchKind(w api.WorkRequest) Match {
 		if w.Context.InboxActionID != "" && w.Context.InboxItemID != "" {
 			m.Prompt += "\n\n" + directive.InboxNote(w.Context.InboxItemNumber, w.Context.InboxItemID)
 		}
+		if w.Kind == SessionKind && strings.TrimSpace(w.Prompt) != "" {
+			m.Prompt += "\n\n" + directive.SuggestedPrompt(w.Prompt)
+		}
 	case ActionCommand:
 		m.Command = &Command{Argv: renderArgv(entry.Run, v), Timeout: entry.commandTimeout}
 	}

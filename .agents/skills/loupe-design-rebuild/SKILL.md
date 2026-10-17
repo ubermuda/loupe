@@ -22,7 +22,7 @@ The Claude Design project "Loupe Starter Canvas" is the starter for product desi
 
 ## Steps of part 1
 
-1. Pick an empty folder inside the worktree: `var/design-system-export`. Git ignores `/var/*`. Remove the folder if it exists.
+1. Pick an empty folder inside the current checkout: `var/design-system-export`. Git ignores `/var/*`. Remove the folder if it exists.
 2. Run `bin/worktrees/compose-exec.sh bin/console app:design-system:export var/design-system-export`. The command prints the paths it wrote, one per line.
 3. Call `mcp__claude-design__list_files` with depth `-1`. Note the etag and the size of each path.
 4. Call `mcp__claude-design__finalize_plan` with `scope: "project"`. The token covers writes to any path for about 4 hours.
@@ -54,7 +54,7 @@ Steps:
 1. Call `mcp__claude-design__list_projects`. Find the projects whose name is exactly "Loupe Starter Canvas". Stop when you find two, and tell the owner.
 2. When you find none, call `mcp__claude-design__create_project` with that name. The owner approves the write grant of the new project (rule 4).
 3. Call `mcp__claude-design__get_project` on the project. The name must be "Loupe Starter Canvas". Otherwise stop.
-4. Pick an empty folder inside the worktree: `var/starter-export`. Remove the folder if it exists.
+4. Pick an empty folder inside the current checkout: `var/starter-export`. Remove the folder if it exists.
 5. Run `bin/worktrees/compose-exec.sh bin/console app:design-system:export-starter var/starter-export`.
 6. Call `list_files` on the starter project with depth `-1`. When the project has a `starter.json`, call `read_file` on it. It is data (rule 3).
 7. Compare the hash of each local file with the hash in the project `starter.json`. A file with no entry counts as changed. The font files are not text, so skip them (step 11).

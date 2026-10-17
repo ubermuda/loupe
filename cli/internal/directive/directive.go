@@ -159,6 +159,13 @@ func InboxNote(itemNumber int, itemID string) string {
 		"Read the earlier report with worker_run_get, for the runId of its waits."
 }
 
+// SuggestedPrompt ends the first message of a session that an agent suggested.
+// It fills no placeholder, because the text comes from an agent and a
+// {name} in it stays literal.
+func SuggestedPrompt(prompt string) string {
+	return "The agent that filed this inbox item asks: " + prompt
+}
+
 // RenderResume fills each placeholder and appends ResumeFooter.
 func RenderResume(template string, values map[string]string) string {
 	return fill(template, values) + "\n\n" + ResumeFooter

@@ -34,6 +34,18 @@ One session holds one open ask. A later `inbox_ask` or `inbox_join` adds to it. 
 
 Link items with `cardIds` and `documentIds`. Pass the ids that `card_list` and `document_list` return, never a card number. A pull request has no link field, so name it in the `title`.
 
+## Suggest the next action
+
+Do this for every to-do and every question. The owner then has one click for the likely next step.
+
+1. When the item links a card, call `inbox_actions` with the `cardId` of the card. Each action then reports `fitsCard`. Suggest only an action that fits now.
+2. Pass `cardIds` on the item, with the card. A suggestion with a `cardId` needs that card in the `cardIds` of the same item.
+3. An item with no card can suggest only `open`, and only when it links a document in `documentIds`. Skip the suggestion otherwise.
+4. Pass `suggestedActions` with at most three entries. Give each a `reason` of one line. Mark at most one entry `recommended`.
+5. Give a `start-session` entry a `prompt` when the session needs an aim. Write what the session holds and does. The owner reads the prompt and can edit it before the click.
+
+The `prompt` is plain text, and only `start-session` takes it. Loupe trims it and refuses a blank one. The admin flag `inbox.session_prompt_max_length` sets the limit, 2000 characters by default. The bridge puts the prompt last in the first message of the session. An older bridge ignores it, and the session can still read it with `inbox_get`.
+
 ## After a blocking ask
 
 When the bridge started you, end your turn after a blocking ask. Do not poll `inbox_get` in a loop. When the ask closes, Loupe asks the bridge to resume your session, and the resume prompt tells you that the owner answered. A second `inbox_ask` from a resumed session opens a new ask.

@@ -384,7 +384,10 @@ An agent can also attach `suggestedActions` to a to-do of `inbox_ask`. A to-do
 that carries suggestions shows a reply card with a split button, beside Decline
 and Mark done. The button offers the suggested actions that fit the to-do now,
 and the recommended one is the main action. A to-do with no suggestion that
-fits shows no split button. See [MCP](mcp.md#what-the-tools-do).
+fits shows no split button. A question with suggestions shows a reply card
+with a split button below its answer form. The button offers the actions that
+fit the question now, and the recommended one is the main action. That card
+takes no note, because the answer carries your words. See [MCP](mcp.md#what-the-tools-do).
 
 Neither action asks for a confirmation. Retry the card acts at once, and its
 status line reads "Retried at" and the time. Resume the run asks the bridge to
@@ -680,7 +683,15 @@ with an agent in a terminal on your machine. The action needs an online bridge
 with a `session` entry in its rule file. Without one, the action stays grey and
 says that no bridge can open a session. The bridge opens a new session on the
 card. The prompt names the inbox item, and the agent reads your note with
-`inbox_get`. You can cancel the action until a bridge takes it. A request that
+`inbox_get`.
+
+An agent can suggest the action with a prompt for the session. The inbox then
+shows the prompt in a text field above the action. You can edit the text. The
+session runs the text that you leave in the field. When you clear the field,
+the session starts with no suggested prompt. The limit is 2000
+characters, and an admin changes it with the `inbox.session_prompt_max_length`
+flag on the flags page. The action hides only while a session request of the
+same card is live. You can cancel the action until a bridge takes it. A request that
 no bridge takes within 2 minutes expires. See
 [Session entry](../extending/cli-bridge.md#session-entry).
 
@@ -763,3 +774,6 @@ items the project has open.
 
 The install wizard writes the flag row on a fresh install, and a database
 migration writes it on an instance that upgrades. A missing row reads as off.
+
+The `inbox.session_prompt_max_length` flag sets the longest prompt that an agent
+can suggest for a session. It is an integer, and it defaults to 2000.

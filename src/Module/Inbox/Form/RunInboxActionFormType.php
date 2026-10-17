@@ -29,6 +29,7 @@ class RunInboxActionFormType extends AbstractType
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder->add('note', TextareaType::class, ['required' => false]);
+        $builder->add('sessionPrompt', TextareaType::class, ['required' => false]);
         $builder->add('branch', TextType::class, ['required' => false]);
         $builder->add('runDigest', TextType::class, ['required' => false]);
         // An empty value stays an empty string, so the parameter is checked against its pattern rather than dropped.

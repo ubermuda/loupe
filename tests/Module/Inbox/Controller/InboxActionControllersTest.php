@@ -359,6 +359,52 @@ final class InboxActionControllersTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-inbox-linked="card"] .inbox-split'));
     }
 
+    public function test_a_session_todo_shows_the_prompt_in_an_editable_field_and_sends_the_edit(): void
+    {
+        $session = new Bridge($this->project->owner, Uuid::v4(), [$this->project->id?->toRfc4122() ?? ''], 'b4e39aa7', new \DateTimeImmutable());
+        $session->capabilities = [Bridge::CAPABILITY_WORK_REQUESTS, Bridge::CAPABILITY_SESSION];
+        $session->lastSeenAt = new \DateTimeImmutable();
+        $this->em()->persist($session);
+        $item = new InboxItem(project: $this->project, number: ++$this->number, kind: InboxItemKind::Todo, title: 'Rebuild it', blocking: false);
+        $item->suggestedActions = [['action' => 'start-session', 'reason' => 'Talk it through.', 'recommended' => true, 'cardId' => null, 'command' => null, 'proposedEntry' => null, 'prompt' => 'Use the <skill>.']];
+        $item->cards->add(new InboxItemCard($item, $this->card));
+        $this->em()->persist($item);
+        $this->em()->flush();
+        $this->askHolding($this->em(), $this->project, [$item]);
+        $this->em()->flush();
+
+        $crawler = $this->client->request(Request::METHOD_GET, $this->pageUrl());
+
+        self::assertResponseIsSuccessful();
+        $field = $crawler->filter('textarea[data-inbox-session-prompt]');
+        self::assertCount(1, $field);
+        self::assertSame('inbox_action_'.$item->id.'[sessionPrompt]', $field->attr('name'));
+        self::assertSame('Use the <skill>.', trim($field->text()));
+
+        $this->post($this->actionPath($item, 'start-session'), $item, ['note' => '', 'sessionPrompt' => 'Use the <skill>. Part 1 only.']);
+
+        self::assertSame('Use the <skill>. Part 1 only.', $this->onlyAction($item)->sessionPrompt);
+    }
+
+    public function test_a_session_prompt_field_the_owner_cleared_starts_the_session_with_no_prompt(): void
+    {
+        $session = new Bridge($this->project->owner, Uuid::v4(), [$this->project->id?->toRfc4122() ?? ''], 'b4e39aa7', new \DateTimeImmutable());
+        $session->capabilities = [Bridge::CAPABILITY_WORK_REQUESTS, Bridge::CAPABILITY_SESSION];
+        $session->lastSeenAt = new \DateTimeImmutable();
+        $this->em()->persist($session);
+        $item = new InboxItem(project: $this->project, number: ++$this->number, kind: InboxItemKind::Todo, title: 'Rebuild it', blocking: false);
+        $item->suggestedActions = [['action' => 'start-session', 'reason' => 'Talk it through.', 'recommended' => true, 'cardId' => null, 'command' => null, 'proposedEntry' => null, 'prompt' => 'Use the skill.']];
+        $item->cards->add(new InboxItemCard($item, $this->card));
+        $this->em()->persist($item);
+        $this->em()->flush();
+        $this->askHolding($this->em(), $this->project, [$item]);
+        $this->em()->flush();
+
+        $this->post($this->actionPath($item, 'start-session'), $item, ['note' => '', 'sessionPrompt' => '']);
+
+        self::assertNull($this->onlyAction($item)->sessionPrompt);
+    }
+
     public function test_a_question_keeps_its_answer_form_with_the_heading_your_answer(): void
     {
         $question = $this->question($this->em(), $this->project, 40);
@@ -367,6 +413,38 @@ final class InboxActionControllersTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertStringStartsWith('Your answer', trim($crawler->filter('#inbox-item-'.$question->number.' legend.lp-decision__prompt')->text()));
+        self::assertCount(0, $crawler->filter('#inbox-item-'.$question->number.' [data-inbox-thread]'));
+    }
+
+    public function test_a_question_offers_its_suggested_session_below_the_answer_form_and_starts_it(): void
+    {
+        $this->sessionBridge();
+        $question = $this->sessionQuestion([['action' => 'start-session', 'reason' => 'Pair on the answer.', 'recommended' => true, 'cardId' => null, 'command' => null, 'proposedEntry' => null, 'prompt' => 'Use the skill.']]);
+
+        $crawler = $this->client->request(Request::METHOD_GET, $this->pageUrl());
+
+        self::assertResponseIsSuccessful();
+        $item = $crawler->filter('#inbox-item-'.$question->number);
+        self::assertCount(1, $item->filter('form.lp-inbox-answer'));
+        self::assertSame('start-session', $item->filter('[data-inbox-thread] .inbox-split__main')->attr('data-inbox-action'));
+        self::assertSame('Pair on the answer.', trim($item->filter('[data-inbox-reply-heading]')->text()));
+        self::assertSame('Use the skill.', trim($item->filter('textarea[data-inbox-session-prompt]')->text()));
+        self::assertCount(0, $item->filter('[data-inbox-thread] textarea[name$="[note]"]'));
+
+        $this->post($this->actionPath($question, 'start-session'), $question, ['sessionPrompt' => 'Use the skill.']);
+
+        self::assertSame('Use the skill.', $this->onlyAction($question)->sessionPrompt);
+    }
+
+    public function test_a_question_with_a_card_and_no_suggestion_shows_no_reply_card(): void
+    {
+        $this->sessionBridge();
+        $question = $this->sessionQuestion(null);
+
+        $crawler = $this->client->request(Request::METHOD_GET, $this->pageUrl());
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('#inbox-item-'.$question->number.' form.lp-inbox-answer'));
         self::assertCount(0, $crawler->filter('#inbox-item-'.$question->number.' [data-inbox-thread]'));
     }
 
@@ -951,6 +1029,29 @@ final class InboxActionControllersTest extends WebTestCase
         $run = ['bin/console', 'app:export', '{out}'];
 
         return hash('sha256', json_encode([$run, $run], \JSON_THROW_ON_ERROR));
+    }
+
+    private function sessionBridge(): void
+    {
+        $session = new Bridge($this->project->owner, Uuid::v4(), [$this->project->id?->toRfc4122() ?? ''], 'b4e39aa7', new \DateTimeImmutable());
+        $session->capabilities = [Bridge::CAPABILITY_WORK_REQUESTS, Bridge::CAPABILITY_SESSION];
+        $session->lastSeenAt = new \DateTimeImmutable();
+        $this->em()->persist($session);
+        $this->em()->flush();
+    }
+
+    /** @param list<array{action: string, reason: string, recommended: bool, cardId: ?string, command: null, proposedEntry: null, prompt: ?string}>|null $suggestions */
+    private function sessionQuestion(?array $suggestions): InboxItem
+    {
+        $item = new InboxItem(project: $this->project, number: ++$this->number, kind: InboxItemKind::Question, title: 'Which tag order?', blocking: true, options: ['By name', 'By use'], freeText: true);
+        $item->suggestedActions = $suggestions;
+        $item->cards->add(new InboxItemCard($item, $this->card));
+        $this->em()->persist($item);
+        $this->em()->flush();
+        $this->askHolding($this->em(), $this->project, [$item]);
+        $this->em()->flush();
+
+        return $item;
     }
 
     /** @param array<string, string|array<string, string>> $fields */

@@ -114,3 +114,11 @@ func TestRenderArgumentKeepsTrailingWhitespace(t *testing.T) {
 		}
 	}
 }
+
+// The suggested prompt keeps a placeholder-shaped name as written.
+func TestSuggestedPromptFillsNothing(t *testing.T) {
+	got := SuggestedPrompt("Fix {cardNumber} now")
+	if want := "The agent that filed this inbox item asks: Fix {cardNumber} now"; got != want {
+		t.Fatalf("SuggestedPrompt = %q, want %q", got, want)
+	}
+}

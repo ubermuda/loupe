@@ -66,7 +66,7 @@ final class RunInboxActionController extends AppController
 
         if ($form->isSubmitted() && $form->isValid()) {
             try {
-                ($this->runAction)(new RunInboxActionCommand($item, $kind, $data->note ?? '', $user, '' === ($data->branch ?? '') ? null : $data->branch, [] === $data->params ? null : $data->params, $data->runDigest));
+                ($this->runAction)(new RunInboxActionCommand($item, $kind, $data->note ?? '', $user, '' === ($data->branch ?? '') ? null : $data->branch, [] === $data->params ? null : $data->params, $data->runDigest, $data->sessionPrompt));
                 // Read again, because a saved response can move the item to the completed queue.
                 $saved = $this->returnTargets->resolve($request, $item, $return);
                 $verb = match ($kind) {

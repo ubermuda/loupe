@@ -42,6 +42,10 @@ class InboxAction
     #[ORM\Column(type: UuidType::NAME, nullable: true)]
     public ?Uuid $waitId = null;
 
+    /** The prompt of a started session, as the owner confirmed it. Null when the session had none. */
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    public ?string $sessionPrompt = null;
+
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $cancelledAt = null;
 

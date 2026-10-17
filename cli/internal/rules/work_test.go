@@ -731,3 +731,42 @@ func TestCheckReportSizes(t *testing.T) {
 		t.Fatalf("want a size error, got %v", err)
 	}
 }
+
+// A session request appends the suggested prompt last, after the inbox note.
+// A blank prompt, or a prompt on another kind, changes nothing.
+func TestMatchWorkAppendsTheSuggestedPromptToASession(t *testing.T) {
+	s := checked(t, workFile+"  session:\n    action: interactive\n    prompt: base {cardNumber}\n")
+	plain := s.MatchWork(workRequest("session"))
+
+	w := workRequest("session")
+	w.Prompt = "  Check {cardNumber} please  "
+	m := s.MatchWork(w)
+	if want := plain.Prompt + "\n\n" + directive.SuggestedPrompt(w.Prompt); m.Skip != Run || m.Prompt != want {
+		t.Fatalf("prompt = %q, want %q", m.Prompt, want)
+	}
+	if !strings.Contains(m.Prompt, "{cardNumber} please") {
+		t.Fatalf("prompt = %q, want the braces literal", m.Prompt)
+	}
+
+	w.Context.InboxActionID = "01a10beb-ba65-736b-8626-a6e3fa59dfc5"
+	w.Context.InboxItemNumber = 12
+	w.Context.InboxItemID = "01a137da-4de8-70ae-991f-2ef19584f2a6"
+	m = s.MatchWork(w)
+	note := directive.InboxNote(12, w.Context.InboxItemID)
+	if want := plain.Prompt + "\n\n" + note + "\n\n" + directive.SuggestedPrompt(w.Prompt); m.Prompt != want {
+		t.Fatalf("prompt with note = %q, want %q", m.Prompt, want)
+	}
+
+	w = workRequest("session")
+	w.Prompt = " \n\t"
+	if m := s.MatchWork(w); m.Prompt != plain.Prompt {
+		t.Fatalf("blank prompt = %q, want %q", m.Prompt, plain.Prompt)
+	}
+
+	w = workRequest("pair")
+	pairPlain := s.MatchWork(w)
+	w.Prompt = "something"
+	if m := s.MatchWork(w); m.Prompt != pairPlain.Prompt {
+		t.Fatalf("non-session prompt = %q, want %q", m.Prompt, pairPlain.Prompt)
+	}
+}

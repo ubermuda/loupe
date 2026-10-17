@@ -149,7 +149,7 @@ final readonly class InboxSubjectResolver
             if (!\is_bool($recommended) || (null !== $cardId && !\is_string($cardId))) {
                 throw new ToolCallException(\sprintf('items[%d].suggestedActions[%d]: recommended must be true or false, and cardId a string.', $index, $position));
             }
-            $suggestions[] = new AskInboxSuggestion($action, $reason, $recommended, $cardId, $this->runCommand($entry, $index, $position), $this->proposedEntry($entry, $index, $position));
+            $suggestions[] = new AskInboxSuggestion($action, $reason, $recommended, $cardId, $this->runCommand($entry, $index, $position), $this->proposedEntry($entry, $index, $position), $this->prompt($entry, $index, $position));
         }
 
         return $suggestions;
@@ -192,6 +192,17 @@ final readonly class InboxSubjectResolver
         $value = $suggestion['proposedEntry'] ?? null;
         if (null !== $value && !\is_string($value)) {
             throw new ToolCallException(\sprintf('items[%d].suggestedActions[%d].proposedEntry must be a string of YAML.', $index, $position));
+        }
+
+        return $value;
+    }
+
+    /** @param array<mixed> $suggestion */
+    private function prompt(array $suggestion, int $index, int $position): ?string
+    {
+        $value = $suggestion['prompt'] ?? null;
+        if (null !== $value && !\is_string($value)) {
+            throw new ToolCallException(\sprintf('items[%d].suggestedActions[%d].prompt must be a string.', $index, $position));
         }
 
         return $value;

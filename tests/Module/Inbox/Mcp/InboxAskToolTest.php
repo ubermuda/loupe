@@ -13,6 +13,7 @@ use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Mcp\InboxAskTool;
 use App\Module\Inbox\Repository\InboxReviewRepository;
+use App\Module\Inbox\Service\SessionPromptLimit;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Tests\Support\McpTokenScenario;
@@ -21,6 +22,7 @@ use Mcp\Exception\ToolCallException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
+use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class InboxAskToolTest extends KernelTestCase
 {
@@ -399,9 +401,46 @@ final class InboxAskToolTest extends KernelTestCase
         $item = $this->em->find(InboxItem::class, Uuid::fromString($result['items'][0]['itemId']));
         self::assertInstanceOf(InboxItem::class, $item);
         self::assertSame([
-            ['action' => 'start-session', 'reason' => 'Talk it through', 'recommended' => true, 'cardId' => (string) $card->id, 'command' => null, 'proposedEntry' => null],
-            ['action' => 'open', 'reason' => 'See the card', 'recommended' => false, 'cardId' => null, 'command' => null, 'proposedEntry' => null],
+            ['action' => 'start-session', 'reason' => 'Talk it through', 'recommended' => true, 'cardId' => (string) $card->id, 'command' => null, 'proposedEntry' => null, 'prompt' => null],
+            ['action' => 'open', 'reason' => 'See the card', 'recommended' => false, 'cardId' => null, 'command' => null, 'proposedEntry' => null, 'prompt' => null],
         ], $item->suggestedActions);
+    }
+
+    public function test_a_start_session_prompt_is_stored_trimmed(): void
+    {
+        $this->enableInbox();
+        $this->actAsMcpTokenBoundTo($this->makeProject('inbox-ask-prompt'));
+
+        $result = $this->askTodo(null, ['action' => 'start-session', 'reason' => 'Talk', 'prompt' => "  Use the skill.\n"]);
+
+        self::assertSame('Use the skill.', $this->storedSuggestions($result)[0]['prompt'] ?? null);
+    }
+
+    public function test_a_prompt_at_the_default_limit_is_accepted(): void
+    {
+        $this->enableInbox();
+        $this->actAsMcpTokenBoundTo($this->makeProject('inbox-ask-prompt-limit'));
+
+        $result = $this->askTodo(null, ['action' => 'start-session', 'reason' => 'Talk', 'prompt' => str_repeat('a', 2000)]);
+
+        self::assertSame(2000, mb_strlen($this->storedSuggestions($result)[0]['prompt'] ?? ''));
+    }
+
+    public function test_the_flag_sets_the_longest_prompt(): void
+    {
+        $this->enableInbox();
+        $flags = self::getContainer()->get(FeatureFlagRepository::class);
+        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
+        $flags->findAllIndexed()[SessionPromptLimit::FLAG]->value = 10;
+        $this->em->flush();
+        $this->actAsMcpTokenBoundTo($this->makeProject('inbox-ask-prompt-flag'));
+
+        $result = $this->askTodo(null, ['action' => 'start-session', 'reason' => 'Talk', 'prompt' => str_repeat('a', 10)]);
+        self::assertSame(10, mb_strlen($this->storedSuggestions($result)[0]['prompt'] ?? ''));
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('A suggestion prompt must be at most');
+        $this->askTodo(null, ['action' => 'start-session', 'reason' => 'Talk', 'prompt' => str_repeat('a', 11)]);
     }
 
     public function test_an_item_without_suggestions_stores_none(): void
@@ -441,6 +480,10 @@ final class InboxAskToolTest extends KernelTestCase
         yield 'a card the item does not link' => [['suggestedActions' => [['action' => 'open', 'reason' => 'a', 'cardId' => '0199a000-0000-7000-8000-000000000000']]], 'items[0].suggestedActions: The cardId of a suggested action must be one of the cardIds of the same item.'];
         yield 'four suggestions' => [['suggestedActions' => [['action' => 'open', 'reason' => 'a'], ['action' => 'review', 'reason' => 'a'], ['action' => 'dismiss', 'reason' => 'a'], ['action' => 'retry-card', 'reason' => 'a']]], 'items[0].suggestedActions: Suggest at most 3 actions on one item.'];
         yield 'an entry that is not an object' => [['suggestedActions' => ['open']], 'items[0].suggestedActions[0] must be an object.'];
+        yield 'a prompt on another action' => [['suggestedActions' => [['action' => 'open', 'reason' => 'a', 'prompt' => 'Do it']]], 'items[0].suggestedActions: Only a start-session suggestion takes a prompt.'];
+        yield 'a prompt over the default limit' => [['suggestedActions' => [['action' => 'start-session', 'reason' => 'a', 'prompt' => str_repeat('a', 2001)]]], 'items[0].suggestedActions: A suggestion prompt must be at most 2000 characters'];
+        yield 'a prompt of spaces' => [['suggestedActions' => [['action' => 'start-session', 'reason' => 'a', 'prompt' => " \n "]]], 'items[0].suggestedActions: A suggestion prompt must not be blank.'];
+        yield 'a prompt that is no string' => [['suggestedActions' => [['action' => 'start-session', 'reason' => 'a', 'prompt' => 5]]], 'items[0].suggestedActions[0].prompt must be a string.'];
         yield 'a reason that is not a string' => [['suggestedActions' => [['action' => 'open', 'reason' => 5]]], 'items[0].suggestedActions[0] needs a string action and a string reason.'];
     }
 
@@ -559,6 +602,7 @@ final class InboxAskToolTest extends KernelTestCase
             'cardId' => null,
             'command' => ['entry' => 'test', 'branch' => 'main', 'params' => ['filter' => 'abc']],
             'proposedEntry' => null,
+            'prompt' => null,
         ]], $this->storedSuggestions($result));
     }
 

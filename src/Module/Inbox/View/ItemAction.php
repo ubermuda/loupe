@@ -19,11 +19,13 @@ final readonly class ItemAction
         public ?string $reason = null,
         /** The command, its checks and its run state, for a run-command action alone. */
         public ?RunCommandView $runCommand = null,
+        /** The prompt that the agent suggested for a start-session action. The owner edits it before the click. */
+        public ?string $sessionPrompt = null,
     ) {
     }
 
-    public static function for(InboxActionKind $kind, bool $default = false, ?string $disabledReasonKey = null, ?string $reason = null, ?RunCommandView $runCommand = null): self
+    public static function for(InboxActionKind $kind, bool $default = false, ?string $disabledReasonKey = null, ?string $reason = null, ?RunCommandView $runCommand = null, ?string $sessionPrompt = null): self
     {
-        return new self($kind, \sprintf('inbox.action.%s.label', $kind->value), \sprintf('inbox.action.%s.effect', $kind->value), $default, $disabledReasonKey, $reason, $runCommand);
+        return new self($kind, \sprintf('inbox.action.%s.label', $kind->value), \sprintf('inbox.action.%s.effect', $kind->value), $default, $disabledReasonKey, $reason, $runCommand, $sessionPrompt);
     }
 }

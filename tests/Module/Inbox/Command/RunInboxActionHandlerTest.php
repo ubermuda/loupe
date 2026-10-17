@@ -64,6 +64,7 @@ use App\Module\Inbox\Service\ItemActions;
 use App\Module\Inbox\Service\RunCommandResolver;
 use App\Module\Inbox\Service\RunCommandRuns;
 use App\Module\Inbox\Service\SessionBridges;
+use App\Module\Inbox\Service\SessionPromptLimit;
 use App\Module\Inbox\Workflow\InboxRetryNotes;
 use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseHandler;
@@ -83,6 +84,7 @@ use Doctrine\Persistence\ManagerRegistry;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
+use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class RunInboxActionHandlerTest extends KernelTestCase
 {
@@ -638,6 +640,83 @@ final class RunInboxActionHandlerTest extends KernelTestCase
         self::assertSame(1, (int) $this->em()->getConnection()->fetchOne("SELECT COUNT(*) FROM outbox_events WHERE type = 'bridge.work_request'"));
     }
 
+    public function test_a_session_without_a_prompt_sends_none_and_audits_no_prompt(): void
+    {
+        $this->sessionBridge();
+        $item = $this->runItem();
+
+        $action = $this->runAction($item, InboxActionKind::StartSession, '', "  \n ") ?? throw new \LogicException('A session records a row.');
+
+        self::assertNull($action->sessionPrompt);
+        self::assertNull($this->em()->find(WorkRequest::class, $action->workRequestId)?->prompt);
+        self::assertFalse($this->audit->record('inbox.action_requested')->context['hasPrompt']);
+    }
+
+    public function test_a_session_sends_the_prefilled_prompt_the_owner_left_unchanged(): void
+    {
+        $this->sessionBridge();
+        $item = $this->todoWithSessionPrompt('Use the skill.');
+
+        $action = $this->runAction($item, InboxActionKind::StartSession, '', 'Use the skill.') ?? throw new \LogicException('A session records a row.');
+
+        self::assertSame('Use the skill.', $action->sessionPrompt);
+        self::assertSame('Use the skill.', $this->em()->find(WorkRequest::class, $action->workRequestId)?->prompt);
+        $context = $this->audit->record('inbox.action_requested')->context;
+        self::assertTrue($context['hasPrompt']);
+        self::assertStringNotContainsString('Use the skill.', (string) json_encode($context));
+    }
+
+    public function test_a_session_sends_the_prompt_the_owner_edited(): void
+    {
+        $this->sessionBridge();
+        $item = $this->todoWithSessionPrompt('Use the skill.');
+
+        $action = $this->runAction($item, InboxActionKind::StartSession, '', "  Use the skill. Part 1 only.\n") ?? throw new \LogicException('A session records a row.');
+
+        self::assertSame('Use the skill. Part 1 only.', $action->sessionPrompt);
+        self::assertSame('Use the skill. Part 1 only.', $this->em()->find(WorkRequest::class, $action->workRequestId)?->prompt);
+    }
+
+    public function test_a_cleared_field_starts_a_session_without_the_suggested_prompt(): void
+    {
+        $this->sessionBridge();
+        $item = $this->todoWithSessionPrompt('Use the skill.');
+
+        $action = $this->runAction($item, InboxActionKind::StartSession, '', '   ') ?? throw new \LogicException('A session records a row.');
+
+        self::assertNull($action->sessionPrompt);
+        self::assertNull($this->em()->find(WorkRequest::class, $action->workRequestId)?->prompt);
+    }
+
+    public function test_a_suggestion_stored_before_the_prompt_existed_starts_a_plain_session(): void
+    {
+        $this->sessionBridge();
+        $item = $this->todoWithSessionPrompt(null);
+
+        $action = $this->runAction($item, InboxActionKind::StartSession) ?? throw new \LogicException('A session records a row.');
+
+        self::assertNull($action->sessionPrompt);
+        self::assertNull($this->em()->find(WorkRequest::class, $action->workRequestId)?->prompt);
+    }
+
+    public function test_an_edited_prompt_over_the_flag_limit_is_refused_and_leaves_no_row(): void
+    {
+        $this->sessionBridge();
+        $item = $this->todoWithSessionPrompt('Use the skill.');
+        $flags = $this->service(FeatureFlagRepository::class);
+        $flags->findAllIndexed()[SessionPromptLimit::FLAG]->value = 5;
+        $this->em()->flush();
+
+        try {
+            $this->runAction($item, InboxActionKind::StartSession, '', 'abcdef');
+            self::fail('Expected a refusal.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['action' => RunInboxActionHandler::SESSION_PROMPT_TOO_LONG], $e->errors);
+        }
+        self::assertSame([], $this->service(InboxActionRepository::class)->findByItem($item));
+        self::assertNotNull($this->runAction($item, InboxActionKind::StartSession, '', 'abcde'));
+    }
+
     public function test_a_session_never_resumes_the_session_of_an_earlier_run(): void
     {
         $this->sessionBridge();
@@ -1190,6 +1269,18 @@ final class RunInboxActionHandlerTest extends KernelTestCase
         return $item;
     }
 
+    private function todoWithSessionPrompt(?string $prompt): InboxItem
+    {
+        $item = new InboxItem(project: $this->project, number: ++$this->number, kind: InboxItemKind::Todo, title: 'Rebuild it', blocking: false);
+        $item->cards->add(new InboxItemCard($item, $this->card));
+        $suggestion = ['action' => 'start-session', 'reason' => 'Talk it through.', 'recommended' => true, 'cardId' => (string) $this->card->id];
+        $item->suggestedActions = [null === $prompt ? $suggestion : [...$suggestion, 'prompt' => $prompt]];
+        $this->em()->persist($item);
+        $this->em()->flush();
+
+        return $item;
+    }
+
     private function sessionBridge(): void
     {
         $this->bridge->capabilities = [Bridge::CAPABILITY_COMMANDS, Bridge::CAPABILITY_WORK_REQUESTS, Bridge::CAPABILITY_SESSION];
@@ -1218,9 +1309,9 @@ final class RunInboxActionHandlerTest extends KernelTestCase
         }
     }
 
-    private function runAction(InboxItem $item, InboxActionKind $kind, string $note = ''): ?InboxAction
+    private function runAction(InboxItem $item, InboxActionKind $kind, string $note = '', ?string $sessionPrompt = null): ?InboxAction
     {
-        return ($this->runHandler())(new RunInboxActionCommand($item, $kind, $note, $this->project->owner, runDigest: InboxActionKind::RunCommand === $kind ? self::shownDigest() : null));
+        return ($this->runHandler())(new RunInboxActionCommand($item, $kind, $note, $this->project->owner, runDigest: InboxActionKind::RunCommand === $kind ? self::shownDigest() : null, sessionPrompt: $sessionPrompt));
     }
 
     /** The digest of the run list of the entry that commandBridge() reports, as the dialog shows it. */
@@ -1246,6 +1337,7 @@ final class RunInboxActionHandlerTest extends KernelTestCase
             $this->service(CardDirectory::class),
             $this->em(),
             $this->audit->auditor,
+            $this->service(SessionPromptLimit::class),
         );
     }
 

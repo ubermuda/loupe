@@ -5303,6 +5303,8 @@
             <trans-unit id="inbox.action.start-session.label"><source>inbox.action.start-session.label</source><target>Start an interactive session</target></trans-unit>
             <trans-unit id="inbox.action.start-session.effect"><source>inbox.action.start-session.effect</source><target>Opens a terminal on your machine, in a new session on this card.</target></trans-unit>
             <trans-unit id="inbox.action.start-session.disabled"><source>inbox.action.start-session.disabled</source><target>No bridge can open a session.</target></trans-unit>
+            <trans-unit id="inbox.thread.session_prompt_label"><source>inbox.thread.session_prompt_label</source><target>Prompt for the session</target></trans-unit>
+            <trans-unit id="inbox.thread.session_prompt_hint"><source>inbox.thread.session_prompt_hint</source><target>The agent that filed this item wrote the prompt. Edit it before you start the session.</target></trans-unit>
             <trans-unit id="inbox.action.run-command.label"><source>inbox.action.run-command.label</source><target>Run a command</target></trans-unit>
             <trans-unit id="inbox.action.run-command.effect"><source>inbox.action.run-command.effect</source><target>Runs a command from your rule file on your machine, after you confirm it.</target></trans-unit>
             <trans-unit id="inbox.action.run-command.disabled.running"><source>inbox.action.run-command.disabled.running</source><target>This command is queued or running.</target></trans-unit>
@@ -5372,6 +5374,7 @@
             <trans-unit id="inbox.action.dismiss.label"><source>inbox.action.dismiss.label</source><target>Dismiss</target></trans-unit>
             <trans-unit id="inbox.action.dismiss.effect"><source>inbox.action.dismiss.effect</source><target>Closes this item without an action.</target></trans-unit>
             <trans-unit id="inbox.action.error.note_too_long"><source>inbox.action.error.note_too_long</source><target>The note is too long. Shorten it to 2000 characters or fewer.</target></trans-unit>
+            <trans-unit id="inbox.action.error.session_prompt_too_long"><source>inbox.action.error.session_prompt_too_long</source><target>The session prompt is too long. Shorten it.</target></trans-unit>
             <trans-unit id="inbox.action.error.not_available"><source>inbox.action.error.not_available</source><target>This action no longer fits the item. Reload the page to see the actions that do.</target></trans-unit>
             <trans-unit id="inbox.action.error.not_found"><source>inbox.action.error.not_found</source><target>This action does not belong to the item.</target></trans-unit>
             <trans-unit id="inbox.action.error.not_cancellable"><source>inbox.action.error.not_cancellable</source><target>This action cannot be cancelled now.</target></trans-unit>

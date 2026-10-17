@@ -17,6 +17,7 @@ use App\Module\Bridge\Service\StopLadder;
 use App\Module\Bridge\Service\ToolCallCollectionSettings;
 use App\Module\Bridge\Service\WorkerRunRetentionPolicy;
 use App\Module\Inbox\Install\InboxInstallFlags;
+use App\Module\Inbox\Service\SessionPromptLimit;
 use App\Module\Insights\Service\AnalysisSettings;
 use App\Module\Review\Install\ReviewInstallFlags;
 use App\Module\Review\Mcp\DocumentHighlightTool;
@@ -70,7 +71,7 @@ final class SeedFlagsControllerTest extends WebTestCase
         // prefilled default, and that default has to be "on" or a freshly
         // installed instance cannot register anybody.
         self::assertTrue($flags[RegistrationGate::ENABLED_FLAG]->value);
-        self::assertCount(32, $flags);
+        self::assertCount(33, $flags);
         self::assertSame('hero', $flags['open_graph.image']->value);
         self::assertSame(['hero', 'board'], $flags['open_graph.image']->options);
         // Seeded on: the environment prerequisite holds it off until a hub is configured.
@@ -96,6 +97,7 @@ final class SeedFlagsControllerTest extends WebTestCase
         self::assertFalse($flags[ReviewInstallFlags::FLAG_MERMAID]->value);
         self::assertArrayNotHasKey('board.enabled', $flags);
         self::assertFalse($flags[InboxInstallFlags::FLAG_INBOX_ENABLED]->value);
+        self::assertSame(SessionPromptLimit::DEFAULT, $flags[SessionPromptLimit::FLAG]->value);
         self::assertFalse($flags[SearchInstallFlags::FLAG_TOPBAR_ENABLED]->value);
         // Same reasoning as the update check: an install sends nothing to a
         // third party until someone decides it should.

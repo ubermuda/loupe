@@ -25,6 +25,7 @@ use App\Module\Inbox\Entity\InboxCardWait;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Service\ItemActions;
+use App\Module\Inbox\Service\SessionPromptLimit;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseCommand;
 use App\Module\Workflow\Command\ReleaseWorkflowPauseHandler;
 use App\Module\Workflow\Contract\Actor;
@@ -45,6 +46,7 @@ use Ubermuda\AuditBundle\AuditSubject;
 final readonly class RunInboxActionHandler
 {
     public const string NOTE_TOO_LONG = 'inbox.action.error.note_too_long';
+    public const string SESSION_PROMPT_TOO_LONG = 'inbox.action.error.session_prompt_too_long';
     public const string NOT_AVAILABLE = 'inbox.action.error.not_available';
 
     public const string COMMAND_LIVE = 'inbox.action.error.run_command_live';
@@ -66,6 +68,7 @@ final readonly class RunInboxActionHandler
         private CardDirectory $cardDirectory,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private SessionPromptLimit $promptLimit,
     ) {
     }
 
@@ -101,6 +104,9 @@ final readonly class RunInboxActionHandler
             'kind' => $kind->value,
             'hasNote' => '' !== $note,
         ];
+        if (InboxActionKind::StartSession === $kind) {
+            $context['hasPrompt'] = null !== $action?->sessionPrompt;
+        }
         if (null !== $action) {
             $context['actionId'] = (string) $action->id;
         }
@@ -210,8 +216,18 @@ final readonly class RunInboxActionHandler
         $card = $this->cardDirectory->findInProject($projectId, $this->itemActions->cardIdOf($item, InboxActionKind::StartSession) ?? throw new DomainErrors(['action' => self::NOT_AVAILABLE]))
             ?? throw new DomainErrors(['action' => self::NOT_AVAILABLE]);
 
+        if (mb_strlen($command->sessionPrompt ?? '') > $this->promptLimit->maxLength()) {
+            throw new DomainErrors(['action' => self::SESSION_PROMPT_TOO_LONG]);
+        }
+        // The field is the prompt, so a field the owner cleared starts a session with no prompt.
+        $prompt = trim($command->sessionPrompt ?? '');
+        if ('' === $prompt) {
+            $prompt = null;
+        }
+
         // The row commits first, because the request names it. A refused request removes it again.
         $action = new InboxAction($item, InboxActionKind::StartSession, $command->user, $note);
+        $action->sessionPrompt = $prompt;
         $action->waitId = $this->itemActions->newestOpenWait($item)?->id;
         $this->em->persist($action);
         $this->em->flush();
@@ -225,6 +241,7 @@ final readonly class RunInboxActionHandler
                 capability: Bridge::CAPABILITY_SESSION,
                 ruleId: self::SESSION_RULE_ID,
                 context: new WorkRequestContext(inboxActionId: $action->id?->toRfc4122(), inboxItemNumber: $item->number, inboxItemId: $item->id?->toRfc4122()),
+                prompt: $prompt,
                 fresh: true,
             ));
         } catch (WorkRequestAlreadyLive|DomainErrors $e) {

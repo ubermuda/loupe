@@ -30,6 +30,7 @@ use App\Module\Inbox\Service\CardWaitText;
 use App\Module\Inbox\Service\InboxActionStatuses;
 use App\Module\Inbox\Service\InboxReviewLookup;
 use App\Module\Inbox\Service\InboxThreadActionBuilder;
+use App\Module\Inbox\Service\ItemActions;
 use App\Module\Inbox\View\CardWaitLine;
 use App\Module\Inbox\View\InboxActionStatus;
 use App\Module\Inbox\View\InboxThreadActions;
@@ -244,7 +245,7 @@ final class InboxExtension extends AbstractExtension
             return $refused;
         }
 
-        return $this->formFactory->createNamed($name, RunInboxActionFormType::class, new RunInboxActionRequest())->createView();
+        return $this->formFactory->createNamed($name, RunInboxActionFormType::class, new RunInboxActionRequest(sessionPrompt: ItemActions::suggestedSessionPrompt($item)))->createView();
     }
 
     public function actionCancelForm(InboxAction $action, ?FormView $refused = null): FormView

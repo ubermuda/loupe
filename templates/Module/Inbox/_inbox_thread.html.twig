@@ -1,8 +1,10 @@
 {#- A wait item as a thread: what stopped, the owner's reply with its split button, and the actions the owner already took.
    Params: item, watch (InboxCardWatch), inbox, refusedForm, actionParams, responseFrame, hostCardId, cardDrawer,
-   reply (whether this page takes the owner's reply), todoButtons (optional: declineFormId, declineLabel, doneFormId of a to-do). -#}
+   reply (whether this page takes the owner's reply), todoButtons (optional: declineFormId, declineLabel, doneFormId of a to-do),
+   withNote (optional, default true: whether the reply card takes a note for the action). -#}
 {% set linkedDocumentIds = item.documents|map(link => link.document.id.toRfc4122) %}
 {% set todoButtons = todoButtons ?? null %}
+{% set withNote = (withNote ?? true) and not todoButtons %}
 {% set shownWaits = watch is null ? [] : watch.waits|filter(wait => wait.endedAt is null)|merge(watch.waits|filter(wait => wait.endedAt is not null))|filter(wait => not inbox_wait_folded(wait)) %}
 {% set statuses = reply ? inbox_action_statuses(item) : [] %}
 {% set lastStatus = statuses|last %}
@@ -13,6 +15,8 @@
 {% set commandRow = actions ? ([actions.main]|merge(actions.menu))|filter(row => row and row.action.runCommand)|first : null %}
 {% set runCommand = commandRow ? commandRow.action.runCommand : null %}
 {% set actionForm = reply ? inbox_action_form(item, refusedForm) : null %}
+{# The start-session row that carries a prompt of the asking agent. The owner reads and edits it before the click. #}
+{% set sessionRow = actions ? ([actions.main]|merge(actions.menu))|filter(row => row and row.action.sessionPrompt is not null)|first : null %}
 {# The dialog posts the reply form, so it needs the reply card on the page. #}
 {% set commandDialog = runCommand and runCommand.canOpenDialog and not answering %}
 {# The add dialog offers a missing entry to a bridge that opted in. The run dialog never exists beside it. #}
@@ -99,14 +103,17 @@
                         <twig:Ds:Hint>{{ 'inbox.run_command.missing.hint'|trans({'%command%': 'loupe bridge reload'}) }}</twig:Ds:Hint>
                     {% endif %}
                 {% endif %}
-                {% if not todoButtons %}
+                {% if withNote %}
                     {{ form_widget(actionForm.note, {attr: {rows: 2, placeholder: noteLabel, 'aria-label': noteLabel}}) }}
                     <twig:Ds:FieldErrors :fieldView="actionForm.note" />
+                {% endif %}
+                {% if sessionRow %}
+                    <twig:Ds:FormField :fieldView="actionForm.sessionPrompt" :labelText="'inbox.thread.session_prompt_label'|trans" widgetKind="textarea" :widgetAttr="{rows: 4, 'data-inbox-session-prompt': ''}" :hintText="'inbox.thread.session_prompt_hint'|trans" />
                 {% endif %}
                 <twig:Ds:FieldErrors :fieldView="actionForm" />
                 {{ form_widget(actionForm._token) }}
                 <div class="lp-comment-composer__actions">
-                    <twig:Ds:Hint as="span" class="inbox-split__hint">{{ actions.main and actions.main.action.runCommand ? (runCommand.onSuccess.value == 'resumes-run' ? 'inbox.run_command.dialog.success_run'|trans : '') : (todoButtons ? '' : 'inbox.thread.note_hint'|trans) }}</twig:Ds:Hint>
+                    <twig:Ds:Hint as="span" class="inbox-split__hint">{{ actions.main and actions.main.action.runCommand ? (runCommand.onSuccess.value == 'resumes-run' ? 'inbox.run_command.dialog.success_run'|trans : '') : (withNote ? 'inbox.thread.note_hint'|trans : '') }}</twig:Ds:Hint>
                     {% if todoButtons %}
                         {% include '@Inbox/_decline_button.html.twig' with {formId: todoButtons.declineFormId, label: todoButtons.declineLabel} only %}
                         <twig:Ds:Button variant="secondary" size="sm" type="submit" form="{{ todoButtons.doneFormId }}" data-inbox-done>{{ 'inbox.done.submit'|trans }}</twig:Ds:Button>

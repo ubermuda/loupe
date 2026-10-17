@@ -19,7 +19,7 @@ use Mcp\Exception\ToolCallException;
  *
  * @phpstan-type InboxActionSummary array{action: string, effect: string, fitsCard: ?bool}
  */
-#[McpTool(name: self::NAME, description: 'List the built-in actions you can suggest to the owner with suggestedActions on inbox_ask: resume-run, retry-card, review, open, send-agent, start-session, run-command and dismiss, each with one line on what it does. Pass cardId to also learn which actions fit that card now; fitsCard is then true or false for each action, and null otherwise. Loupe shows a suggestion only while its action fits the item, so suggest the actions that fit. A card with no open wait item fits open, start-session while a bridge can open a session and none of the card is live, and send-agent while its column names stage work that no request or worker does yet.')]
+#[McpTool(name: self::NAME, description: 'List the built-in actions you can suggest to the owner with suggestedActions on inbox_ask: resume-run, retry-card, review, open, send-agent, start-session, run-command and dismiss, each with one line on what it does. Pass cardId to also learn which actions fit that card now; fitsCard is then true or false for each action, and null otherwise. Loupe shows a suggestion only while its action fits the item, so suggest the actions that fit. A card with no open wait item fits open, start-session while a bridge can open a session and no session request of the card is live, and send-agent while its column names stage work that no request or worker does yet.')]
 final readonly class InboxActionsTool implements FlagGatedToolInterface
 {
     public const string NAME = 'inbox_actions';
