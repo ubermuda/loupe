@@ -1,7 +1,7 @@
 import { Controller } from '@hotwired/stimulus';
+import { COMPACT_QUERY } from '../lib/breakpoints.js';
 
 const OPEN_CLASS = 'lp-sidebar--open';
-const DESKTOP_QUERY = '(width > 48.75rem)';
 
 export default class extends Controller {
     static targets = ['trigger', 'panel', 'scrim', 'dismiss', 'content'];
@@ -27,8 +27,9 @@ export default class extends Controller {
         // Turbo caches the page as it leaves it, and an open drawer in that
         // snapshot comes back open on the next restore visit.
         this.onBeforeCache = () => this.#reset();
-        this.desktopQuery = window.matchMedia(DESKTOP_QUERY);
-        this.onDesktop = (event) => {
+        this.compactQuery = window.matchMedia(COMPACT_QUERY);
+        this.onCompactChange = (event) => {
+            const desktop = !event.matches;
             const focused =
                 document.activeElement === document.body
                     ? this.lastFocused
@@ -39,9 +40,9 @@ export default class extends Controller {
             const focusOnTrigger =
                 this.hasTriggerTarget && focused === this.triggerTarget;
             this.#reset();
-            if (!event.matches && focusInPanel && this.hasTriggerTarget) {
+            if (!desktop && focusInPanel && this.hasTriggerTarget) {
                 this.triggerTarget.focus();
-            } else if (event.matches && (focusOnDismiss || focusOnTrigger)) {
+            } else if (desktop && (focusOnDismiss || focusOnTrigger)) {
                 this.panelTarget.querySelector('a[href]')?.focus();
             }
         };
@@ -49,7 +50,7 @@ export default class extends Controller {
         document.addEventListener('focusin', this.onFocus);
         document.addEventListener('keydown', this.onKeydown);
         document.addEventListener('turbo:before-cache', this.onBeforeCache);
-        this.desktopQuery.addEventListener('change', this.onDesktop);
+        this.compactQuery.addEventListener('change', this.onCompactChange);
         this.#reset();
     }
 
@@ -58,7 +59,7 @@ export default class extends Controller {
         document.removeEventListener('focusin', this.onFocus);
         document.removeEventListener('keydown', this.onKeydown);
         document.removeEventListener('turbo:before-cache', this.onBeforeCache);
-        this.desktopQuery.removeEventListener('change', this.onDesktop);
+        this.compactQuery.removeEventListener('change', this.onCompactChange);
     }
 
     toggle(event) {

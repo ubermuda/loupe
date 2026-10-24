@@ -774,7 +774,7 @@ final class ExportDesignSystemHandlerTest extends KernelTestCase
         $topbarOnly = $projectOnly($topbarGated);
 
         self::assertContains('lp-sidebar__switcher', $sidebarOnly);
-        self::assertSame(['lp-topbar__new-work'], array_values($topbarOnly));
+        self::assertSame(['lp-topbar__new-work', 'lp-topbar__new-work-label'], array_values($topbarOnly));
         foreach (['hasProject' => [$sidebarOnly, $sidebarGuarded], 'onProjectPage' => [$topbarOnly, $topbarGuarded]] as $guard => [$classes, $guarded]) {
             foreach ($classes as $class) {
                 self::assertStringContainsString($class, implode("\n", $guarded), sprintf('base.html.twig shows %s only with a project, and the wrapper does not guard it with %s.', $class, $guard));

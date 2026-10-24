@@ -56,7 +56,7 @@
     .lp-sidebar {
         @apply flex flex-col w-54 shrink-0 pt-7 px-3.5 pb-3.5;
     }
-    @media (width > 48.75rem) and (width <= 75rem) {
+    @media (width >= 64rem) and (width <= 75rem) {
         .lp-sidebar {
             width: 12.1875rem;
         }
@@ -207,7 +207,7 @@
     }
     /* Opens the sidebar drawer. Present only where the sidebar is off-canvas. */
     .lp-topbar__menu {
-        @apply inline-flex items-center justify-center shrink-0 w-9 h-9 rounded-lg text-fg-dim cursor-pointer transition-colors lg:hidden;
+        @apply inline-flex items-center justify-center shrink-0 w-11 h-11 rounded-lg text-fg-dim cursor-pointer transition-colors lg:hidden;
     }
     .lp-topbar__menu:hover {
         @apply bg-surface-3 text-ink;
@@ -232,7 +232,7 @@
         @apply flex items-center gap-2 ml-auto;
     }
     .lp-topbar__global-action {
-        @apply inline-flex items-center justify-center w-9 h-9 rounded-lg text-fg-dim no-underline transition-colors;
+        @apply inline-flex items-center justify-center w-11 h-11 rounded-lg text-fg-dim no-underline transition-colors lg:w-9 lg:h-9;
     }
     .lp-topbar__global-action:hover {
         @apply bg-surface-3 text-ink;
@@ -252,48 +252,12 @@
     .lp-kbd {
         @apply hidden lg:inline-block rounded border border-b-2 border-line bg-app px-1 font-mono text-xs leading-5 text-fg-dim;
     }
-    /* The design carries one primary create action in the top bar. Below `lg`
-       it is gone rather than collapsed: every page it appears on already has
-       its own create button, and a second control on that row overflows the
-       page at enlarged text. */
+    /* The one primary create action of the top bar. Below lg it is a 44px
+       icon button and its label stays for screen readers. */
     .lp-topbar__new-work {
-        @apply hidden lg:inline-flex shrink-0;
+        @apply inline-flex shrink-0 w-11 h-11 p-0 lg:w-auto lg:h-auto lg:px-3 lg:py-1.5;
     }
-
-    /* Tailwind's lg variants start at 1024px, but the rail stays in flow above
-       780px. Keep page-level responsive rules on their own breakpoints. */
-    @media (width > 48.75rem) and (width < 64rem) {
-        .lp-sidebar--drawer,
-        .lp-sidebar--drawer.lp-sidebar--open {
-            @apply static visible translate-x-0 overflow-visible;
-            transition: none;
-        }
-        .lp-sidebar__close,
-        .lp-scrim,
-        .lp-topbar__menu {
-            @apply hidden;
-        }
-        .lp-topbar {
-            @apply px-7.5;
-        }
-        .lp-topbar__lead {
-            @apply flex-row flex-wrap items-baseline justify-start gap-x-3.5 gap-y-1;
-        }
-        .lp-topbar__meta {
-            @apply text-sm whitespace-nowrap;
-        }
-        .lp-topbar__actions,
-        .lp-topbar__global-actions {
-            @apply flex;
-        }
-        .lp-topbar__actions {
-            @apply flex-wrap;
-        }
-        .lp-topbar__global-action--search {
-            @apply w-auto px-2.5;
-        }
-        .lp-topbar__global-action--search > span {
-            @apply inline;
-        }
+    .lp-topbar__new-work-label {
+        @apply sr-only lg:not-sr-only;
     }
 }

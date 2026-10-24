@@ -41,7 +41,7 @@ it.each(['dismiss', 'trigger'])(
         button.focus();
         button.blur();
         expect(document.activeElement).toBe(document.body);
-        breakpointChanged({ matches: true });
+        breakpointChanged({ matches: false });
         expect(document.activeElement).toBe(document.querySelector('a'));
     },
 );
@@ -50,7 +50,7 @@ it('recovers sidebar focus lost before the mobile media event', () => {
     const link = document.querySelector('a');
     link.focus();
     link.blur();
-    breakpointChanged({ matches: false });
+    breakpointChanged({ matches: true });
     expect(document.activeElement).toBe(
         document.querySelector('[data-drawer-target="trigger"]'),
     );
@@ -60,6 +60,6 @@ it('keeps focus in page content when the breakpoint changes', () => {
     const input = document.querySelector('input');
     document.querySelector('a').focus();
     input.focus();
-    breakpointChanged({ matches: false });
+    breakpointChanged({ matches: true });
     expect(document.activeElement).toBe(input);
 });

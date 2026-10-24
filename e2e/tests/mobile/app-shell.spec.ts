@@ -1,7 +1,7 @@
 /**
  * The authenticated shell at a 375px phone viewport with a touch pointer.
  *
- * The sidebar is off-canvas at 780px and below, and the topbar carries the
+ * The sidebar is off-canvas below 1024px, and the topbar carries the
  * hamburger that slides it in. Every test drives its own user and document
  * through the dev-only endpoints (/dev/register-and-verify, /dev/seed/document),
  * so nothing here touches Mailpit.
@@ -168,15 +168,42 @@ test('no authenticated page scrolls sideways at 375px', async ({
     }
 });
 
-test('the sidebar stays in flow above the 780px shell breakpoint', async ({
+test('the compact shell holds up to 1023px and the desktop shell starts at 1024px', async ({
     page,
     seeded,
 }) => {
-    await page.setViewportSize({ width: 950, height: 900 });
     await page.goto(`/projects/${seeded.projectId}/documents`);
+    const menu = page.locator('.lp-topbar__menu');
+    const newWork = page.locator('.lp-topbar__new-work');
+    const bell = page.locator('.lp-topbar__global-action[aria-haspopup]');
+    const label = page.locator('.lp-topbar__new-work-label');
 
+    for (const width of [639, 640, 820, 1023]) {
+        await page.setViewportSize({ width, height: 900 });
+        await expect(page.locator(SIDEBAR), `${width}px`).toBeHidden();
+        await expect(menu, `${width}px`).toBeVisible();
+        for (const control of [menu, bell, newWork]) {
+            const box = (await control.boundingBox())!;
+            expect(box.width, `${width}px`).toBeGreaterThanOrEqual(44);
+            expect(box.height, `${width}px`).toBeGreaterThanOrEqual(44);
+        }
+        await expect(label, `${width}px`).toHaveCSS('clip-path', 'inset(50%)');
+        expect(
+            (await label.boundingBox())!.width,
+            `${width}px`,
+        ).toBeLessThanOrEqual(1);
+        await expect(newWork).toHaveAccessibleName('New work');
+        expect(
+            await horizontalOverflow(page),
+            `${width}px`,
+        ).toBeLessThanOrEqual(0);
+    }
+
+    await page.setViewportSize({ width: 1024, height: 900 });
     await expect(page.locator(SIDEBAR)).toBeVisible();
-    await expect(page.locator('.lp-topbar__menu')).toBeHidden();
+    await expect(menu).toBeHidden();
+    await expect(label).toHaveCSS('clip-path', 'none');
+    expect((await label.boundingBox())!.width).toBeGreaterThan(1);
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 });
 

@@ -28,14 +28,14 @@ test.afterAll(async ({ request }) => {
 test('resizing an open mobile sidebar releases the page at the desktop breakpoint', async ({
     page,
 }) => {
-    await page.setViewportSize({ width: 780, height: 844 });
+    await page.setViewportSize({ width: 1023, height: 844 });
     await page.goto('/projects');
     await page
         .getByRole('button', { name: 'Open navigation', exact: true })
         .click();
     const content = page.locator('[data-drawer-target="content"]');
     await expect(content).toHaveJSProperty('inert', true);
-    await page.setViewportSize({ width: 950, height: 844 });
+    await page.setViewportSize({ width: 1024, height: 844 });
     await expect(content).toHaveJSProperty('inert', false);
     await expect(page.locator('#lp-sidebar')).not.toHaveClass(
         /lp-sidebar--open/,
@@ -55,7 +55,7 @@ test('resizing an open mobile sidebar releases the page at the desktop breakpoin
     ).toBeHidden();
     await page.locator('.lp-sidebar__brand').focus();
     await expect(page.locator('.lp-sidebar__brand')).toBeFocused();
-    await page.setViewportSize({ width: 780, height: 844 });
+    await page.setViewportSize({ width: 1023, height: 844 });
     await expect(
         page.getByRole('button', { name: 'Open navigation', exact: true }),
     ).toBeFocused();

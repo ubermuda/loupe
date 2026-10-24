@@ -292,7 +292,7 @@ These are the documented shell classes.
 | `lp-topbar__menu` | The button that opens the drawer |
 | `lp-topbar__lead`, `__trail`, `__crumb`, `__sep`, `__here` and `__meta` | The breadcrumb and the short line after it |
 | `lp-topbar__global-actions` | The tools at the right end of the bar |
-| `lp-topbar__new-work` | The New work button. It is a `Ds:Button` with this class added |
+| `lp-topbar__new-work` and its `__label` part | The New work button. It is a `Ds:Button` with this class added. Below 1024 px the label stays for screen readers only |
 | `lp-main` | The main column. It is the only scroll container of the page. `--paper` gives it a white ground, and `--fill` makes it a column that clips its overflow |
 ## The marketing shell
 

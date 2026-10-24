@@ -351,7 +351,9 @@ it('keeps the focus of a reader already typing in the loaded content', () => {
 });
 
 it('keeps the drawer modal where the page beside it has no room', () => {
-    vi.stubGlobal('innerWidth', 900);
+    vi.stubGlobal('matchMedia', (query) => ({
+        matches: query === '(width < 64rem)',
+    }));
     dialog.open = false;
     controller.prepare({ currentTarget: document.getElementById('invoker') });
     expect(dialog.showModal).toHaveBeenCalledOnce();

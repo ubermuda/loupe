@@ -165,7 +165,7 @@
                             {% if project %}
                             <twig:Ds:Button variant="primary" class="lp-topbar__new-work" href="{{ path('app_board_card_create', {id: project.id}) }}" data-card-drawer-opener aria-label="{{ 'nav.new_work'|trans }}">
                                 <twig:ux:icon name="lucide:plus" class="lp-icon lp-icon--md" />
-                                <span>{{ 'nav.new_work'|trans }}</span>
+                                <span class="lp-topbar__new-work-label">{{ 'nav.new_work'|trans }}</span>
                             </twig:Ds:Button>
                             {% endif %}
                         </div>

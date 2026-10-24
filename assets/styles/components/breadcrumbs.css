@@ -28,14 +28,4 @@
     .lp-crumbs__here {
         @apply text-sm font-medium text-ink min-w-0 truncate;
     }
-
-    /* The rail stays in flow between 780px and lg, so the full trail shows. */
-    @media (width > 48.75rem) and (width < 64rem) {
-        .lp-crumbs__item:not(.lp-crumbs__item--current) {
-            @apply flex;
-        }
-        .lp-crumbs .lp-version-pill {
-            @apply inline-flex;
-        }
-    }
 }

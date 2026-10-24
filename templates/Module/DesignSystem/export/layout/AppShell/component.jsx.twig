@@ -13,6 +13,7 @@ const ICONS = {
         </>
     ),
     'arrow-down': <path d="M12 5v14m7-7l-7 7l-7-7" />,
+    bell: <path d="M10.268 21a2 2 0 0 0 3.464 0m-10.47-5.674A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326" />,
     bot: (
         <>
             <path d="M12 8V4H8" />
@@ -276,9 +277,14 @@ export function {{ entry.name }}({ projectName = 'Project', projectPage = true, 
                     {actions}
                     <div className="lp-topbar__global-actions" aria-label="Global tools">
                         {onProjectPage && (
+                            <a className="lp-topbar__global-action" href="#" title="Open project activity" aria-label="Open project activity">
+                                <Icon name="bell" />
+                            </a>
+                        )}
+                        {onProjectPage && (
                             <a className="lp-btn lp-btn--primary lp-topbar__new-work" href="#" aria-label="New work">
                                 <Icon name="plus" className="lp-icon lp-icon--md" />
-                                <span>New work</span>
+                                <span className="lp-topbar__new-work-label">New work</span>
                             </a>
                         )}
                     </div>

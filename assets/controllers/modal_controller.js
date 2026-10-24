@@ -5,6 +5,7 @@
 // Only the ::backdrop animations remain as CSS (WAAPI cannot animate the backdrop).
 import { Controller } from '@hotwired/stimulus';
 import { prefersReducedMotion } from '../lib/smooth_scroll.js';
+import { COMPACT_QUERY, PHONE_QUERY } from '../lib/breakpoints.js';
 
 const OPEN_KEYFRAMES = [
     { opacity: 0, transform: 'translateY(-16px)' },
@@ -34,10 +35,7 @@ const CLOSE_KEYFRAMES_DRAWER = [
 // A drawer slides for 200ms on the ease curve, in and out.
 const DRAWER_TIMING = { duration: 200, easing: 'ease' };
 
-const isMobile = () => window.innerWidth < 640;
-
-/** A modeless drawer only pays off where the page beside it is still usable. */
-const MODELESS_MIN_WIDTH = 1024;
+const isMobile = () => window.matchMedia(PHONE_QUERY).matches;
 
 export default class extends Controller {
     static targets = ['dialog'];
@@ -98,7 +96,7 @@ export default class extends Controller {
         // A modeless dialog leaves the rest of the page live. It reports no
         // cancel event, so Escape is handled here instead.
         this.modeless =
-            this.modelessValue && window.innerWidth >= MODELESS_MIN_WIDTH;
+            this.modelessValue && !window.matchMedia(COMPACT_QUERY).matches;
         if (!dialog.open) {
             if (this.modeless) {
                 dialog.show();
